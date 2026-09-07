@@ -86,6 +86,31 @@ export function markOutbox(id: string, status: "published" | "failed"): void {
   }
 }
 
+export interface BuzzCounts {
+  outboxPending: number;
+  outboxPublished: number;
+  outboxFailed: number;
+  inboxReceived: number;
+}
+
+/** Contagens do outbox/inbox para o painel único. Zero quando as tabelas ainda não existem. */
+export function buzzCounts(): BuzzCounts {
+  const db = getDbInstance();
+  const count = (sql: string): number => {
+    try {
+      return (db.prepare(sql).get() as { n: number }).n;
+    } catch {
+      return 0; // tabela ausente num DB mínimo — reporta 0 em vez de quebrar o painel
+    }
+  };
+  return {
+    outboxPending: count("SELECT COUNT(*) AS n FROM buzz_outbox WHERE status = 'pending'"),
+    outboxPublished: count("SELECT COUNT(*) AS n FROM buzz_outbox WHERE status = 'published'"),
+    outboxFailed: count("SELECT COUNT(*) AS n FROM buzz_outbox WHERE status = 'failed'"),
+    inboxReceived: count("SELECT COUNT(*) AS n FROM buzz_inbox"),
+  };
+}
+
 /**
  * Registra um evento recebido (dedup por event.id). Retorna null se já visto — garante
  * processamento no máximo uma vez, mesmo com reentrega do relay.

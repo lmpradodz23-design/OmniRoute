@@ -3,8 +3,18 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
+import type { BuzzEvent } from "@omniroute/open-sse/buzz-bridge/index.ts";
+
 import { getDbInstance } from "@/lib/db/core";
-import { flushBuzzOutbox, getBuzzConfig, getOrCreateAgentSecretKey } from "@/lib/buzzService";
+import { enqueueOutbox } from "@/lib/db/buzzBridge";
+import {
+  flushBuzzOutbox,
+  getBuzzConfig,
+  getBuzzRelayUrl,
+  getBuzzStatus,
+  getOrCreateAgentSecretKey,
+  setBuzzRelayUrl,
+} from "@/lib/buzzService";
 
 function ensureSchema(): void {
   const sql = readFileSync(
@@ -38,4 +48,26 @@ test("buzzService: flushBuzzOutbox e SKIPPED quando a flag BUZZ_HUB_ENABLED esta
   const res = await flushBuzzOutbox();
   assert.equal(res.skipped, true);
   assert.equal(res.published, 0);
+});
+
+test("buzzService: getBuzzStatus reporta flag OFF, pubkey 64-hex e contagens do painel", () => {
+  ensureSchema();
+  const id = "evt-" + Math.random().toString(36).slice(2);
+  const ev: BuzzEvent = { id, pubkey: "npub_t", kind: 1, createdAt: 1, tags: [], content: "c" };
+  enqueueOutbox({ event: ev, correlationId: "c1" });
+
+  const s = getBuzzStatus();
+  assert.equal(s.enabled, false); // flag OFF por padrao
+  assert.match(s.agentPubkey, /^[0-9a-f]{64}$/); // chave PUBLICA, nunca a secreta
+  assert.notEqual(s.agentPubkey, getOrCreateAgentSecretKey()); // publica != secreta
+  assert.ok(s.counts.outboxPending >= 1); // enfileirado acima aparece como pendente
+});
+
+test("buzzService: setBuzzRelayUrl (painel) tem precedencia; vazio volta ao default", () => {
+  ensureSchema();
+  assert.equal(setBuzzRelayUrl("wss://relay.exemplo:7000"), "wss://relay.exemplo:7000");
+  assert.equal(getBuzzRelayUrl(), "wss://relay.exemplo:7000");
+  assert.equal(getBuzzConfig().relayUrl, "wss://relay.exemplo:7000"); // config usa o override
+  setBuzzRelayUrl(""); // limpa -> volta ao env/default
+  assert.match(getBuzzRelayUrl(), /^ws:\/\/localhost:3000$/);
 });
