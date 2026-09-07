@@ -57,3 +57,15 @@ test("buzz repo: receiveInbox deduplica (processa no maximo uma vez)", () => {
   assert.notEqual(receiveInbox(ev(id), "c"), null);
   assert.equal(receiveInbox(ev(id), "c"), null); // ja visto
 });
+
+test("buzz repo: outbox e ISOLADO por tenant (pendingOutbox/só vê o próprio)", () => {
+  ensureSchema();
+  const a = "a-" + Math.random().toString(36).slice(2);
+  const b = "b-" + Math.random().toString(36).slice(2);
+  enqueueOutbox({ event: ev(a), correlationId: "c", tenantId: "tenantA" });
+  enqueueOutbox({ event: ev(b), correlationId: "c", tenantId: "tenantB" });
+  const pa = pendingOutbox(100, "tenantA").map((e) => e.id);
+  const pb = pendingOutbox(100, "tenantB").map((e) => e.id);
+  assert.ok(pa.includes(a) && !pa.includes(b), "tenantA só vê o seu");
+  assert.ok(pb.includes(b) && !pb.includes(a), "tenantB só vê o seu");
+});

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { getDbInstance } from "@/lib/db/core";
+import { pendingOutbox } from "@/lib/db/buzzBridge";
 import { addStep, advanceRun, approveStep, runsAwaitingApproval, startRun } from "@/lib/loopRunner";
 
 function ensureSchema(): void {
@@ -50,6 +51,19 @@ test("loopRunner: efeito proposto para em awaiting_approval; approveStep libera"
   const freed = approveStep(run.id, stepId);
   assert.equal(freed.status, "report_only");
   assert.equal(freed.steps[0].status, "approved");
+});
+
+test("loopRunner: transição para awaiting_approval enfileira aviso no outbox do Buzz (produtor)", () => {
+  ensureSchema();
+  const run = startRun({ pattern: "pr-babysitter" });
+  addStep(run.id, { title: "abrir PR", proposedEffect: { kind: "git_pr", summary: "PR" } });
+  advanceToExecute(run.id);
+  advanceRun(run.id); // ENTRA em awaiting_approval -> dispara o produtor (durável no outbox)
+  const pend = pendingOutbox();
+  assert.ok(
+    pend.some((e) => e.runId === run.id && e.event.content.includes("awaiting_approval")),
+    "deve haver um aviso do Loop no outbox do Buzz"
+  );
 });
 
 test("loopRunner: efeito destrutivo e NEGADO (deny) -> run failed", () => {

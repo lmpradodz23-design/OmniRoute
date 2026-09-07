@@ -7,8 +7,11 @@
 -- flags LOOP_ENGINE_ENABLED / BUZZ_HUB_ENABLED (OFF por padrão).
 
 -- ── Loop Engine ────────────────────────────────────────────
+-- Multi-tenant desde o nascimento (CLAUDE.md §5.1): toda tabela nasce com tenant_id + índice.
+-- Valor único por ora ('default'); pronto para escopo por tenant sem migração destrutiva depois.
 CREATE TABLE IF NOT EXISTS loop_runs (
   id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT 'default',
   pattern TEXT NOT NULL,
   phase TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -20,11 +23,12 @@ CREATE TABLE IF NOT EXISTS loop_runs (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX IF NOT EXISTS idx_loop_runs_status ON loop_runs (status);
+CREATE INDEX IF NOT EXISTS idx_loop_runs_status ON loop_runs (tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_loop_runs_correlation ON loop_runs (correlation_id);
 
 CREATE TABLE IF NOT EXISTS loop_steps (
   id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT 'default',
   run_id TEXT NOT NULL,
   idx INTEGER NOT NULL,
   title TEXT NOT NULL,
@@ -37,6 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_loop_steps_run ON loop_steps (run_id, idx);
 -- ── Buzz Bridge (ponte idempotente OmniRoute ↔ relay Nostr) ──
 CREATE TABLE IF NOT EXISTS buzz_outbox (
   id TEXT PRIMARY KEY,               -- = event.id (dedup)
+  tenant_id TEXT NOT NULL DEFAULT 'default',
   correlation_id TEXT NOT NULL,
   sequence_number INTEGER NOT NULL,
   task_id TEXT,
@@ -46,14 +51,15 @@ CREATE TABLE IF NOT EXISTS buzz_outbox (
   attempts INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX IF NOT EXISTS idx_buzz_outbox_status ON buzz_outbox (status, sequence_number);
+CREATE INDEX IF NOT EXISTS idx_buzz_outbox_status ON buzz_outbox (tenant_id, status, sequence_number);
 
 CREATE TABLE IF NOT EXISTS buzz_inbox (
   event_id TEXT PRIMARY KEY,          -- dedup de entrada
+  tenant_id TEXT NOT NULL DEFAULT 'default',
   correlation_id TEXT NOT NULL,
   sequence_number INTEGER NOT NULL,
   event_json TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'received',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX IF NOT EXISTS idx_buzz_inbox_status ON buzz_inbox (status);
+CREATE INDEX IF NOT EXISTS idx_buzz_inbox_status ON buzz_inbox (tenant_id, status);
