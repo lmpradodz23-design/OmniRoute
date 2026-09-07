@@ -10,12 +10,13 @@
  */
 import {
   generateSecretKey,
+  getPublicKey,
   resolveBuzzAdapter,
   type BuzzAdapter,
   type WebSocketBuzzConfig,
 } from "@omniroute/open-sse/buzz-bridge/index.ts";
 
-import { markOutbox, pendingOutbox } from "./db/buzzBridge";
+import { buzzCounts, markOutbox, pendingOutbox, type BuzzCounts } from "./db/buzzBridge";
 import { getDbInstance } from "./db/core";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 
@@ -33,10 +34,36 @@ export function getOrCreateAgentSecretKey(): string {
   return sk;
 }
 
+/**
+ * URL do relay, com precedência: override do painel (key_value) → env BUZZ_RELAY_URL → default.
+ * Assim o PAINEL ÚNICO configura tudo, sem perder a opção de fixar por ambiente.
+ */
+export function getBuzzRelayUrl(): string {
+  const db = getDbInstance();
+  const row = db
+    .prepare("SELECT value FROM key_value WHERE namespace = 'buzz' AND key = 'relay_url'")
+    .get() as { value: string } | undefined;
+  return row?.value?.trim() || process.env.BUZZ_RELAY_URL?.trim() || "ws://localhost:3000";
+}
+
+/** Persiste a URL do relay definida no painel. String vazia remove o override (volta ao env/default). */
+export function setBuzzRelayUrl(url: string): string {
+  const db = getDbInstance();
+  const trimmed = url.trim();
+  if (!trimmed) {
+    db.prepare("DELETE FROM key_value WHERE namespace = 'buzz' AND key = 'relay_url'").run();
+  } else {
+    db.prepare(
+      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('buzz', 'relay_url', ?)"
+    ).run(trimmed);
+  }
+  return getBuzzRelayUrl();
+}
+
 /** Config do relay (URL do painel/env + chave persistida). */
 export function getBuzzConfig(): WebSocketBuzzConfig {
   return {
-    relayUrl: process.env.BUZZ_RELAY_URL?.trim() || "ws://localhost:3000",
+    relayUrl: getBuzzRelayUrl(),
     secretKeyHex: getOrCreateAgentSecretKey(),
   };
 }
@@ -45,6 +72,27 @@ export function getBuzzConfig(): WebSocketBuzzConfig {
 export function getBuzzAdapter(): BuzzAdapter {
   const enabled = isFeatureFlagEnabled("BUZZ_HUB_ENABLED");
   return resolveBuzzAdapter(enabled, enabled ? getBuzzConfig() : undefined);
+}
+
+export interface BuzzStatus {
+  enabled: boolean;
+  relayUrl: string;
+  /** Chave PÚBLICA Nostr do agente (nunca a secreta). Identidade estável do OmniRoute no relay. */
+  agentPubkey: string;
+  counts: BuzzCounts;
+}
+
+/**
+ * Estado do Buzz para o painel único: flag, URL do relay, pubkey do agente e contagens do
+ * outbox/inbox. NUNCA expõe a chave secreta. Não conecta ao relay (leitura local, barata).
+ */
+export function getBuzzStatus(): BuzzStatus {
+  return {
+    enabled: isFeatureFlagEnabled("BUZZ_HUB_ENABLED"),
+    relayUrl: getBuzzRelayUrl(),
+    agentPubkey: getPublicKey(getOrCreateAgentSecretKey()),
+    counts: buzzCounts(),
+  };
 }
 
 export interface FlushResult {
