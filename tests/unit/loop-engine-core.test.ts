@@ -83,6 +83,30 @@ test("stateMachine: verifier reprova sem tentativas -> escalated (handoff humano
   assert.equal(after.status, "escalated");
 });
 
+test("stateMachine: teto de tentativas e AUTO-IMPOSTO pelo motor (chamador nao passa attempts)", () => {
+  // maxAttempts=2. O chamador NUNCA informa consumed.attempts; mesmo assim o motor deve
+  // repetir a 1a reprova e ESCALAR na 2a (invariante do teto, sem depender do chamador).
+  const run = createLoopRun({ pattern: "x", budget: { ...BUDGET, maxAttempts: 2 } });
+  run.phase = "verify";
+  const step = proposeStep(run, { title: "t" });
+
+  const r1 = advance(run, {
+    verdict: { stepId: step.id, approved: false, reason: "falhou 1" },
+    policy: { reportOnly: true },
+  });
+  assert.equal(r1.run.status, "report_only"); // 1a reprova -> repete
+  assert.equal(r1.run.usage.attempts, 1); // motor contou a tentativa
+
+  // 2a reprova, de novo sem consumed.attempts, na fase verify.
+  r1.run.phase = "verify";
+  const r2 = advance(r1.run, {
+    verdict: { stepId: step.id, approved: false, reason: "falhou 2" },
+    policy: { reportOnly: true },
+  });
+  assert.equal(r2.run.usage.attempts, 2);
+  assert.equal(r2.run.status, "escalated"); // teto atingido -> handoff humano
+});
+
 test("stateMachine: todos verificados na fase verify -> done", () => {
   const run = createLoopRun({ pattern: "x", budget: BUDGET });
   run.phase = "verify";

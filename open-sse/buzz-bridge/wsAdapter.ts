@@ -35,7 +35,6 @@ export class WebSocketBuzzAdapter implements BuzzAdapter {
   readonly enabled = true;
   readonly pubkey: string;
   private ws?: WebSocket;
-  private authed = false;
   private readonly timeout: number;
   private readonly pendingOk = new Map<string, (ok: boolean) => void>();
   private readonly subs = new Map<string, (e: BuzzEvent) => void>();
@@ -95,7 +94,6 @@ export class WebSocketBuzzAdapter implements BuzzAdapter {
         this.config.secretKeyHex
       );
       this.send(["AUTH", authEvent]);
-      this.authed = true;
       return;
     }
     if (type === "OK" && typeof msg[1] === "string") {
@@ -113,11 +111,16 @@ export class WebSocketBuzzAdapter implements BuzzAdapter {
     }
   }
 
-  /** Publica o evento do outbox, assinando-o com a chave deste agente. Retorna true se o relay aceitou. */
+  /**
+   * Publica o evento do outbox, RE-ASSINANDO com a chave deste agente (o pubkey do produtor é
+   * ignorado por design — "uma chave Nostr nunca autoriza ação"; a autoria de saída é sempre do
+   * agente OmniRoute). Usa o createdAt PERSISTIDO no enqueue (nunca o relógio) para que re-tentativas
+   * produzam o mesmo id → dedup real do relay. Retorna true se o relay aceitou.
+   */
   async publish(entry: OutboxEntry): Promise<boolean> {
     const signed = finalizeEvent(
       {
-        created_at: entry.event.createdAt || Math.floor(Date.now() / 1000),
+        created_at: entry.event.createdAt,
         kind: entry.event.kind,
         tags: entry.event.tags.map((t) => [...t]),
         content: entry.event.content,

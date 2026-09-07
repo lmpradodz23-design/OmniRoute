@@ -34,6 +34,23 @@ test("buzz repo: enqueue idempotente + pending + markPublished", () => {
   );
 });
 
+test("buzz repo: enqueue carimba createdAt (estavel) quando ausente -> publish idempotente", () => {
+  ensureSchema();
+  const id = "evt0-" + Math.random().toString(36).slice(2);
+  // Evento sem createdAt (0): o enqueue deve carimbar um timestamp estavel e persisti-lo,
+  // para a publicacao re-assinar sempre com o MESMO id (dedup real do relay).
+  const raw: BuzzEvent = { id, pubkey: "npub_t", kind: 1, createdAt: 0, tags: [], content: "c" };
+  enqueueOutbox({ event: raw, correlationId: "c1" });
+  const stamped = pendingOutbox().find((e) => e.id === id);
+  assert.ok(stamped, "entrada deve existir no outbox");
+  assert.ok(stamped!.event.createdAt > 0, "createdAt deve ser carimbado (>0)");
+  const first = stamped!.event.createdAt;
+  // Re-enqueue idempotente NAO deve mudar o createdAt persistido.
+  enqueueOutbox({ event: { ...raw, createdAt: 999 }, correlationId: "c1" });
+  const again = pendingOutbox().find((e) => e.id === id);
+  assert.equal(again!.event.createdAt, first, "createdAt persiste estavel entre re-enqueues");
+});
+
 test("buzz repo: receiveInbox deduplica (processa no maximo uma vez)", () => {
   ensureSchema();
   const id = "in-" + Math.random().toString(36).slice(2);

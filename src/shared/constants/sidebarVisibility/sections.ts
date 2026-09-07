@@ -610,7 +610,7 @@ const AGENTIC_FEATURES_ITEMS: readonly SidebarSectionChild[] = [
     i18nKey: "loopEngine",
     labelFallback: "Loop Engine",
     subtitleKey: "loopEngineSubtitle",
-    subtitleFallback: "Report-only agentic cycles + approvals",
+    subtitleFallback: "Ciclos report-only + aprovações",
     icon: "sync",
   },
   {
@@ -619,7 +619,7 @@ const AGENTIC_FEATURES_ITEMS: readonly SidebarSectionChild[] = [
     i18nKey: "buzzHub",
     labelFallback: "Buzz Hub",
     subtitleKey: "buzzHubSubtitle",
-    subtitleFallback: "Human+agent collaboration over Nostr",
+    subtitleFallback: "Colaboração humano+agente via Nostr",
     icon: "hive",
   },
 ];

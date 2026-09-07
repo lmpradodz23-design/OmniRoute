@@ -27,6 +27,12 @@ export function enqueueOutbox(params: {
   runId?: string;
 }): OutboxEntry {
   const db = getDbInstance();
+  // Carimba createdAt UMA vez no enqueue (se ausente) e persiste, para a publicação re-assinar
+  // sempre com o MESMO timestamp → mesmo id Nostr → dedup real do relay entre re-tentativas.
+  const event: BuzzEvent = {
+    ...params.event,
+    createdAt: params.event.createdAt || Math.floor(Date.now() / 1000),
+  };
   const nextSeq =
     (
       db.prepare("SELECT COALESCE(MAX(sequence_number),0) AS m FROM buzz_outbox").get() as {
@@ -38,12 +44,12 @@ export function enqueueOutbox(params: {
      VALUES (@id, @correlation_id, @sequence_number, @task_id, @run_id, @event_json, 'pending', 0)
      ON CONFLICT(id) DO NOTHING`
   ).run({
-    id: params.event.id,
+    id: event.id,
     correlation_id: params.correlationId,
     sequence_number: nextSeq,
     task_id: params.taskId ?? null,
     run_id: params.runId ?? null,
-    event_json: JSON.stringify(params.event),
+    event_json: JSON.stringify(event),
   });
   const row = db
     .prepare("SELECT * FROM buzz_outbox WHERE id = ?")
