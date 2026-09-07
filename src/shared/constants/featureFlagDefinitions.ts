@@ -628,4 +628,29 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     requiresRestart: false,
     warningLevel: "caution",
   },
+  // ──────────────── Agentic modules (Fase 1) ────────────────
+  {
+    key: "LOOP_ENGINE_ENABLED",
+    label: "Loop Engine",
+    description:
+      "Enable the Loop Engine (report-only cycle orchestration). Proposes work; the Policy Engine and human approvals decide. No external effect runs without approval.",
+    descriptionI18nKey: "featureFlagLoopEngineEnabledDescription",
+    category: "runtime",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
+  {
+    key: "BUZZ_HUB_ENABLED",
+    label: "Buzz Collaboration Hub",
+    description:
+      "Enable the Buzz bridge (separate optional Nostr relay for human+agent collaboration). Inert until a buzz-relay is configured; a Nostr key never authorizes actions in OmniRoute.",
+    descriptionI18nKey: "featureFlagBuzzHubEnabledDescription",
+    category: "runtime",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
 ];
