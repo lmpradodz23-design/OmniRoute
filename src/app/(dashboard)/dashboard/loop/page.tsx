@@ -39,7 +39,10 @@ function DisabledNotice() {
   return (
     <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 dark:border-amber-500/40 dark:bg-amber-500/10">
       <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined text-amber-600 dark:text-amber-300">
+        <span
+          className="material-symbols-outlined text-amber-600 dark:text-amber-300"
+          aria-hidden="true"
+        >
           toggle_off
         </span>
         <div>
@@ -54,7 +57,9 @@ function DisabledNotice() {
             href="/dashboard/settings/feature-flags?q=LOOP_ENGINE_ENABLED"
             className="mt-3 inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white/70 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-400/40 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-500/20"
           >
-            <span className="material-symbols-outlined text-sm">tune</span>
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">
+              tune
+            </span>
             Abrir Feature Flags
           </a>
         </div>
@@ -119,34 +124,47 @@ export default function LoopEnginePage() {
     }
   }, [pattern, load]);
 
+  const showApiError = useCallback(async (res: Response, fallback: string) => {
+    const data = await res.json().catch(() => ({}));
+    setError(typeof data.error === "string" ? data.error : fallback);
+  }, []);
+
   const advance = useCallback(
     async (id: string) => {
       setBusyRun(id);
+      setError(null);
       try {
-        await fetch(`/api/loop/${id}/advance`, { method: "POST" });
+        const res = await fetch(`/api/loop/${id}/advance`, { method: "POST" });
+        if (!res.ok) await showApiError(res, `Falha ao avançar (HTTP ${res.status})`);
         await load();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Falha ao avançar");
       } finally {
         setBusyRun(null);
       }
     },
-    [load]
+    [load, showApiError]
   );
 
   const decide = useCallback(
     async (id: string, stepId: string, decision: "approve" | "reject") => {
       setBusyRun(id);
+      setError(null);
       try {
-        await fetch(`/api/loop/${id}/approve`, {
+        const res = await fetch(`/api/loop/${id}/approve`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ stepId, decision }),
         });
+        if (!res.ok) await showApiError(res, `Falha ao ${decision} (HTTP ${res.status})`);
         await load();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Falha ao decidir");
       } finally {
         setBusyRun(null);
       }
     },
-    [load]
+    [load, showApiError]
   );
 
   const toggle = (id: string) =>
@@ -178,6 +196,7 @@ export default function LoopEnginePage() {
           <div className="flex flex-col gap-2 rounded-xl border border-border bg-bg-subtle p-4 sm:flex-row sm:items-center">
             <input
               type="text"
+              aria-label="Padrão do ciclo do Loop Engine"
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void startRun()}
@@ -201,7 +220,9 @@ export default function LoopEnginePage() {
 
           {runs.length === 0 ? (
             <div className="py-12 text-center text-text-muted">
-              <span className="material-symbols-outlined text-4xl">sync</span>
+              <span className="material-symbols-outlined text-4xl" aria-hidden="true">
+                sync
+              </span>
               <p className="mt-2 text-sm">Nenhum ciclo ainda. Inicie um acima.</p>
             </div>
           ) : (
@@ -213,6 +234,8 @@ export default function LoopEnginePage() {
                   <div key={run.id} className="rounded-xl border border-border bg-card">
                     <button
                       onClick={() => toggle(run.id)}
+                      aria-expanded={isOpen}
+                      aria-label={`Detalhes do ciclo ${run.pattern}`}
                       className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
                     >
                       <div className="min-w-0">
@@ -231,7 +254,10 @@ export default function LoopEnginePage() {
                           tentativas {run.usage.attempts}/{run.budget.maxAttempts} · {run.id}
                         </p>
                       </div>
-                      <span className="material-symbols-outlined shrink-0 text-text-muted">
+                      <span
+                        className="material-symbols-outlined shrink-0 text-text-muted"
+                        aria-hidden="true"
+                      >
                         {isOpen ? "expand_less" : "expand_more"}
                       </span>
                     </button>

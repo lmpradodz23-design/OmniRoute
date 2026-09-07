@@ -16,7 +16,14 @@ export async function GET(req: NextRequest): Promise<Response> {
   return NextResponse.json(getBuzzStatus());
 }
 
-/** PUT /api/buzz — define a URL do relay pelo painel único. Body: { relayUrl: string }. */
+/**
+ * PUT /api/buzz — define a URL do relay pelo painel único. Body: { relayUrl: string }.
+ *
+ * INTENCIONALMENTE não é gated por BUZZ_HUB_ENABLED (diferente de /flush): é configuração
+ * (não-secreta, admin-only) que o operador ajusta ANTES de ligar a flag. Nada conecta aqui —
+ * a conexão só ocorre no flush, que é gated. O alvo é local por design (default ws://localhost:3000);
+ * apontar para um host interno exige management-auth (o admin já controla o host).
+ */
 export async function PUT(req: NextRequest): Promise<Response> {
   const auth = await requireManagementAuth(req);
   if (auth) return auth;

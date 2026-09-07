@@ -78,7 +78,9 @@ export function advance(run: LoopRun, input: AdvanceInput): AdvanceResult {
     const step = next.steps.find((s) => s.id === input.verdict!.stepId);
     if (step) step.status = input.verdict.approved ? "verified" : "failed";
     if (!input.verdict.approved) {
-      // reprovou → repete limitado; se já não há tentativas, escala para humano.
+      // reprovou → o MOTOR conta a tentativa aqui (o teto é auto-imposto, não depende do
+      // chamador passar consumed.attempts) e repete limitado; se estourou, escala para humano.
+      next.usage.attempts += 1;
       const canRetry = next.usage.attempts < next.budget.maxAttempts;
       if (canRetry) {
         next.phase = "plan";

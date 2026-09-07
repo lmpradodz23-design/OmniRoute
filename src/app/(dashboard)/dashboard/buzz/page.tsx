@@ -146,7 +146,10 @@ export default function BuzzHubPage() {
           {!status.enabled && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
               <div className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-amber-600 dark:text-amber-300">
+                <span
+                  className="material-symbols-outlined text-amber-600 dark:text-amber-300"
+                  aria-hidden="true"
+                >
                   toggle_off
                 </span>
                 <div>
@@ -161,7 +164,9 @@ export default function BuzzHubPage() {
                     href="/dashboard/settings/feature-flags?q=BUZZ_HUB_ENABLED"
                     className="mt-3 inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white/70 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-400/40 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-500/20"
                   >
-                    <span className="material-symbols-outlined text-sm">tune</span>
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">
+                      tune
+                    </span>
                     Abrir Feature Flags
                   </a>
                 </div>
@@ -171,13 +176,16 @@ export default function BuzzHubPage() {
 
           {/* Relay URL */}
           <div className="rounded-xl border border-border bg-card p-4">
-            <label className="text-sm font-medium text-text-primary">URL do relay</label>
+            <label htmlFor="buzz-relay-url" className="text-sm font-medium text-text-primary">
+              URL do relay
+            </label>
             <p className="mt-0.5 text-xs text-text-muted">
               Precedência: este valor → env <code className="font-mono">BUZZ_RELAY_URL</code> →
               padrão. Deixe vazio e salve para voltar ao env/padrão.
             </p>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
               <input
+                id="buzz-relay-url"
                 type="text"
                 value={relayDraft}
                 onChange={(e) => setRelayDraft(e.target.value)}
@@ -235,11 +243,12 @@ export default function BuzzHubPage() {
             <Stat label="Inbox recebidos" value={status.counts.inboxReceived} />
           </div>
 
-          {/* Flush */}
+          {/* Flush — desabilitado com a flag OFF (paridade com o Loop; nada a publicar sem relay). */}
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => void flush()}
-              disabled={flushing}
+              disabled={flushing || !status.enabled}
+              title={!status.enabled ? "Ative BUZZ_HUB_ENABLED para publicar" : undefined}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               {flushing ? "Publicando…" : "Publicar pendentes"}

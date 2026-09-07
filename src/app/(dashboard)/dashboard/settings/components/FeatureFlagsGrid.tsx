@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { matchesSearch } from "@/shared/utils/turkishText";
 import FeatureFlagCard from "./FeatureFlagCard";
@@ -57,11 +58,14 @@ const CATEGORIES = [
 
 export default function FeatureFlagsGrid() {
   const t = useTranslations("featureFlags");
+  const searchParams = useSearchParams();
   const [flags, setFlags] = useState<FlagData[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  // Deep-link: /dashboard/settings/feature-flags?q=LOOP_ENGINE_ENABLED pré-filtra o grid
+  // (usado pelos CTAs "Abrir Feature Flags" das páginas Loop/Buzz).
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [category, setCategory] = useState<string>("all");
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
   const [resettingAll, setResettingAll] = useState(false);
