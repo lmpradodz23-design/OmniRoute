@@ -51,3 +51,18 @@ test("loopEngine repo: listLoopRuns encontra o run por status", () => {
   const found = listLoopRuns("report_only").some((r) => r.id === run.id);
   assert.equal(found, true);
 });
+
+test("loopEngine repo: runs sao ISOLADOS por tenant (get/list nao vazam entre tenants)", () => {
+  ensureSchema();
+  const run = createLoopRun({ pattern: "tenant-iso" });
+  saveLoopRun(run, "tenantA");
+  // Outro tenant NAO enxerga o run
+  assert.equal(getLoopRun(run.id, "tenantB"), null);
+  assert.equal(
+    listLoopRuns(undefined, "tenantB").some((r) => r.id === run.id),
+    false
+  );
+  // O proprio tenant enxerga
+  assert.ok(getLoopRun(run.id, "tenantA"));
+  assert.ok(listLoopRuns(undefined, "tenantA").some((r) => r.id === run.id));
+});

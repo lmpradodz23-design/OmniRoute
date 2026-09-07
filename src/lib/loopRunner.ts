@@ -18,6 +18,7 @@ import {
 } from "@omniroute/open-sse/loop-engine/index.ts";
 
 import { getLoopRun, listLoopRuns, saveLoopRun } from "./db/loopEngine";
+import { loopStatusNeedsHuman, notifyLoopEvent } from "./buzzProducer";
 
 /** Inicia um run novo (report-only) e persiste. */
 export function startRun(params: {
@@ -59,6 +60,16 @@ export function advanceRun(
     policy: input?.policy ?? { reportOnly: true },
   });
   saveLoopRun(result.run);
+  // Produtor Buzz: ao ENTRAR num estado que exige humano (aprovação/handoff), enfileira um aviso
+  // durável no outbox. Só na TRANSIÇÃO (evita repetir a cada advance). Best-effort, report-only.
+  if (loopStatusNeedsHuman(result.run.status) && result.run.status !== current.status) {
+    notifyLoopEvent({
+      runId: result.run.id,
+      status: result.run.status,
+      pattern: result.run.pattern,
+      sequenceNumber: result.run.sequenceNumber,
+    });
+  }
   return result;
 }
 
