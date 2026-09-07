@@ -114,6 +114,18 @@ const RAW_CONFIGS: TokenExtractionConfig[] = [
     "Log in to ChatGPT. The __Secure-next-auth.session-token cookie will be extracted after login."
   ),
 
+  // ── ChatGPT Web (Codex) ───────────────────────────────────
+  // Same ChatGPT session/cookie as chatgpt-web; enables the in-app browser login
+  // (auto-capture of __Secure-next-auth.session-token) for the Codex variant too.
+  config(
+    "chatgpt-web-codex",
+    "ChatGPT Web (Codex)",
+    "https://chatgpt.com/auth/login",
+    "https://chatgpt.com",
+    [{ type: "cookie", name: "__Secure-next-auth.session-token", domain: ".chatgpt.com" }],
+    "Log in to ChatGPT. The __Secure-next-auth.session-token cookie will be extracted after login."
+  ),
+
   // ── Gemini Web ────────────────────────────────────────────
   config(
     "gemini-web",

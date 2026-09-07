@@ -128,9 +128,28 @@ export class InAppLoginService extends EventEmitter {
 
     // Launch browser
     this.emit("status", { providerId, status: "starting", message: "Launching browser..." });
-    const browser = await playwright.chromium.launch({
-      headless: false, // User must interact with the login page
-    });
+    // Prefer a system-installed Chrome/Chromium (executablePath / `channel: "chrome"`)
+    // over Playwright's bundled Chromium. On Windows and on disk-constrained hosts the
+    // bundled build may be absent ("Executable doesn't exist at .../chromium-XXXX"); the
+    // system browser is already present and needs no ~200MB download.
+    const systemChromePath =
+      process.env.CHROME_PATH?.trim() || process.env.CHATGPT_WEB_CODEX_CHROME_PATH?.trim() || "";
+    const primaryLaunch: Record<string, unknown> = { headless: false };
+    if (systemChromePath) primaryLaunch.executablePath = systemChromePath;
+    else primaryLaunch.channel = "chrome";
+    let browser;
+    try {
+      browser = await playwright.chromium.launch(primaryLaunch);
+    } catch {
+      // Fall back to the other resolution strategy, then to the bundled Chromium.
+      try {
+        browser = await playwright.chromium.launch(
+          systemChromePath ? { headless: false, channel: "chrome" } : { headless: false }
+        );
+      } catch {
+        browser = await playwright.chromium.launch({ headless: false });
+      }
+    }
 
     try {
       const context = await browser.newContext({
