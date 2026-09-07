@@ -7,16 +7,30 @@
 export * from "./types.ts";
 export { Outbox, Inbox } from "./outbox.ts";
 export { DisabledBuzzAdapter, buzzIdentityIsMapped, nostrKeyAuthorizes } from "./adapter.ts";
+export {
+  finalizeEvent,
+  verifyEvent,
+  getPublicKey,
+  generateSecretKey,
+  type SignedNostrEvent,
+  type UnsignedNostrEvent,
+} from "./nostr.ts";
+export { WebSocketBuzzAdapter, type WebSocketBuzzConfig } from "./wsAdapter.ts";
 
 import { DisabledBuzzAdapter } from "./adapter.ts";
 import type { BuzzAdapter } from "./types.ts";
+import { WebSocketBuzzAdapter, type WebSocketBuzzConfig } from "./wsAdapter.ts";
 
 /**
- * Resolve o adaptador conforme a flag. Enquanto `buzz_hub` estiver OFF, retorna o inerte.
- * O WebSocketBuzzAdapter (real) entra quando o relay rodar (requer disco/serviços) e a flag ON.
+ * Resolve o adaptador: inerte quando `buzz_hub` OFF ou sem config; WebSocketBuzzAdapter real
+ * (contra o buzz-relay) quando a flag está ON e há config (relayUrl + secretKey).
  */
-export function resolveBuzzAdapter(flagEnabled: boolean): BuzzAdapter {
-  if (!flagEnabled) return new DisabledBuzzAdapter();
-  // Futuro: return new WebSocketBuzzAdapter(config) quando o buzz-relay estiver disponível.
-  return new DisabledBuzzAdapter();
+export function resolveBuzzAdapter(
+  flagEnabled: boolean,
+  config?: WebSocketBuzzConfig
+): BuzzAdapter {
+  if (!flagEnabled || !config?.relayUrl || !config?.secretKeyHex) {
+    return new DisabledBuzzAdapter();
+  }
+  return new WebSocketBuzzAdapter(config);
 }
