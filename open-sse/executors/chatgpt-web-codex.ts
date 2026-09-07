@@ -107,6 +107,14 @@ export function detectChromeExecutable(explicit?: string): string | undefined {
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    // Windows: standard Chrome install locations. Upstream auto-detection was
+    // POSIX-only, so on Windows this returned undefined and the headed Codex
+    // browser refused to launch ("No supported Chrome or Chromium executable").
+    `${process.env["ProgramFiles"] ?? "C:\\Program Files"}\\Google\\Chrome\\Application\\chrome.exe`,
+    `${process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)"}\\Google\\Chrome\\Application\\chrome.exe`,
+    process.env.LOCALAPPDATA
+      ? `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`
+      : undefined,
   ];
   return candidates.find((candidate): candidate is string =>
     Boolean(candidate && existsSync(candidate))
