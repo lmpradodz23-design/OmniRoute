@@ -11,6 +11,12 @@
 
 </div>
 
+> ⚡ **Fork com superpoderes.** Além de todo o gateway abaixo, adiciona uma camada **agêntica
+> (Loop Engine) + colaboração humano+agente por Nostr (Buzz) + segurança (PII BR, MCP Review,
+> Browser Guard) + observabilidade (AG-UI, OTel)** — **aditiva, atrás de feature flags OFF por
+> padrão, sem regressão** (o código decide, não a IA). **O que muda e por quê:
+> [SUPERPOWERS.md](./SUPERPOWERS.md).**
+
 <div align="center">
 
 ## 💰 ~1.51B Free Tokens / Month
