@@ -9,6 +9,25 @@ aprovação humana).
 > Base verde MIT `c0b2253`. Branch: `fase-1-loop-buzz`. Certificação: **67/67 testes**, `typecheck:core`=0,
 > 3 auditorias independentes (0 CRITICAL / 0 HIGH), endpoints provados **ao vivo**.
 
+## O que este fork tem de melhor (explícito) — original vs este fork
+
+| Capacidade                                                                      |     OmniRoute original      |                                            **Este fork**                                             |
+| ------------------------------------------------------------------------------- | :-------------------------: | :--------------------------------------------------------------------------------------------------: |
+| Gateway: 352 provedores, fallback, compressão, free-tier, roteamento            |             ✅              |                                        ✅ **(mantido 100%)**                                         |
+| **Loop Engine** — ciclos agênticos report-only com budget e policy gate         |             ❌              |                                             ✅ **novo**                                              |
+| **Buzz Hub** — falar com os agentes **pelo celular** (Nostr, self-hosted)       |             ❌              |                                             ✅ **novo**                                              |
+| **Isolamento multi-tenant** (`tenant_id`) nas tabelas agênticas                 |             ❌              |                                             ✅ **novo**                                              |
+| **PII brasileira**                                                              | parcial (CPF/CNPJ/telefone) |                                  ✅ **completo (+CEP, +chave PIX)**                                  |
+| **Marketplace MCP**                                                             | básico (instalar/checksum)  | ✅ **+ gate de revisão de segurança** (quarentena; ampliar permissão → re-revisão; malicioso → nega) |
+| **Browser Use guardado** — allowlist + aprovação humana + anti prompt-injection |             ❌              |                                             ✅ **novo**                                              |
+| **AG-UI** — console de agente por eventos (SSE, replay/reconexão)               |             ❌              |                                             ✅ **novo**                                              |
+| **OTel** — tracing W3C **sem vazar conteúdo** (allowlist)                       |             ❌              |                                             ✅ **novo**                                              |
+| **Política determinística** (código decide, humano no efeito externo)           |             ❌              |                                             ✅ **novo**                                              |
+| Endpoints REST novos gated por flag                                             |              —              |        `/api/loop*`, `/api/buzz*`, `/api/mcp/review`, `/api/browser/check`, `/api/otel/spans`        |
+
+> Memória vetorial (Qdrant) e o painel único já existem no base — este fork **os reaproveita**,
+> não os reivindica como novidade. Tudo que é novo entra **atrás de flag OFF por padrão**.
+
 ## Resumo em uma linha
 
 Onde o OmniRoute base **serve modelos**, este fork faz o OmniRoute também **orquestrar trabalho agêntico
