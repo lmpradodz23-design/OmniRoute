@@ -1,0 +1,18 @@
+== docker canonical2 iniciado 01:55:45Z ==
+== container2 start 01:55:46Z (install FIEL: npm ci COM scripts) ==
+v24.20.0
+11.19.0
+HEAD=f9a1cc8a9b7336e394ef921c753f5da691798df9
+== npm ci --no-audit --no-fund (COM scripts, como o CI) 01:56:17Z ==
+npm ci EXIT=0
+npm notice New major version of npm available! 11.19.0 -> 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
+[check-native-deps] OK — all 31 externalised packages resolve (8 optional deps checked).
+== RUN npm run test:unit:ci 02:03:34Z ==
+== CANONICAL2_TEST_EXIT=1 03:34:00Z ==
+-- totais:
+-- num falhas (✖ top-level):
+53
+== docker EXIT=1 03:34:17Z ==

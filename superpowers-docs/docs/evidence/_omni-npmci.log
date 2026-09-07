@@ -1,0 +1,8 @@
+== npm ci iniciado 16:44:07Z ==
+npm error code ENOTEMPTY
+npm error syscall rmdir
+npm error path C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\drizzle-orm\better-sqlite3
+npm error errno -4051
+npm error ENOTEMPTY: directory not empty, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\drizzle-orm\better-sqlite3'
+npm error A complete log of this run can be found in: C:\Users\zodyp\AppData\Local\npm-cache\_logs\2026-09-06T16_44_13_900Z-debug-0.log
+== EXIT=127 16:46:20Z ==

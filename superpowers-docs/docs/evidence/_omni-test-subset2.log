@@ -1,0 +1,1302 @@
+== SUBSET2 (args separados, sem chaves) 23:20:19Z ==
+✔ classifyRoute: root / (15.3798ms)
+✔ classifyRoute: dashboard root (1.2984ms)
+✔ classifyRoute: dashboard nested (0.7769ms)
+✔ classifyRoute: dashboard onboarding (0.5709ms)
+✔ classifyRoute: /api/v1 base (0.8919ms)
+✔ classifyRoute: /api/v1/chat/completions (0.6629ms)
+✔ classifyRoute: /api/v1/responses (0.5779ms)
+✔ classifyRoute: /api/v1/models (0.4641ms)
+✔ classifyRoute: /api/v1/embeddings (0.4097ms)
+✔ classifyRoute: /api/v1/files (0.5552ms)
+✔ classifyRoute: /api/v1/batches (0.3035ms)
+✔ classifyRoute: /api/v1/ws (0.2798ms)
+✔ classifyRoute: /api/mcp/* stays management (0.6346ms)
+✔ classifyRoute: /v1 alias (0.7227ms)
+✔ classifyRoute: /v1/chat/completions alias (1.2065ms)
+✔ classifyRoute: /v1beta alias (0.7207ms)
+✔ classifyRoute: /v1beta generateContent alias (0.8092ms)
+✔ classifyRoute: /api/v1beta generateContent (0.6018ms)
+✔ classifyRoute: /v1/v1 double-prefix (0.5295ms)
+✔ classifyRoute: /v1/v1/embeddings double-prefix (0.4719ms)
+✔ classifyRoute: /chat/completions alias (0.5488ms)
+✔ classifyRoute: /responses alias (0.4904ms)
+✔ classifyRoute: /responses/abc alias (0.5421ms)
+✔ classifyRoute: /codex/* alias collapses to /api/v1/responses (0.5178ms)
+✔ classifyRoute: /models alias (0.4715ms)
+✔ classifyRoute: /api/auth/login is PUBLIC (0.9589ms)
+✔ classifyRoute: /api/auth/logout is PUBLIC (0.733ms)
+✔ classifyRoute: /api/auth/status is PUBLIC (0.5093ms)
+✔ classifyRoute: /api/init is PUBLIC (0.567ms)
+✔ classifyRoute: /api/monitoring/health is PUBLIC (0.4894ms)
+✔ classifyRoute: /api/health/ping is PUBLIC (0.7303ms)
+✔ classifyRoute: /api/cloud/auth POST is PUBLIC (0.6119ms)
+✔ classifyRoute: /api/cloud/model/resolve POST is PUBLIC (0.5367ms)
+✔ classifyRoute: /api/cloud/models/alias GET is PUBLIC (0.3885ms)
+✔ classifyRoute: /api/cloud/credentials/update PUT is MANAGEMENT (0.5342ms)
+✔ classifyRoute: /api/cloud/models/alias PUT is MANAGEMENT (0.3056ms)
+✔ classifyRoute: /api/cloud/unknown GET is MANAGEMENT (2.6342ms)
+✔ classifyRoute: /api/oauth/* is PUBLIC (0.6533ms)
+✔ classifyRoute: /api/sync/bundle is PUBLIC (0.701ms)
+✔ classifyRoute: /api/settings/require-login GET is PUBLIC readonly (0.569ms)
+✔ classifyRoute: /api/settings/require-login POST is MANAGEMENT (0.5699ms)
+✔ classifyRoute: /api/providers/* MUST stay MANAGEMENT (0.8063ms)
+✔ classifyRoute: /api/keys MANAGEMENT (0.6256ms)
+✔ classifyRoute: /api/db/health MANAGEMENT (0.6774ms)
+✔ classifyRoute: /api/settings MANAGEMENT (0.4215ms)
+✔ classifyRoute: /api/audit MANAGEMENT (0.4751ms)
+✔ classifyRoute: /api/usage/om-usage is PUBLIC (handler enforces its own API key auth) (0.6346ms)
+✔ classifyRoute: Unknown top-level path defaults MANAGEMENT (fail-closed) (0.5418ms)
+✔ classifyRoute returns deterministic result for trailing slash (0.6249ms)
+✔ classifyRoute strips trailing slash on root only when not '/' (0.5666ms)
+✔ classifyRoute treats /api/v1 prefix exactly (0.5557ms)
+✔ classify module public surface only exposes route classification (0.8512ms)
+✖ #2257 — invalid bearer + REQUIRE_API_KEY=true → 401 (83.5403ms)
+✖ #2257 — invalid bearer + REQUIRE_API_KEY=false → anonymous (with warning log) (17.3787ms)
+✖ #2257 — invalid x-api-key + REQUIRE_API_KEY=false → anonymous (with warning log) (19.743ms)
+✖ #2257 — fallback warning masks the x-api-key (only last-4 in log) (21.9961ms)
+✖ #2257 — fallback warning masks the bearer (only last-4 in log) (20.1562ms)
+✖ #2257 — no bearer + REQUIRE_API_KEY=false → anonymous (unchanged, no fallback warning) (20.2199ms)
+✖ #3504 — empty 'Bearer ' Authorization falls through to the URL path token (20.0493ms)
+✖ #3504 — a non-Bearer scheme (Basic) also falls through to the URL token (17.9712ms)
+✖ #3504 — non-Bearer Authorization with NO URL token still rejects as unauthenticated (24.0599ms)
+✖ tests\unit\authz\client-api-policy.test.ts (0.543ms)
+✖ tests\unit\authz\credential-export-always-protected.test.ts (0.4958ms)
+▶ dashboard CSRF tokens
+  ✔ accepts a valid token for dashboard management mutation paths (12.6056ms)
+  ✔ binds tokens to the dashboard auth cookie (1.1943ms)
+  ✔ rejects expired and tampered tokens (1.4543ms)
+✔ dashboard CSRF tokens (16.013ms)
+✖ tests\unit\authz\discovery-routes-local-only.test.ts (0.3416ms)
+✖ tests\unit\authz\ip-filter-enforcement-6131.test.ts (0.4938ms)
+✖ tests\unit\authz\management-policy.test.ts (0.3437ms)
+✖ tests\unit\authz\oauth-autoimport-local-only.test.ts (0.4647ms)
+✔ stamps peer IP and via-proxy=0 for direct connection (no forwarding headers) (1.0965ms)
+✔ stamps via-proxy=1 when x-forwarded-for is present (4.2632ms)
+✔ stamps via-proxy=1 when x-real-ip is present (3.0136ms)
+✔ Cloudflare: via-proxy=1 when cf-connecting-ip is present AND peer is a CF edge IP (2.6051ms)
+✔ Cloudflare bypass guard: direct forger sending cf-connecting-ip keeps via-proxy=0 (1.2388ms)
+✔ x-forwarded-for still wins via-proxy=1 even when cf-connecting-ip is forged (0.603ms)
+✔ F-05: non-Cloudflare proxy (x-forwarded-for only, no cf-connecting-ip) marks via-proxy=1 (0.4192ms)
+✔ deletes any client-supplied peer/via-proxy headers before stamping (0.768ms)
+✔ IPv6 Cloudflare peer is recognized (11.3208ms)
+✔ IPv4-mapped peer address is normalized before CF check (0.9009ms)
+✔ F2-01: /0 IPv4 CIDR matches every address (0.9617ms)
+✔ F2-04: /0 IPv6 CIDR matches every address (1.9396ms)
+✔ F2-03: full-form IPv4-mapped address is normalized (1.0791ms)
+✖ tests\unit\authz\pipeline.test.ts (0.571ms)
+✖ tests\unit\authz\probe-9033-repro.test.ts (0.5808ms)
+✔ Next.js 16 proxy file exists at src/proxy.ts (not src/middleware.ts) (1.1569ms)
+✔ proxy.ts exports a function named 'proxy' (Next.js 16 requires this exact name) (3.0823ms)
+✔ proxy.ts delegates to runAuthzPipeline with enforce: true (2.8674ms)
+✔ proxy.ts config.matcher covers every /api/* route plus dashboard and v1 aliases (1.6597ms)
+✔ proxy.ts does not declare runtime: 'edge' (Next.js 16 proxy is Node-only) (1.4595ms)
+✖ tests\unit\authz\proxy-matcher-case.test.ts (0.2875ms)
+✖ tests\unit\authz\public-origin.test.ts (0.2355ms)
+✖ tests\unit\authz\public-policy.test.ts (0.2666ms)
+✔ every prefix entry is a genuine subtree (ends in a slash) (0.355ms)
+✔ exact public routes stay public in both spellings (0.5627ms)
+✔ sibling paths shadowed by an exact route are NOT public (0.4157ms)
+✔ the reported bypass: /api/usage/om-usage<suffix> classifies MANAGEMENT (0.3519ms)
+✔ genuine subtrees stay public all the way down (0.4017ms)
+✔ read-only method gate is unchanged (0.5466ms)
+✔ CORS relaxation reason set is unchanged (0.6654ms)
+✔ LOCAL_ONLY oauth auto-import exclusions still win over the /api/oauth/ subtree (0.7808ms)
+✖ tests\unit\authz\route-guard-local-prefix.test.ts (0.8187ms)
+✖ tests\unit\authz\route-guard-skills-collect.test.ts (0.5479ms)
+✖ tests\unit\authz\route-guard-tunnel-processes-local-only.test.ts (0.6739ms)
+✖ tests\unit\authz\route-guard-version-get-exemption.test.ts (3.08ms)
+✖ tests\unit\authz\route-guard-vnc-session-local-only.test.ts (0.7606ms)
+✖ tests\unit\authz\routeGuard.test.ts (0.6256ms)
+✔ validation schemas must not VALUE-import from server-side roots (client/CLI build safety) (42.5736ms)
+✔ SPAWN_CAPABLE_PREFIXES is defined in the server-free constants leaf with the expected entries (0.4564ms)
+▶ cors/origins.resolveAllowedOrigin
+  ✔ returns null by default — fail-closed without explicit allowlist (1.3206ms)
+  ✔ returns null when origin header is absent (1.183ms)
+  ✔ echoes origin when env allowlist matches (case-insensitive, trailing slash ignored) (1.6462ms)
+  ✔ merges env allowlist and runtime allowlist (1.3798ms)
+  ✔ CORS_ALLOW_ALL=true echoes any origin (with Vary applied later) (0.9681ms)
+  ✔ CORS_ALLOW_ALL falls back to '*' when no Origin header is present (0.5345ms)
+  ✔ legacy CORS_ORIGIN=* behaves like CORS_ALLOW_ALL (0.7015ms)
+  ✔ legacy CORS_ORIGIN=<single> is added to env allowlist (0.5832ms)
+✔ cors/origins.resolveAllowedOrigin (9.4534ms)
+▶ cors/origins.applyCorsHeaders
+  ✔ does not set Allow-Origin when origin is not in allowlist (5.9647ms)
+  ✔ echoes origin and sets Vary: Origin when origin is allowed (1.2143ms)
+  ✔ CLIENT_API: echoes arbitrary Origin (+Vary) for a token-carrying request (relaxForTokenAuth) (1.1066ms)
+  ✔ CLIENT_API: returns '*' when no Origin header is present for a token-carrying request (5.3431ms)
+  ✔ CLIENT_API: does NOT echo the Origin for a credential-less cross-origin request (GHSA-7px7) (2.5109ms)
+  ✔ CLIENT_API: a CORS preflight (OPTIONS) is still allowed through (relaxForTokenAuth) (1.5212ms)
+  ✔ MANAGEMENT: stays fail-closed for arbitrary Origin with no allowlist (relax off) (2.1125ms)
+  ✔ relaxForTokenAuth still honors an explicit allowlist match exactly (no wildcard) (2.0188ms)
+  ✔ CLIENT_API: appends Vary: Accept-Encoding on a 2xx relaxForTokenAuth response (#6737) (1.6691ms)
+  ✔ CLIENT_API: combines with Vary: Origin into a single comma-joined header (#6737) (3.0061ms)
+  ✔ MANAGEMENT: does not append Vary: Accept-Encoding (relax off) (#6737) (2.3274ms)
+  ✔ 204 response: does not append Vary: Accept-Encoding even with relaxForTokenAuth (#6737) (1.3767ms)
+  ✔ CLIENT_API: appends Vary: Accept-Encoding even without an Origin header (#6737) (1.2288ms)
+  ✔ reflects requested headers from Access-Control-Request-Headers preflight (1.0257ms)
+✔ cors/origins.applyCorsHeaders (34.2413ms)
+▶ cors/origins.getCorsStatus
+  ✔ default (no env, no runtime) → allowAll false, empty origins (1.5342ms)
+  ✔ CORS_ALLOW_ALL=true → allowAll true (0.9858ms)
+  ✔ legacy CORS_ORIGIN=* → allowAll true (0.9558ms)
+  ✔ merges env + runtime allowlists, normalized, sorted, deduped (0.7776ms)
+✔ cors/origins.getCorsStatus (4.7655ms)
+▶ cors/origins.STATIC_CORS_HEADERS
+  ✔ never contains Access-Control-Allow-Origin (0.3568ms)
+  ✔ allows the generic managed-lease control headers (0.6827ms)
+✔ cors/origins.STATIC_CORS_HEADERS (1.2842ms)
+✖ tests\unit\guardrails\audioBridge.test.ts (0.4442ms)
+✖ tests\unit\guardrails\audioBridgeHelpers.test.ts (0.4318ms)
+✖ tests\unit\guardrails\combo-vision-provider-id-12112.test.ts (0.451ms)
+✔ extracts from messages[].content (baseline) (3.5435ms)
+✔ extracts body.prompt as string (0.9473ms)
+✔ extracts body.prompt as array (1.0039ms)
+✔ extracts body.input as STRING without char-splitting (0.8353ms)
+✔ extracts body.input as array of strings (0.4265ms)
+✔ extracts body.input as Responses object without throwing (0.323ms)
+✔ extracts body.query + body.documents (rerank) (0.7183ms)
+✔ extracts body.instructions (Responses) (0.5192ms)
+✖ tests\unit\guardrails\injection-route-coverage.test.ts (0.3216ms)
+✔ fuses video and audio observations on one sorted timeline (1.6326ms)
+✔ keeps a successful side and reports partial failure without leaking the error (1.1971ms)
+✔ aborting the shared budget stops both branches and rejects safely (2.7169ms)
+✔ an already-aborted budget rejects before either branch starts (1.1965ms)
+✔ rejects when both sides fail and removes exact duplicate observations (39.6719ms)
+✖ tests\unit\guardrails\videoBridge.test.ts (0.4853ms)
+✔ extracts bounded mono 16kHz WAV bytes and reuses the probed duration (118.4539ms)
+✔ propagates the shared probe's duration cap instead of re-validating it (6.887ms)
+✔ rejects a WAV output that exceeds the configured byte cap (10.694ms)
+✔ propagates ffmpeg's own failure when the container has no audio stream (8.2256ms)
+✖ tests\unit\guardrails\videoBridgeAudioOrchestration.test.ts (0.3708ms)
+✖ tests\unit\guardrails\videoBridgeContactSheet.test.ts (0.2691ms)
+✔ contact-sheet A/B eval remains HOLD when real-model configuration is missing (0.5683ms)
+✔ contact-sheet A/B eval becomes eligible only with measured cost gains and retained quality (1.2077ms)
+✔ contact-sheet A/B promotion remains HOLD for quality loss or absent token evidence (0.5668ms)
+✔ contact-sheet A/B promotion rejects zero cost gain even with permissive thresholds (0.3412ms)
+✔ contact-sheet A/B harness measures real-model calls without storing raw responses (181.6318ms)
+✖ tests\unit\guardrails\videoBridgeDedup.test.ts (0.7115ms)
+✔ drill-down cache denies cross-principal reads and deletes (35.01ms)
+✔ drill-down cache isolates sessions and returns bounded focus slices (33.8907ms)
+✔ drill-down cache clamps a valid focus and preserves timeline metadata (22.7177ms)
+✔ drill-down cache rejects invalid and oversized frame payloads (1.0747ms)
+✔ drill-down cache rejects non-canonical Base64 before quota accounting (3.081ms)
+✔ drill-down cache rejects non-JPEG bytes disguised by a JPEG data URI (1.0604ms)
+✔ drill-down cache canonicalizes JPEG bytes without retaining a disguised media tail (8.3142ms)
+✔ drill-down cache rejects a forged SOI/SOF header without a valid scan and EOI (0.7323ms)
+✔ drill-down cache rejects a truncated entropy scan even when EOI is reattached (12.5756ms)
+✔ drill-down cache derives resolution from JPEG bytes instead of caller metadata (12.6641ms)
+✔ drill-down cache expires entries and evicts the least recently used key (44.2449ms)
+✔ drill-down cache sweeps all expired entries from principal and global usage (27.4486ms)
+✔ drill-down cache enforces a global byte budget with LRU eviction (2.9334ms)
+✔ drill-down cache enforces each principal quota without charging another principal (5.0979ms)
+✔ drill-down cache returns server-derived audit metadata without retaining the raw parent (8.3787ms)
+✔ drill-down cache preserves the prior derivation when a replacement fails validation (48.1268ms)
+✔ drill-down cache aborts during JPEG validation without committing quota (1.2302ms)
+✔ drill-down cache rejects an entry larger than the whole byte budget (1.1951ms)
+✔ video bridge drill-down feature flags default to opt-in / disabled (0.6103ms)
+✔ produce mints an opaque hashed handle that reveals no session/video identity (26.344ms)
+✔ resolve returns stored frames to the owning principal by handle only (14.4401ms)
+✔ resolve denies a wrong principal and a nonexistent handle identically (no oracle) (15.4697ms)
+✔ delete removes the artifact for its own principal and is idempotent (17.3287ms)
+✔ preview and standard variants shrink frames without ever upscaling (119.4428ms)
+✔ pagination never exceeds the 8-frame page cap and reports hasMore across pages (135.7314ms)
+✔ a tight page byte budget trims frames instead of exceeding it (30.4147ms)
+✔ TTL expiry hides the artifact and cleanup reclaims the handle (16.3343ms)
+✔ per-principal and global usage accounting is delegated to the cache substrate (7.5962ms)
+✔ aborting mid-production leaves no orphaned handle or cache usage (1.6476ms)
+✔ per-principal handle quota evicts the oldest handle instead of growing without bound (23.6314ms)
+✖ tests\unit\guardrails\videoBridgeFocusWindow.test.ts (0.3137ms)
+✖ tests\unit\guardrails\videoBridgeFocusedMode.test.ts (0.2166ms)
+✔ decodes a valid JPEG data URI case-insensitively (0.3579ms)
+✔ rejects non-JPEG and malformed URIs with a stable message (1.176ms)
+✔ estimates decoded bytes without decoding, accounting for padding (0.6914ms)
+✔ parses scene, freeze, blur, exposure, and spatial-temporal evidence (2.8483ms)
+✔ runs all structural filters in one fixed, local-only, bounded FFmpeg pass (1.1796ms)
+✔ spends one frame on a frozen segment and reallocates the budget to dense motion (3.0889ms)
+✔ avoids redundant caption work for an entirely frozen video (1.0002ms)
+✔ does not prune a moving clip when freeze evidence is absent (0.7095ms)
+✔ uses lower FFmpeg blur scores as sharper evidence for the extra frame (0.6941ms)
+✔ malformed-only structural metadata fails open to uniform sampling (0.5166ms)
+✔ keeps the long trailing segment when scene boundaries outnumber the frame budget (0.828ms)
+✔ preserves the legacy length-weighted allocation without structural evidence (0.621ms)
+✔ does not report a focus-window boundary as usable segment evidence (0.3819ms)
+✔ does not claim segment-aware evidence that falls outside the focus window (0.3979ms)
+✔ structural timeout fails open to uniform while an abort stops extraction (1.6178ms)
+﹣ real FFmpeg evidence distinguishes a frozen dark segment from dense motion (32.2589ms) # FFmpeg is an optional runtime dependency
+﹣ real FFmpeg abort stops preanalysis, skips frame extraction, and cleans the private tree (30.4322ms) # FFmpeg is an optional runtime dependency
+✖ tests\unit\guardrails\videoBridgeHelpers.test.ts (0.4796ms)
+✖ tests\unit\guardrails\videoBridgePipeline.characterization.test.ts (0.3927ms)
+✔ computeMedian: odd-length sample returns the middle value regardless of input order (0.6661ms)
+✔ computeMedian: even-length sample averages the two middle values (0.4958ms)
+✔ computeMedian: single sample returns that exact value (0.4438ms)
+✔ computeMedian: tied values collapse to the tied value (0.4776ms)
+✔ computeMedian: throws on an empty sample instead of silently returning 0/NaN (0.5503ms)
+✔ computeP95: nearest-rank method on a known 100-point distribution (0.6149ms)
+✔ computeP95: single sample returns that exact value (0.4441ms)
+✔ computeP95: small sample (below 20 points) still returns a defined, deterministic value (0.485ms)
+✔ computeP95: tied values collapse to the tied value (0.5953ms)
+✔ computeP95: throws on an empty sample (0.4074ms)
+✔ aggregatePromotionObservations: groups by caseId+model and computes per-metric median/p95 (0.8734ms)
+✔ aggregatePromotionObservations: a metric recorded elsewhere but absent from this group is reported missing, not zero (0.5716ms)
+✔ aggregatePromotionObservations: empty input returns an empty aggregate list (0.293ms)
+✔ the shipped allowlist file validates against its own frozen schema (0.3793ms)
+✔ the shipped allowlist ships EMPTY with defaultStatus=hold — no model is pre-promoted (0.3218ms)
+✔ getVideoBridgePromotionStatus returns hold for any model absent from the allowlist (2.7928ms)
+✔ getVideoBridgePromotionStatus returns an explicit entry's status when one exists (1.847ms)
+✔ allowlist schema rejects an unknown status value (1.6568ms)
+✔ allowlist schema rejects a schemaVersion other than the frozen literal 1 (0.4489ms)
+✔ buildFu07PromotionInputFromAggregates derives retention, p95 ratio and gains from baseline/candidate aggregates (0.5268ms)
+✔ buildFu07PromotionInputFromAggregates: a metric missing from either side yields null p95 ratio, not a fabricated pass (0.3584ms)
+✔ buildFu09PromotionInputFromAggregates derives absolute quality, retention and reduction ratios (0.4024ms)
+✔ buildFu09PromotionInputFromAggregates: missing token totals on either side yield a null token reduction ratio (0.3326ms)
+✔ digestPromotionText returns the sha256 hex digest of the raw text (0.3301ms)
+✔ digestPromotionText is deterministic for identical input (0.4059ms)
+✔ buildPersistablePromotionRecord reduces a raw model response to metrics + digest only (0.8935ms)
+✔ buildPersistablePromotionRecord never mutates the metrics object it was given (0.6457ms)
+✔ assertNoRawPromotionPayloadLeak passes for a properly digested record (0.7179ms)
+✔ assertNoRawPromotionPayloadLeak throws if a raw payload is ever smuggled into a persisted record (0.7616ms)
+✔ assertNoRawPromotionPayloadLeak is a no-op for an empty raw payload (nothing to leak) (0.381ms)
+✔ createVideoBridgePromotionHoldReport reports HOLD with the missing-configuration reasons, no fabricated data (0.4469ms)
+✔ videoBridgePromotionRunFileSchema accepts a well-formed observations file (3.2059ms)
+✔ buildVideoBridgePromotionReport composes aggregate -> compare -> evaluate -> digest end to end and never leaks raw text (5.6918ms)
+✔ buildVideoBridgePromotionReport: missing security-case coverage in the run file forces both verdicts to hold (1.3023ms)
+✔ FU-07: all thresholds satisfied -> eligible with no reasons (0.4579ms)
+✔ FU-07: quality retention exactly at the 0.98 floor still passes (inclusive threshold) (0.3185ms)
+✔ FU-07: quality retention just below 0.98 demotes to experimental, not hold (0.2961ms)
+✔ FU-07: p95 ratio exactly at the 1.20x ceiling still passes (inclusive threshold) (0.394ms)
+✔ FU-07: p95 ratio just above 1.20x demotes to experimental (0.301ms)
+✔ FU-07: missing p95 data is treated as failing the p95 gate (never assumed passing) (0.2868ms)
+✔ FU-07: any critical fact loss forces hold regardless of every other metric (0.3359ms)
+✔ FU-07: any failed security case forces hold regardless of every other metric (0.3173ms)
+✔ FU-07: missing token usage forces hold and is never eligible even if every other metric passes (0.2939ms)
+✔ FU-07: zero material gain (neither quality nor caption-efficiency) demotes to experimental (0.3012ms)
+✔ FU-07: a strictly positive quality gain alone counts as material even with zero caption-efficiency gain (0.3002ms)
+✔ FU-07: hold gates take priority over soft gates in the reason list (hard blockers reported, soft ones suppressed) (0.2985ms)
+✔ FU-07: threshold constants match the frozen #11656 acceptance bars (0.2499ms)
+✔ FU-07: identical input evaluated twice (simulating two consecutive runs) yields the identical verdict (0.3043ms)
+✔ FU-09: all thresholds satisfied -> eligible with no reasons (0.328ms)
+✔ FU-09: absolute quality exactly at the 0.85 floor still passes (0.3233ms)
+✔ FU-09: absolute quality just below 0.85 demotes to experimental (0.3194ms)
+✔ FU-09: retention exactly at the 0.95 floor still passes (0.2843ms)
+✔ FU-09: retention just below 0.95 demotes to experimental (0.2788ms)
+✔ FU-09: latency reduction exactly at 20% still passes (0.4356ms)
+✔ FU-09: latency reduction just below 20% demotes to experimental (0.508ms)
+✔ FU-09: token reduction exactly at 10% still passes (1.9377ms)
+✔ FU-09: token reduction just below 10% demotes to experimental (0.5363ms)
+✔ FU-09: any critical-or-security loss forces hold regardless of every other metric (0.4092ms)
+✔ FU-09: missing token usage forces hold and is never eligible even if every other metric passes (0.3647ms)
+✔ FU-09: missing token usage still forces hold even when a null token reduction ratio is also present (0.3264ms)
+✔ FU-09: null latency/token reduction ratios (usage nominally available) fail their soft gates, not hold (0.3351ms)
+✔ FU-09: threshold constants match the frozen #11656 acceptance bars (0.2729ms)
+✔ FU-09: identical input evaluated twice (simulating two consecutive runs) yields the identical verdict (0.3865ms)
+✔ ships exactly one deterministic recipe per frozen case kind (0.3503ms)
+✔ every shipped recipe validates against its own declarative schema (2.9024ms)
+✔ recipe ids are unique and stable (0.6456ms)
+✔ buildFfmpegArgsFromRecipe is a pure function: same recipe -> byte-identical args, no I/O (0.9452ms)
+✔ buildFfmpegArgsFromRecipe emits one -f lavfi -i triplet per declared layer, in order (0.5437ms)
+✔ prompt_injection recipe is flagged as a security-relevant fixture (0.3038ms)
+✔ accepts a manifest covering all 8 frozen case kinds with >=3 repetitions (0.6549ms)
+✔ rejects a manifest missing a required case kind (0.968ms)
+✔ rejects a manifest without at least one security case (0.8902ms)
+✔ rejects a case with fewer than the frozen minimum repetitions (1.2865ms)
+✔ rejects an unknown metric name and unknown top-level field (frozen, strict schema) (2.8252ms)
+✔ rejects a schemaVersion other than the frozen literal 1 (1.4499ms)
+✖ tests\unit\guardrails\videoBridgeResultCache.test.ts (0.4213ms)
+✔ calculates uniform midpoint timestamps (0.3635ms)
+✔ probes and extracts a local video using shell-free bounded commands (1.3583ms)
+✔ rejects remote process inputs and videos beyond the duration bound (1.177ms)
+✔ rejects reference-bearing formats before extraction and confines both tools to local files (0.6783ms)
+✔ safe containers may contain URL or traversal-like compressed bytes without false rejection (14.1648ms)
+✔ rejects oversized dimensions and pixel counts from sanitized probe metadata (1.0402ms)
+✔ rejects a container when any video stream exceeds dimension or pixel limits (0.6645ms)
+✔ selects the lowest validated video stream index and maps it explicitly in ffmpeg (0.7209ms)
+✔ ignores an attached cover and maps the preferred playable default stream (0.7313ms)
+✔ rejects a container whose only video stream is an attached picture (0.4846ms)
+✔ malformed playable stream disposition or index fails closed without selecting a cover (0.5111ms)
+✔ runtime status exposes sanitized versions and a sanitized unavailable reason (0.9885ms)
+✔ runtime probe uses its short cache instead of spawning on every status read (0.4869ms)
+✔ checks individual and aggregate frame byte caps before returning broker output (10.5486ms)
+✔ byte extraction removes its private temporary tree after a subprocess failure (9.3734ms)
+✔ scene-aware sampling preserves a rapid final cut and stays within the frame cap (2.5937ms)
+✔ scene-aware sampling falls back to deterministic uniform midpoints for a static scene (0.8746ms)
+✔ scene-aware sampling falls back to the midpoint when one frame cannot cover both ends (0.7051ms)
+✔ one-frame scene-aware fallback uses the active focus-window midpoint (0.6987ms)
+✔ scene candidates are parsed from showinfo output and malformed values are ignored (0.9806ms)
+✔ extracts scene-aware timestamps through a fixed ffmpeg seam and reports fallback metadata (0.98ms)
+✔ scene detection timeout or runtime failure falls back to uniform sampling (1.0272ms)
+✔ segment-aware sampling allocates frames across long and short scene segments (0.5663ms)
+✔ segment-aware sampling falls back to uniform when boundaries are unusable (0.3165ms)
+✖ tests\unit\guardrails\videoBridgeSnapshotRedaction.test.ts (0.3104ms)
+✖ tests\unit\guardrails\videoBridgeSubtitleProbe.test.ts (0.2472ms)
+✔ lists only allowlisted subtitle streams, ordered by index and capped at two (0.7274ms)
+✔ an unparseable ffprobe response yields zero subtitle streams instead of throwing (0.4182ms)
+✔ extracts a single allowlisted stream to bounded WebVTT text (3.634ms)
+✔ readBoundedSubtitleOutput rejects output above the byte cap (4.5793ms)
+✔ readBoundedSubtitleOutput rejects an empty extraction result (2.3705ms)
+✔ full bytes-to-WebVTT pipeline probes the container once, extracts up to two streams, and always cleans up (17.4698ms)
+✔ one unusable stream (extraction throws) does not block trying the next allowlisted stream (10.7976ms)
+✔ temp directory is removed even when the container probe itself fails (8.8267ms)
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'omniroute-json-tree-expand-levels', the given storage is currently unavailable.
+✔ an already-aborted signal is rejected before any command runs (2.7681ms)
+✖ tests\unit\guardrails\videoBridgeTranscriptBudgets.test.ts (0.3067ms)
+✖ tests\unit\guardrails\videoBridgeTranscriptCacheIdentity.test.ts (0.2569ms)
+✖ tests\unit\guardrails\videoBridgeTranscriptProvenance.test.ts (0.3128ms)
+✖ tests\unit\guardrails\vision-bridge-auto-reroute.test.ts (0.4692ms)
+✖ tests\unit\guardrails\vision-bridge-cache-key.test.ts (0.5106ms)
+✖ tests\unit\guardrails\vision-bridge-callmodel.test.ts (0.4244ms)
+✖ tests\unit\guardrails\vision-bridge-claude-wire.test.ts (0.4067ms)
+✖ tests\unit\guardrails\vision-bridge-credentials-alias-mismatch-10702.test.ts (2.8913ms)
+✖ tests\unit\guardrails\vision-bridge-selfloop-key.test.ts (0.5458ms)
+✖ tests\unit\guardrails\vision-bridge-sse-and-reasoning.test.ts (0.4696ms)
+✖ tests\unit\guardrails\visionBridge-combo-reroute.test.ts (0.4589ms)
+✖ tests\unit\guardrails\visionBridge-responses-9597.test.ts (0.4442ms)
+✖ tests\unit\guardrails\visionBridge.test.ts (0.3943ms)
+✖ tests\unit\guardrails\visionBridgeCredentials.test.ts (0.394ms)
+✖ tests\unit\guardrails\visionBridgeHelpers.callVisionModel.test.ts (0.2406ms)
+✖ tests\unit\guardrails\visionBridgeHelpers.extractImageParts.test.ts (0.2189ms)
+✖ tests\unit\guardrails\visionBridgeHelpers.replaceImageParts.test.ts (0.2156ms)
+✖ tests\unit\guardrails\visionBridgeHelpers.resolveImageAsDataUri.test.ts (0.2123ms)
+✖ tests\unit\guardrails\visionBridgeRouter.test.ts (0.202ms)
+✔ MCP bundle never emits await inside a synchronous __esm initializer (5085.0904ms)
+✔ esbuild propagates async initialization through wrapped import cycles (394.6656ms)
+✖ tests\unit\mcp\serverSmartFilter.test.ts (0.6218ms)
+✖ tests\unit\mcp\tool-cardinality.test.ts (0.5043ms)
+▶ MCP tool-definition leaf + re-export
+  ✔ toolDefinition.ts (leaf) imports without forming a cycle (237.6651ms)
+  ✔ tools.ts still exposes McpToolDefinition-shaped tool defs (re-export intact) (181.9528ms)
+✔ MCP tool-definition leaf + re-export (420.1626ms)
+✔ featureDisabledError carries the featureName (30.0151ms)
+✔ install.stub.ts: installCert / uninstallCert throw FeatureDisabledError (20.1459ms)
+✔ keychain-reader.stub.ts: discoverZedCredentials / getZedCredential throw (50.7065ms)
+✔ cloudSync.stub.ts: syncToCloud soft-fails with feature-disabled message (28.641ms)
+✔ ninerouter.stub.ts: install / resolveSpawnArgs throw FeatureDisabledError (24.1302ms)
+✖ verifyCloudSignature accepts a valid HMAC (57.4406ms)
+✖ verifyCloudSignature rejects a forged signature (3.5571ms)
+✖ verifyCloudSignature rejects when the secret is set but sig header is missing (3.0099ms)
+✖ verifyCloudSignature falls through (legacy mode) when secret is unset (1.6807ms)
+✔ resolveSafeI18nSectionDir rejects traversal in the locale (cookie-controlled) (3.005ms)
+✔ resolveSafeI18nSectionDir rejects traversal in slug segments (1.0164ms)
+✔ resolveSafeI18nSectionDir confines the resolved dir to docs/i18n (1.9565ms)
+✔ resolveSafeI18nSectionDir allows valid locale/slug patterns (1.1225ms)
+✔ sanitizeDocsHtml removes dangerous tags and attributes (352.0906ms)
+✔ sanitizeDocsHtml allows safe tags and attributes (19.6105ms)
+✔ buildElevatedScriptWrapper does not contain -EncodedCommand fingerprint (0.8524ms)
+✔ buildElevatedScriptWrapper quotes the script path safely (no shell injection) (0.5545ms)
+✔ _runElevatedPowerShellForTest writes payload to a temp .ps1 file and unlinks after (8.8584ms)
+✔ _runElevatedPowerShellForTest unlinks the temp file even when the runner throws (5.1938ms)
+▶ parseCsvEnv
+  ✔ returns empty set for undefined (0.626ms)
+  ✔ returns empty set for empty string (0.2904ms)
+  ✔ trims whitespace and drops empty entries (0.3644ms)
+  ✔ deduplicates entries (0.5695ms)
+✔ parseCsvEnv (2.349ms)
+▶ buildAllowedOrigins
+  ✔ includes the loopback defaults (0.4606ms)
+  ✔ extends defaults with LIVE_WS_ALLOWED_ORIGINS (0.3819ms)
+✔ buildAllowedOrigins (1.0572ms)
+▶ buildAllowedHosts
+  ✔ returns empty set when env is not set (0.3582ms)
+  ✔ parses comma-separated hosts (0.3908ms)
+✔ buildAllowedHosts (0.98ms)
+▶ originHost
+  ✔ returns host and hostname for a valid URL (1.2039ms)
+  ✔ returns null for an invalid URL (1.1022ms)
+✔ originHost (2.9094ms)
+▶ originHostMatches
+  ✔ returns false when the allow-list is empty (0.8841ms)
+  ✔ matches by exact host:port (0.6ms)
+  ✔ matches by bare hostname regardless of port (0.4906ms)
+  ✔ returns false for a non-matching host (0.5518ms)
+  ✔ returns false for an unparseable origin (0.4632ms)
+✔ originHostMatches (3.6677ms)
+▶ isOriginAllowed
+  ✔ rejects any non-loopback origin by default (0.5773ms)
+  ✔ accepts the default loopback origins (0.3652ms)
+  ✔ accepts an Origin matching LIVE_WS_ALLOWED_ORIGINS (0.4044ms)
+  ✔ accepts a Tailscale Origin when LIVE_WS_ALLOWED_HOSTS is set (0.6036ms)
+  ✔ accepts a Tailscale Origin matched by host:port when LIVE_WS_ALLOWED_HOSTS is set (1.1178ms)
+  ✔ does NOT accept a Tailscale Origin when LIVE_WS_ALLOWED_HOSTS is unset (0.374ms)
+  ✔ rejects a missing Origin when bound to LAN (0.0.0.0) (0.4517ms)
+  ✔ accepts a missing Origin on loopback (CLI/MCP) (0.5564ms)
+  ✔ accepts a missing Origin on ::1 / localhost hosts (0.4646ms)
+✔ isOriginAllowed (6.0334ms)
+✔ isLocalRequestAllowed: allows when no headers injected and not production (0.7399ms)
+✔ isLocalRequestAllowed: allows loopback host + empty xff (browser dev path) (0.8383ms)
+✔ isLocalRequestAllowed: allows IPv4 loopback host 127.0.0.1 (0.5615ms)
+✔ isLocalRequestAllowed: allows IPv6 loopback host [::1] (0.5142ms)
+✔ isLocalRequestAllowed: rejects public host even with loopback x-forwarded-for (1.4937ms)
+✔ isLocalRequestAllowed: rejects non-loopback origin (no bearer token) (2.1903ms)
+✔ isLocalRequestAllowed: bearer token takes precedence over host check (desktop app) (1.4482ms)
+✔ isLocalRequestAllowed: rejects wrong bearer token even with token configured (1.1806ms)
+✔ isLocalRequestAllowed: production without opt-in rejects (no headers path) (1.0219ms)
+✔ isLocalRequestAllowed: production WITH opt-in allows (no headers path) (1.0651ms)
+✔ fingerprint is 16 lowercase hex chars (0.5921ms)
+✔ fingerprint is deterministic across calls (0.3749ms)
+✔ different service produces different fingerprint (0.3597ms)
+✔ different account produces different fingerprint (0.3222ms)
+✔ different token produces different fingerprint (0.3566ms)
+✔ isConfirmedAccount rejects null / wrong-typed entries (2.3204ms)
+✔ isConfirmedAccount accepts a fully-formed entry (0.4196ms)
+✔ parseConfirmedAccounts returns null for missing / malformed bodies (1.3076ms)
+✔ parseConfirmedAccounts returns the list when every entry is valid (0.6106ms)
+✔ filterCredentialsByConfirmation only returns credentials matching the fingerprint set (2.6571ms)
+✔ filterCredentialsByConfirmation rejects entries with mismatched fingerprint (token rotation) (1.4501ms)
+✖ tests\unit\settings\authz-bypass.test.ts (0.558ms)
+✖ tests\unit\settings\probe-8950-set-password.test.ts (0.5561ms)
+✔ usage analytics keeps Recharts behind the lazy loader boundary (7.9635ms)
+✔ usage analytics bars use the defined primary color token (1.5726ms)
+▶ normalizeBasePath
+  ✔ normalizes leading/trailing slashes (0.9171ms)
+✔ normalizeBasePath (1.1728ms)
+▶ getDeployBasePath
+  ✔ reads NEXT_PUBLIC_OMNIROUTE_BASE_PATH first (0.8432ms)
+  ✔ falls back to OMNIROUTE_BASE_PATH (0.5638ms)
+✔ getDeployBasePath (1.707ms)
+▶ withBasePath
+  ✔ is a no-op when basePath is empty (0.9701ms)
+  ✔ prefixes absolute app paths (0.4084ms)
+  ✔ does not double-prefix (0.3223ms)
+  ✔ rewrites same-origin absolute URLs (0.346ms)
+  ✔ leaves external absolute URLs alone (0.4142ms)
+  ✔ leaves protocol-relative URLs alone (0.3163ms)
+✔ withBasePath (3.3041ms)
+▶ installBasePathFetch
+  ✔ is a no-op when basePath is empty (1.8479ms)
+  ✔ prefixes absolute paths on fetch when basePath is set (1.1808ms)
+  ✔ does not double-prefix already-prefixed paths (0.7537ms)
+  ✔ restores native fetch after last uninstall (1.1515ms)
+✔ installBasePathFetch (5.3777ms)
+▶ comboRuntimeConfigSchema.modelSort
+  ✔ accepts a valid modelSort method (11.543ms)
+  ✔ rejects an invalid method (1.2985ms)
+  ✔ allows extra keys on the modelSort sub-object (passthrough) (1.8205ms)
+  ✔ is optional (0.9555ms)
+✔ comboRuntimeConfigSchema.modelSort (16.2102ms)
+▶ modelSort persistence
+  ✔ round-trips through updateComboSchema (models + config) (5.6296ms)
+  ✔ passes through comboRuntimeConfigSchema (0.5394ms)
+✔ modelSort persistence (6.7482ms)
+✔ an unset section defaults to the default expand level (1.0201ms)
+✔ collapseAll sets only the given section's level to 0 (1.6819ms)
+✔ expandAll sets only the given section's level to the max depth (0.7258ms)
+✔ collapseOneLevel decrements from the default and clamps at 0, independently per section (0.6827ms)
+✔ expandOneLevel increments and clamps at the max, independently per section (0.7059ms)
+✔ getRawMachineId returns a non-empty string (58.9893ms)
+✔ getRawMachineId caches result after first call (38.1775ms)
+✔ getRawMachineId with mocked os.hostname(): caches, does not re-call (6.6177ms)
+✔ resetMachineIdCache clears cached value (5.059ms)
+✔ os.hostname() (Strategy 4) is tried before execSync hostname (Strategy 5) (7.9678ms)
+✔ Strategy 5 (execSync hostname) is used when os.hostname() fails (142.2125ms)
+✔ getConsistentMachineId returns a 16-character hex string (40.2831ms)
+✔ getConsistentMachineId is deterministic for same salt (39.0771ms)
+✔ getConsistentMachineId produces different IDs for different salts (43.4721ms)
+✔ getConsistentMachineId uses env var MACHINE_ID_SALT when no salt given (36.4887ms)
+✔ extracts a git-log-style short id from a real UUID-shaped call id (0.7961ms)
+✔ extracts the first uuid segment from a composite/doubled-prefix id (0.5861ms)
+✔ falls back to a leading hex run when there is no full uuid (0.3813ms)
+✔ falls back to a plain slice when the id has no recognizable hex/uuid segment (0.3657ms)
+✔ respects a custom length (0.3404ms)
+✔ returns an empty string for missing input (0.3424ms)
+✔ isStreamWritable rejects a destroyed stream (0.3167ms)
+✔ isStreamWritable rejects an ended stream (0.5637ms)
+✔ isStreamWritable accepts a healthy stream (0.4983ms)
+✖ error() with a destroyed stderr does not crash, and still writes to the log file (#8181) (438.636ms)
+✔ the #1006 dedup/rate-limit policy is unchanged (0.9184ms)
+✖ tests\unit\usage\usageHistoryDedup.test.ts (0.6629ms)
+ℹ tests 468
+ℹ suites 18
+ℹ pass 396
+ℹ fail 70
+ℹ cancelled 0
+ℹ skipped 2
+ℹ todo 0
+ℹ duration_ms 27417.8011
+
+✖ failing tests:
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:950
+✖ #2257 — invalid bearer + REQUIRE_API_KEY=true → 401 (83.5403ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:1319
+✖ #2257 — invalid bearer + REQUIRE_API_KEY=false → anonymous (with warning log) (17.3787ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:1965
+✖ #2257 — invalid x-api-key + REQUIRE_API_KEY=false → anonymous (with warning log) (19.743ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:2605
+✖ #2257 — fallback warning masks the x-api-key (only last-4 in log) (21.9961ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:3271
+✖ #2257 — fallback warning masks the bearer (only last-4 in log) (20.1562ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:3943
+✖ #2257 — no bearer + REQUIRE_API_KEY=false → anonymous (unchanged, no fallback warning) (20.2199ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:4479
+✖ #3504 — empty 'Bearer ' Authorization falls through to the URL path token (20.0493ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:5014
+✖ #3504 — a non-Bearer scheme (Basic) also falls through to the URL token (17.9712ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:5422
+✖ #3504 — non-Bearer Authorization with NO URL token still rejects as unauthenticated (24.0599ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\client-api-policy.test.ts:1:1
+✖ tests\unit\authz\client-api-policy.test.ts (0.543ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\credential-export-always-protected.test.ts:1:1
+✖ tests\unit\authz\credential-export-always-protected.test.ts (0.4958ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\discovery-routes-local-only.test.ts:1:1
+✖ tests\unit\authz\discovery-routes-local-only.test.ts (0.3416ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\ip-filter-enforcement-6131.test.ts:1:1
+✖ tests\unit\authz\ip-filter-enforcement-6131.test.ts (0.4938ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\management-policy.test.ts:1:1
+✖ tests\unit\authz\management-policy.test.ts (0.3437ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\oauth-autoimport-local-only.test.ts:1:1
+✖ tests\unit\authz\oauth-autoimport-local-only.test.ts (0.4647ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\pipeline.test.ts:1:1
+✖ tests\unit\authz\pipeline.test.ts (0.571ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\probe-9033-repro.test.ts:1:1
+✖ tests\unit\authz\probe-9033-repro.test.ts (0.5808ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\proxy-matcher-case.test.ts:1:1
+✖ tests\unit\authz\proxy-matcher-case.test.ts (0.2875ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\public-origin.test.ts:1:1
+✖ tests\unit\authz\public-origin.test.ts (0.2355ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\public-policy.test.ts:1:1
+✖ tests\unit\authz\public-policy.test.ts (0.2666ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\route-guard-local-prefix.test.ts:1:1
+✖ tests\unit\authz\route-guard-local-prefix.test.ts (0.8187ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\route-guard-skills-collect.test.ts:1:1
+✖ tests\unit\authz\route-guard-skills-collect.test.ts (0.5479ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\route-guard-tunnel-processes-local-only.test.ts:1:1
+✖ tests\unit\authz\route-guard-tunnel-processes-local-only.test.ts (0.6739ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\route-guard-version-get-exemption.test.ts:1:1
+✖ tests\unit\authz\route-guard-version-get-exemption.test.ts (3.08ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\route-guard-vnc-session-local-only.test.ts:1:1
+✖ tests\unit\authz\route-guard-vnc-session-local-only.test.ts (0.7606ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\authz\routeGuard.test.ts:1:1
+✖ tests\unit\authz\routeGuard.test.ts (0.6256ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\audioBridge.test.ts:1:1
+✖ tests\unit\guardrails\audioBridge.test.ts (0.4442ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\audioBridgeHelpers.test.ts:1:1
+✖ tests\unit\guardrails\audioBridgeHelpers.test.ts (0.4318ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\combo-vision-provider-id-12112.test.ts:1:1
+✖ tests\unit\guardrails\combo-vision-provider-id-12112.test.ts (0.451ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\injection-route-coverage.test.ts:1:1
+✖ tests\unit\guardrails\injection-route-coverage.test.ts (0.3216ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridge.test.ts:1:1
+✖ tests\unit\guardrails\videoBridge.test.ts (0.4853ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeAudioOrchestration.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeAudioOrchestration.test.ts (0.3708ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeContactSheet.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeContactSheet.test.ts (0.2691ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeDedup.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeDedup.test.ts (0.7115ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeFocusWindow.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeFocusWindow.test.ts (0.3137ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeFocusedMode.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeFocusedMode.test.ts (0.2166ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeHelpers.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeHelpers.test.ts (0.4796ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgePipeline.characterization.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgePipeline.characterization.test.ts (0.3927ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeResultCache.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeResultCache.test.ts (0.4213ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeSnapshotRedaction.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeSnapshotRedaction.test.ts (0.3104ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeSubtitleProbe.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeSubtitleProbe.test.ts (0.2472ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeTranscriptBudgets.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeTranscriptBudgets.test.ts (0.3067ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeTranscriptCacheIdentity.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeTranscriptCacheIdentity.test.ts (0.2569ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\videoBridgeTranscriptProvenance.test.ts:1:1
+✖ tests\unit\guardrails\videoBridgeTranscriptProvenance.test.ts (0.3128ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\vision-bridge-auto-reroute.test.ts:1:1
+✖ tests\unit\guardrails\vision-bridge-auto-reroute.test.ts (0.4692ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\vision-bridge-cache-key.test.ts:1:1
+✖ tests\unit\guardrails\vision-bridge-cache-key.test.ts (0.5106ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\vision-bridge-callmodel.test.ts:1:1
+✖ tests\unit\guardrails\vision-bridge-callmodel.test.ts (0.4244ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\vision-bridge-claude-wire.test.ts:1:1
+✖ tests\unit\guardrails\vision-bridge-claude-wire.test.ts (0.4067ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\vision-bridge-credentials-alias-mismatch-10702.test.ts:1:1
+✖ tests\unit\guardrails\vision-bridge-credentials-alias-mismatch-10702.test.ts (2.8913ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\vision-bridge-selfloop-key.test.ts:1:1
+✖ tests\unit\guardrails\vision-bridge-selfloop-key.test.ts (0.5458ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\vision-bridge-sse-and-reasoning.test.ts:1:1
+✖ tests\unit\guardrails\vision-bridge-sse-and-reasoning.test.ts (0.4696ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridge-combo-reroute.test.ts:1:1
+✖ tests\unit\guardrails\visionBridge-combo-reroute.test.ts (0.4589ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridge-responses-9597.test.ts:1:1
+✖ tests\unit\guardrails\visionBridge-responses-9597.test.ts (0.4442ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridge.test.ts:1:1
+✖ tests\unit\guardrails\visionBridge.test.ts (0.3943ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridgeCredentials.test.ts:1:1
+✖ tests\unit\guardrails\visionBridgeCredentials.test.ts (0.394ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridgeHelpers.callVisionModel.test.ts:1:1
+✖ tests\unit\guardrails\visionBridgeHelpers.callVisionModel.test.ts (0.2406ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridgeHelpers.extractImageParts.test.ts:1:1
+✖ tests\unit\guardrails\visionBridgeHelpers.extractImageParts.test.ts (0.2189ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridgeHelpers.replaceImageParts.test.ts:1:1
+✖ tests\unit\guardrails\visionBridgeHelpers.replaceImageParts.test.ts (0.2156ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridgeHelpers.resolveImageAsDataUri.test.ts:1:1
+✖ tests\unit\guardrails\visionBridgeHelpers.resolveImageAsDataUri.test.ts (0.2123ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\guardrails\visionBridgeRouter.test.ts:1:1
+✖ tests\unit\guardrails\visionBridgeRouter.test.ts (0.202ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\mcp\serverSmartFilter.test.ts:1:1
+✖ tests\unit\mcp\serverSmartFilter.test.ts (0.6218ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\mcp\tool-cardinality.test.ts:1:1
+✖ tests\unit\mcp\tool-cardinality.test.ts (0.5043ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\security\cloud-sync-hmac.test.ts:1:100
+✖ verifyCloudSignature accepts a valid HMAC (57.4406ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\security\cloud-sync-hmac.test.ts:1:793
+✖ verifyCloudSignature rejects a forged signature (3.5571ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\security\cloud-sync-hmac.test.ts:1:1284
+✖ verifyCloudSignature rejects when the secret is set but sig header is missing (3.0099ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\security\cloud-sync-hmac.test.ts:1:1775
+✖ verifyCloudSignature falls through (legacy mode) when secret is unset (1.6807ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\settings\authz-bypass.test.ts:1:1
+✖ tests\unit\settings\authz-bypass.test.ts (0.558ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\settings\probe-8950-set-password.test.ts:1:1
+✖ tests\unit\settings\probe-8950-set-password.test.ts (0.5561ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+
+test at tests\unit\shared\structuredLogger-raw-write-guard.test.ts:1:979
+✖ error() with a destroyed stderr does not crash, and still writes to the log file (#8181) (438.636ms)
+  AssertionError [ERR_ASSERTION]: logging to a destroyed stderr must not crash the process; got exit 1
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\shared\structuredLogger-raw-write-guard.test.ts:70:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\unit\usage\usageHistoryDedup.test.ts:1:1
+✖ tests\unit\usage\usageHistoryDedup.test.ts (0.6629ms)
+  TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, file URL string, or absolute path string. Received 'tests/unit/translator/**/*.test.ts'
+      at Module.createRequire (node:internal/modules/cjs/loader:2063:13)
+      at <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\src\lib\db\adapters\runtimeRequire.ts:13:31)
+      at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+      at async node:internal/modules/esm/loader:633:26
+      at async <anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy.test.ts:12:19) {
+    code: 'ERR_INVALID_ARG_VALUE'
+  }
+== SUBSET2 EXIT=1 23:20:48Z ==
+-- ok=338 notok=141

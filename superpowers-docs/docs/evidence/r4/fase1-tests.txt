@@ -1,0 +1,63 @@
+✔ outbox: enqueue e idempotente por event.id (3.0835ms)
+✔ outbox: pending ordenado por sequence, markPublished/failed/requeue (2.4101ms)
+✔ inbox: dedup por event.id (processa no maximo uma vez) (0.6175ms)
+✔ adapter desabilitado: nao publica, enabled=false (0.5671ms)
+✔ resolveBuzzAdapter: flag OFF -> inerte (0.4981ms)
+✔ seguranca: chave Nostr sozinha NUNCA autoriza (0.3971ms)
+✔ seguranca: mapeamento de identidade exige pubkey + tenant/workspace (0.4087ms)
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-test-9IVQ7x\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-9IVQ7x, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-9IVQ7x\storage.sqlite)
+✔ buzz repo: enqueue idempotente + pending + markPublished (992.2695ms)
+✔ buzz repo: receiveInbox deduplica (processa no maximo uma vez) (2.2378ms)
+✔ nostr: gera chave, deriva pubkey (32 bytes hex) (127.4676ms)
+✔ nostr: finalizeEvent produz id+sig validos e verifyEvent aprova (37.2734ms)
+✔ nostr: evento adulterado falha na verificacao (fail-closed) (28.341ms)
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-test-9AJn75\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-9AJn75, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-9AJn75\storage.sqlite)
+✔ buzzService: chave do agente e gerada e PERSISTIDA (estavel entre chamadas) (901.153ms)
+✔ buzzService: getBuzzConfig usa default localhost:3000 (2.4905ms)
+✔ buzzService: flushBuzzOutbox e SKIPPED quando a flag BUZZ_HUB_ENABLED esta OFF (1.6977ms)
+✔ buzzService: getBuzzStatus reporta flag OFF, pubkey 64-hex e contagens do painel (86.4895ms)
+✔ buzzService: setBuzzRelayUrl (painel) tem precedencia; vazio volta ao default (1.621ms)
+✔ budget: dentro e estourado (5.9843ms)
+✔ policyGate: none permite, destrutivo nega, report-only exige aprovacao (0.6291ms)
+✔ policyGate: kind sensivel so auto-executa se o operador liberou (e nunca destrutivo) (0.4824ms)
+✔ stateMachine: report-only para efeito -> awaiting_approval (2.2219ms)
+✔ stateMachine: budget estourado -> aborted (0.5267ms)
+✔ stateMachine: verifier reprova sem tentativas -> escalated (handoff humano) (0.6505ms)
+✔ stateMachine: todos verificados na fase verify -> done (0.916ms)
+✔ createLoopRun: comeca report-only, discover, sequence 0 (0.5355ms)
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-test-SQ5ylZ\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-SQ5ylZ, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-SQ5ylZ\storage.sqlite)
+✔ loopEngine repo: round-trip persistente cria/salva/carrega (1044.4898ms)
+✔ loopEngine repo: avanca e persiste o novo estado (3.8347ms)
+✔ loopEngine repo: listLoopRuns encontra o run por status (3.5143ms)
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-test-8LGKxZ\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-8LGKxZ, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-test-8LGKxZ\storage.sqlite)
+✔ loopRunner: start -> advance persiste e progride (discover->plan) (988.5731ms)
+✔ loopRunner: efeito proposto para em awaiting_approval; approveStep libera (10.8176ms)
+✔ loopRunner: efeito destrutivo e NEGADO (deny) -> run failed (6.832ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2707.0959

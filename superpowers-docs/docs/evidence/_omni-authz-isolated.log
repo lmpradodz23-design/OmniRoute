@@ -1,0 +1,1307 @@
+== authz ISOLAMENTO CANONICO (SEM --test-isolation=none), concorrencia 4 23:39:06Z ==
+✔ classifyRoute: root / (5.2201ms)
+✔ classifyRoute: dashboard root (0.5956ms)
+✔ classifyRoute: dashboard nested (0.403ms)
+✔ classifyRoute: dashboard onboarding (0.4265ms)
+✔ classifyRoute: /api/v1 base (1.1448ms)
+✔ classifyRoute: /api/v1/chat/completions (0.4382ms)
+✔ classifyRoute: /api/v1/responses (0.3876ms)
+✔ classifyRoute: /api/v1/models (0.5197ms)
+✔ classifyRoute: /api/v1/embeddings (1.4871ms)
+✔ classifyRoute: /api/v1/files (0.6819ms)
+✔ classifyRoute: /api/v1/batches (0.3584ms)
+✔ classifyRoute: /api/v1/ws (0.2418ms)
+✔ classifyRoute: /api/mcp/* stays management (0.7686ms)
+✔ classifyRoute: /v1 alias (0.2114ms)
+✔ classifyRoute: /v1/chat/completions alias (0.1808ms)
+✔ classifyRoute: /v1beta alias (0.1879ms)
+✔ classifyRoute: /v1beta generateContent alias (0.1773ms)
+✔ classifyRoute: /api/v1beta generateContent (0.1749ms)
+✔ classifyRoute: /v1/v1 double-prefix (0.1749ms)
+✔ classifyRoute: /v1/v1/embeddings double-prefix (0.1659ms)
+✔ classifyRoute: /chat/completions alias (0.1686ms)
+✔ classifyRoute: /responses alias (0.1623ms)
+✔ classifyRoute: /responses/abc alias (0.1592ms)
+✔ classifyRoute: /codex/* alias collapses to /api/v1/responses (0.1439ms)
+✔ classifyRoute: /models alias (0.2174ms)
+✔ classifyRoute: /api/auth/login is PUBLIC (0.3278ms)
+✔ classifyRoute: /api/auth/logout is PUBLIC (0.2102ms)
+✔ classifyRoute: /api/auth/status is PUBLIC (0.176ms)
+✔ classifyRoute: /api/init is PUBLIC (0.1641ms)
+✔ classifyRoute: /api/monitoring/health is PUBLIC (0.2466ms)
+✔ classifyRoute: /api/health/ping is PUBLIC (0.4433ms)
+✔ classifyRoute: /api/cloud/auth POST is PUBLIC (0.2318ms)
+✔ classifyRoute: /api/cloud/model/resolve POST is PUBLIC (0.1967ms)
+✔ classifyRoute: /api/cloud/models/alias GET is PUBLIC (0.2774ms)
+✔ classifyRoute: /api/cloud/credentials/update PUT is MANAGEMENT (0.2676ms)
+✔ classifyRoute: /api/cloud/models/alias PUT is MANAGEMENT (0.7734ms)
+✔ classifyRoute: /api/cloud/unknown GET is MANAGEMENT (0.485ms)
+✔ classifyRoute: /api/oauth/* is PUBLIC (0.2595ms)
+✔ classifyRoute: /api/sync/bundle is PUBLIC (0.4367ms)
+✔ classifyRoute: /api/settings/require-login GET is PUBLIC readonly (0.2631ms)
+✔ classifyRoute: /api/settings/require-login POST is MANAGEMENT (0.217ms)
+✔ classifyRoute: /api/providers/* MUST stay MANAGEMENT (0.185ms)
+✔ classifyRoute: /api/keys MANAGEMENT (0.175ms)
+✔ classifyRoute: /api/db/health MANAGEMENT (0.2784ms)
+✔ classifyRoute: /api/settings MANAGEMENT (0.316ms)
+✔ classifyRoute: /api/audit MANAGEMENT (0.2159ms)
+✔ classifyRoute: /api/usage/om-usage is PUBLIC (handler enforces its own API key auth) (0.1826ms)
+✔ classifyRoute: Unknown top-level path defaults MANAGEMENT (fail-closed) (0.1639ms)
+✔ classifyRoute returns deterministic result for trailing slash (0.3917ms)
+✔ classifyRoute strips trailing slash on root only when not '/' (0.2666ms)
+✔ classifyRoute treats /api/v1 prefix exactly (0.46ms)
+✔ classify module public surface only exposes route classification (0.3421ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-fallback-razhLF\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-fallback-razhLF\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-fallback-razhLF, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-fallback-razhLF\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+✔ #2257 — invalid bearer + REQUIRE_API_KEY=true → 401 (18864.3221ms)
+✔ #2257 — invalid bearer + REQUIRE_API_KEY=false → anonymous (with warning log) (69.5767ms)
+✔ #2257 — invalid x-api-key + REQUIRE_API_KEY=false → anonymous (with warning log) (58.0329ms)
+✔ #2257 — fallback warning masks the x-api-key (only last-4 in log) (104.6706ms)
+✔ #2257 — fallback warning masks the bearer (only last-4 in log) (173.5739ms)
+✔ #2257 — no bearer + REQUIRE_API_KEY=false → anonymous (unchanged, no fallback warning) (46.902ms)
+✔ #3504 — empty 'Bearer ' Authorization falls through to the URL path token (41.5152ms)
+✔ #3504 — a non-Bearer scheme (Basic) also falls through to the URL token (31.6595ms)
+✔ #3504 — non-Bearer Authorization with NO URL token still rejects as unauthenticated (57.7894ms)
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy-fallback.test.ts (14.9102ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+✔ clientApiPolicy: missing bearer is rejected with 401 (12016.1535ms)
+✔ clientApiPolicy: websocket descriptor handshake can reach the route handler (245.3065ms)
+✔ clientApiPolicy: websocket descriptor handshake accepts relative request URLs (161.1063ms)
+✔ clientApiPolicy: REQUIRE_API_KEY DB feature flag override rejects anonymous (3010.0243ms)
+✔ clientApiPolicy: REQUIRE_API_KEY DB feature flag override can disable env requirement (3037.1761ms)
+✔ clientApiPolicy: dashboard session can read the model catalog without bearer (244.5767ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-es3AJ0\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+✔ clientApiPolicy: dashboard session is accepted for client API routes without bearer (105.441ms)
+✔ clientApiPolicy: invalid bearer is rejected with 401 (1909.1497ms)
+✔ clientApiPolicy: valid bearer is accepted as client_api_key subject (2253.8257ms)
+✔ clientApiPolicy: revoked bearer is rejected (2364.2297ms)
+✔ clientApiPolicy: environment API key remains accepted for client API routes (69.8631ms)
+✔ clientApiPolicy: x-api-key header is accepted as client_api_key subject (2379.3521ms)
+✔ clientApiPolicy: x-goog-api-key header is accepted as client_api_key subject (#7034) (1416.5158ms)
+✔ clientApiPolicy: Authorization Bearer wins over x-goog-api-key when both present (#7034) (1450.4861ms)
+✔ clientApiPolicy: existing x-api-key still wins over x-goog-api-key when both present (#7034) (2127.5194ms)
+✔ clientApiPolicy: invalid x-goog-api-key is rejected with 401 AUTH_002 (#7034) (2530.2803ms)
+✔ clientApiPolicy: ROUTER_API_KEY remains accepted for client API routes (77.2251ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ every credential/traffic export and CLI-config write is hard-gated (3.7873ms)
+✔ the trailing-slash spelling is gated too (0.55ms)
+✔ the new patterns do not over-protect their neighbours (0.736ms)
+✔ a connection id cannot escape the pattern with a slash (0.3793ms)
+✔ the plain-path allowlist keeps its existing entries (0.4731ms)
+▶ dashboard CSRF tokens
+  ✔ accepts a valid token for dashboard management mutation paths (24.0674ms)
+  ✔ binds tokens to the dashboard auth cookie (1.5838ms)
+  ✔ rejects expired and tampered tokens (3.1589ms)
+✔ dashboard CSRF tokens (32.904ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+▶ discovery routes are strict local-only
+  ✔ isLocalOnlyPath("/api/discovery/results") === true (2.9775ms)
+  ✔ "/api/discovery/results" is NOT bypassable by manage-scope (strict loopback) (2.1142ms)
+  ✔ isLocalOnlyPath("/api/discovery/results/42") === true (0.523ms)
+  ✔ "/api/discovery/results/42" is NOT bypassable by manage-scope (strict loopback) (0.7978ms)
+  ✔ isLocalOnlyPath("/api/discovery/scan") === true (0.313ms)
+  ✔ "/api/discovery/scan" is NOT bypassable by manage-scope (strict loopback) (0.3359ms)
+  ✔ isLocalOnlyPath("/api/discovery/verify/42") === true (0.3732ms)
+  ✔ "/api/discovery/verify/42" is NOT bypassable by manage-scope (strict loopback) (0.6672ms)
+✔ discovery routes are strict local-only (15.9306ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omniroute-ipenforce-6131-h6b3e1\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+✔ #6131 blacklisted remote IP is blocked with 403 before the route policy (2259.084ms)
+✔ #6131 a clean remote IP passes the IP filter (reaches the normal auth outcome) (1267.7504ms)
+✔ #6131 disabled filter never blocks (even a listed IP) (1261.9201ms)
+✔ #6131 loopback is exempt — operator can't lock themselves out locally (1028.2877ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] Added api_keys.blocked_models column
+[DB] Added api_keys.allowed_connections column
+[DB] Added api_keys.auto_resolve column
+[DB] Added api_keys.is_active column
+[DB] Added api_keys.access_schedule column
+[DB] Added api_keys.max_requests_per_day column
+[DB] Added api_keys.max_requests_per_minute column
+[DB] Added api_keys.max_sessions column
+[DB] Added api_keys.rate_limits column
+[DB] Added api_keys.is_banned column
+[DB] Added api_keys.key_hash column
+[DB] Added api_keys.proxy_id column
+[DB] Added api_keys.allowed_endpoints column
+[DB] Added api_keys.allow_usage_command column
+[DB] Added api_keys.chaos_mode_enabled column
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+✔ managementPolicy: allows when auth not required (no password set) (9611.1285ms)
+✔ managementPolicy: rejects remote fresh bootstrap without a password (2196.8531ms)
+✔ managementPolicy: rejects 401 when auth required and no credentials (1551.6693ms)
+✔ managementPolicy: allows a valid internal service token only from loopback (1338.6961ms)
+✔ managementPolicy: rejects client API keys for dashboard access (1230.3993ms)
+✔ managementPolicy: allows API keys with manage scope (3328.4929ms)
+✔ managementPolicy: rejects valid API keys that lack manage scope (3006.9269ms)
+✔ managementPolicy: rejects invalid API keys with 403 when bearer is present (5394.0581ms)
+✔ LOCAL_ONLY manage-scope bypass: no Bearer + non-loopback → 403 (regression guard) (12900.7029ms)
+✔ LOCAL_ONLY manage-scope bypass: non-manage key + non-loopback → 403 (10171.1642ms)
+✔ LOCAL_ONLY manage-scope bypass: manage-scope key + non-loopback → allow (9877.6125ms)
+✔ LOCAL_ONLY manage-scope bypass: carve-out does not extend to /api/cli-tools/runtime/* (8754.8279ms)
+✔ LOCAL_ONLY manage-scope bypass: loopback + no Bearer → allow (local CLI flow preserved) (8283.7984ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+✔ LOCAL_ONLY dashboard-session bypass: authenticated dashboard cookie + non-loopback → allow (10267.0411ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8\storage.sqlite)
+✔ LOCAL_ONLY dashboard-session bypass: authenticated dashboard cookie + /api/cli-tools/runtime/ → 403 LOCAL_ONLY (11168.61ms)
+✔ managementPolicy: allows internal model sync only on the dedicated provider routes (10933.6289ms)
+✔ managementPolicy: allows loopback inspector ingest without a dashboard session (D4) (8184.0166ms)
+✔ managementPolicy: rejects remote inspector ingest as LOCAL_ONLY (D4) (8942.2468ms)
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\management-policy.test.ts (7.4029ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ OAuth auto-import routes are excluded from PUBLIC classification (3.5715ms)
+✔ OAuth auto-import routes are LOCAL_ONLY (loopback-gated) (0.9938ms)
+✔ the rest of /api/oauth/ (callbacks, browser flows) stays PUBLIC (1.1166ms)
+✔ stamps peer IP and via-proxy=0 for direct connection (no forwarding headers) (5.4569ms)
+✔ stamps via-proxy=1 when x-forwarded-for is present (0.9415ms)
+✔ stamps via-proxy=1 when x-real-ip is present (0.6784ms)
+✔ Cloudflare: via-proxy=1 when cf-connecting-ip is present AND peer is a CF edge IP (3.5669ms)
+✔ Cloudflare bypass guard: direct forger sending cf-connecting-ip keeps via-proxy=0 (2.061ms)
+✔ x-forwarded-for still wins via-proxy=1 even when cf-connecting-ip is forged (1.1553ms)
+✔ F-05: non-Cloudflare proxy (x-forwarded-for only, no cf-connecting-ip) marks via-proxy=1 (1.4557ms)
+✔ deletes any client-supplied peer/via-proxy headers before stamping (0.9887ms)
+✔ IPv6 Cloudflare peer is recognized (10.2572ms)
+✔ IPv4-mapped peer address is normalized before CF check (0.7926ms)
+✔ F2-01: /0 IPv4 CIDR matches every address (0.4747ms)
+✔ F2-04: /0 IPv6 CIDR matches every address (0.3309ms)
+✔ F2-03: full-form IPv4-mapped address is normalized (0.5785ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline redirects root to dashboard before management auth (10073.234ms)
+✔ runAuthzPipeline redirects unauthenticated dashboard pages to login (8230.1264ms)
+✔ runAuthzPipeline redirects unauthenticated /home to login (#2712) (8082.3012ms)
+✔ runAuthzPipeline redirects unauthenticated /home/* nested paths to login (#2712) (8120.0005ms)
+✔ runAuthzPipeline prefixes the root-to-dashboard redirect with basePath when set (9309.1988ms)
+✔ runAuthzPipeline prefixes the dashboard login redirect with basePath when set (9005.2957ms)
+✔ runAuthzPipeline leaves redirect targets unprefixed when basePath is empty (10531.2649ms)
+✔ runAuthzPipeline allows onboarding when login is required but no password exists (10131.5196ms)
+✔ runAuthzPipeline allows first password writes when login is required but no password exists (7935.7826ms)
+✔ runAuthzPipeline keeps management API rejections as JSON (12791.2824ms)
+✔ runAuthzPipeline rejects oversized API bodies before auth (12922.0072ms)
+✔ runAuthzPipeline rejects oversized rewritten alias API bodies before auth (12161.5288ms)
+✔ runAuthzPipeline rejects unauthenticated v1beta Gemini aliases as client API (14637.0013ms)
+✔ runAuthzPipeline rejects unauthenticated internal api v1beta routes as client API (11467.0254ms)
+✔ runAuthzPipeline rejects new API requests during shutdown drain (424.6152ms)
+✔ runAuthzPipeline rejects rewritten API aliases during shutdown drain (18.707ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline allows dashboard sessions to read model catalog aliases (15736.639ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline allows dashboard sessions to reach DB health management API (25610.7813ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline accepts dashboard mutations from configured public origin (14731.1685ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline rejects dashboard mutations from dynamic public origins without CSRF (12015.6213ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline accepts dashboard mutations from dynamic public origins with CSRF (9748.1906ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline does not let CSRF bypass cross-site fetch metadata (5762.9597ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline rejects dashboard mutations from invalid browser origin (3976.7929ms)
+✔ runAuthzPipeline answers OPTIONS /v1/models preflight with Allow-Origin (#5242) (31.1477ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline serves GET /v1/models with Allow-Origin to dashboard session (#5242) (4149.4807ms)
+✔ runAuthzPipeline keeps MANAGEMENT OPTIONS fail-closed for arbitrary origin (#5242) (30.5422ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite
+[DB] Added provider_connections.last_ping_at column
+[DB] Added provider_connections.last_pinged_reset_key column
+[DB] Added usage_history.combo_strategy column
+[DB] Added call_logs.video_content_removed column
+[DB] Added call_logs.model_pinned column
+[DB] Added call_logs.session_tag column
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite (DATA_DIR=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm, SQLITE_FILE=C:\Users\zodyp\AppData\Local\Temp\omr-authz-pipeline-Hr2MFm\storage.sqlite)
+✔ runAuthzPipeline refreshes dashboard JWTs near expiry (2716.8269ms)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+✔ runAuthzPipeline clears stale dashboard JWTs without error-stack noise (3323.2655ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+[DB] SQLite WAL checkpoint completed (TRUNCATE).
+✔ D1: blacklisted IP is blocked on a DIRECT connection (trusted peer stamp, no XFF) (1150.5761ms)
+✔ D2: persisted config written after first load is honored WITHOUT restart (517.026ms)
+✔ D3: behind reverse proxy (peer stamp=loopback + via-proxy marker + XFF=blacklisted IP) still blocks (846.5347ms)
+✔ D4: behind Cloudflare (cf-connecting-ip + via-proxy marker, no XFF) blocks the client IP (340.583ms)
+✔ Bonus: ipFilterModeSchema accepts whitelist-priority (159.679ms)
+✔ Next.js 16 proxy file exists at src/proxy.ts (not src/middleware.ts) (7.401ms)
+✔ proxy.ts exports a function named 'proxy' (Next.js 16 requires this exact name) (4.2287ms)
+✔ proxy.ts delegates to runAuthzPipeline with enforce: true (2.2216ms)
+✔ proxy.ts config.matcher covers every /api/* route plus dashboard and v1 aliases (7.8296ms)
+✔ proxy.ts does not declare runtime: 'edge' (Next.js 16 proxy is Node-only) (2.8393ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ proxy matcher still covers the canonical lowercase client aliases (83.2153ms)
+✔ proxy matcher covers uppercase / mixed-case client aliases (GHSA-jvqc-mp9f-q936) (33.6934ms)
+✔ classifyRoute treats uppercase client aliases as CLIENT_API, not management fallback (1.0315ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+▶ public origin resolution
+  ✔ uses configured public base URLs before the internal request URL (183.4269ms)
+  ✔ preserves configured source priority when it equals the request URL (31.3248ms)
+  ✔ accepts all configured public origins while resolving the highest-priority one (26.2992ms)
+  ✔ keeps the internal request URL as an accepted candidate (19.5057ms)
+  ✔ does not trust spoofed forwarded headers by default (26.9763ms)
+  ✔ fails closed for unknown proxy trust mode values (29.1481ms)
+  ✔ can trust forwarded headers from a token-stamped loopback proxy when explicitly enabled (56.2179ms)
+  ✔ does not allow trusted forwarded headers to widen a configured public origin (11.8315ms)
+  ✔ does not derive trusted forwarded origin from the raw host header (13.5193ms)
+  ✔ rejects malformed forwarded origins even when proxy trust is enabled (11.3875ms)
+  ✔ rejects cross-site fetch metadata before origin candidate matching (0.9144ms)
+✔ public origin resolution (478.0543ms)
+▶ direct LAN/loopback host origin (#5340)
+  ✔ accepts a direct LAN-IP host even when a localhost public base URL is configured (7.5025ms)
+  ✔ accepts a direct loopback-IP host with no configured public origin (1.4492ms)
+  ✔ rejects a DNS-rebinding domain host even when the peer is loopback (23.4741ms)
+  ✔ does not widen the origin for a remote peer even when the Host is a LAN IP (1.2419ms)
+  ✔ does not trust the Host header when the peer stamp is absent (6.2858ms)
+  ✔ pins the protocol to the connection — a mismatched https origin is rejected (8.5678ms)
+✔ direct LAN/loopback host origin (#5340) (50.7422ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ publicPolicy always allows with anonymous subject (7.5884ms)
+✔ publicPolicy stamps the local-CLI subject for a valid loopback machine token (1683.6293ms)
+✔ publicPolicy keeps anonymous for a non-loopback peer carrying the token (710.0266ms)
+✔ publicPolicy keeps anonymous for a wrong token from loopback (1833.1139ms)
+✔ every prefix entry is a genuine subtree (ends in a slash) (3.9686ms)
+✔ exact public routes stay public in both spellings (9.1517ms)
+✔ sibling paths shadowed by an exact route are NOT public (1.2512ms)
+✔ the reported bypass: /api/usage/om-usage<suffix> classifies MANAGEMENT (1.2138ms)
+✔ genuine subtrees stay public all the way down (0.6243ms)
+✔ read-only method gate is unchanged (0.7239ms)
+✔ CORS relaxation reason set is unchanged (1.5647ms)
+✔ LOCAL_ONLY oauth auto-import exclusions still win over the /api/oauth/ subtree (0.5402ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ isLocalOnlyPath: /api/local/ prefix is local-only (T-12, #3932) (17.5063ms)
+✔ isLocalOnlyPath: /api/local* does NOT match the bare /api/localifications path (0.9493ms)
+✔ isLocalOnlyPath: /api/oauth/cursor/auto-import is local-only (spawns child process) (0.4305ms)
+✔ isLocalOnlyPath: the rest of /api/oauth/ stays remote-reachable (no over-broadening) (0.402ms)
+✔ isLocalOnlyBypassableByManageScope: /api/local/ is NOT bypassable (defence in depth) (0.8184ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ isLocalOnlyPath: /api/skills/collect/ prefix is local-only (Hard Rules #15/#17) (2.7494ms)
+✔ isLocalOnlyPath: the rest of /api/skills/ stays remote-reachable (no over-broadening) (2.278ms)
+✔ isLocalOnlyBypassableByManageScope: /api/skills/collect/ is NOT bypassable (defence in depth) (0.7655ms)
+✔ SPAWN_CAPABLE_ROUTE_ROOTS includes src/app/api/skills/collect (route-guard-membership gate) (1.1436ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ tunnel process routes are local-only and non-bypassable (15.2383ms)
+✔ cloudflared status remains remotely available for authenticated callers (0.4677ms)
+✔ Tailscale read-only status routes are not broadened into local-only (0.9101ms)
+✔ unrelated tunnel paths remain outside the spawn-capable classification (1.3845ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+▶ isLocalOnlyPath — GET exemption for /api/system/version (#5083)
+  ✔ GET /api/system/version is NOT local-only (no child process spawn) (107.6366ms)
+  ✔ HEAD /api/system/version is NOT local-only (read-only method) (70.3981ms)
+  ✔ OPTIONS /api/system/version is NOT local-only (CORS preflight) (0.5405ms)
+  ✔ POST /api/system/version STAYS local-only (spawns git/npm/pm2) (30.9162ms)
+  ✔ PUT /api/system/version stays local-only (54.6997ms)
+  ✔ PATCH /api/system/version stays local-only (0.5318ms)
+  ✔ DELETE /api/system/version stays local-only (1.2644ms)
+  ✔ isLocalOnlyPath('/api/system/version') with NO method arg returns true (safe default) (0.5052ms)
+  ✔ GET /api/system/version/extra is NOT exempted (prefix would be too broad) (46.8969ms)
+  ✔ GET /api/mcp/ still local-only — exemption is NOT applied to /api/mcp/ (0.7023ms)
+  ✔ GET /api/services/9router/start still local-only (0.6548ms)
+  ✔ GET /api/cli-tools/runtime/claude still local-only (0.8554ms)
+  ✔ GET /api/db-backups/exportAll still local-only (spawns tar) (39.1521ms)
+  ✔ LOCAL_ONLY_API_GET_EXEMPTIONS contains /api/system/version (0.603ms)
+  ✔ LOCAL_ONLY_API_GET_EXEMPTIONS holds exactly the reviewed paths (83.2925ms)
+✔ isLocalOnlyPath — GET exemption for /api/system/version (#5083) (609.5166ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ isLocalOnlyPath: /api/vnc-session is local-only (#7892 — spawns Docker containers) (2.6101ms)
+✔ isLocalOnlyBypassableByManageScope: /api/vnc-session is NOT bypassable (defence in depth) (3.2211ms)
+[DB] Driver: better-sqlite3 | file: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite (DATA_DIR=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data, SQLITE_FILE=C:\Users\zodyp\Downloads\OmniRoute-Unified\tmp\omni-data\storage.sqlite)
+✔ isLocalOnlyPath: /api/mcp/ prefix is local-only (11.7115ms)
+✔ isLocalOnlyPath: /api/cli-tools/runtime/ is local-only (0.4984ms)
+✔ isLocalOnlyPath: MITM management routes are local-only (GHSA-x7vm-hp44-9p79) (26.7987ms)
+✔ isLocalOnlyBypassableByManageScope: MITM routes are NOT bypassable (GHSA-x7vm-hp44-9p79) (1.4511ms)
+✔ isLocalOnlyPath: regular management routes are not local-only (0.5597ms)
+✔ isLocalOnlyPath: spawn-capable system/db-backups routes are local-only (6A.8 P1) (0.4683ms)
+✔ isLocalOnlyBypassableByManageScope: /api/mcp/ prefix is bypassable (0.3813ms)
+✔ isLocalOnlyBypassableByManageScope: /api/cli-tools/runtime/* is NOT bypassable (0.4362ms)
+✔ isLocalOnlyBypassableByManageScope: non-local-only routes are not bypassable (0.4587ms)
+✔ SPAWN_CAPABLE_PATTERNS covers every regex-tier LOCAL_ONLY spawn route (GHSA-9q3h-mjm5-f4gj) (0.8931ms)
+✔ isAlwaysProtectedPath: /api/shutdown is always protected (0.5969ms)
+✔ isAlwaysProtectedPath: /api/settings/database is always protected (0.3987ms)
+✔ isAlwaysProtectedPath: /api/db-backups is always protected (GHSA-mghq-58h3-qcqj) (40.6769ms)
+✔ isAlwaysProtectedPath: legacy settings export/import-json are always protected (GHSA-v7g9-7f55-5g46) (0.7181ms)
+✔ isAlwaysProtectedPath: ordinary settings routes are not always protected (0.5039ms)
+✔ isLoopbackHost: recognises localhost, 127.0.0.1, ::1 (0.5874ms)
+✔ isLoopbackHost: rejects non-loopback hosts (0.2737ms)
+✔ management policy rejects /api/mcp/ from non-localhost (status 403) (7.1665ms)
+✔ management policy rejects /api/mcp/ when forwarded peer is remote (664.9451ms)
+✔ management policy rejects /api/mcp/ when host is spoofed from a remote socket (576.662ms)
+✔ management policy rejects /api/mcp/ when loopback x-forwarded-for is untrusted (607.9646ms)
+✔ management policy rejects /api/mcp/ when loopback x-real-ip is untrusted (507.5563ms)
+✔ management policy allows /api/mcp/ from localhost with valid CLI token (2271.6934ms)
+✔ isLocalOnlyPath: /api/services/ prefix is local-only (0.2652ms)
+✔ isLocalOnlyBypassableByManageScope: /api/services/* is NOT bypassable (spawn-capable) (0.2283ms)
+✔ isLocalOnlyPath: /api/services/mux/* is local-only (Hard Rule #17) (0.3225ms)
+✔ isLocalOnlyBypassableByManageScope: /api/services/mux/* is NOT bypassable (spawn-capable) (0.369ms)
+✔ management policy rejects /api/services/ from non-localhost (status 403) (0.8021ms)
+✔ management policy allows /api/services/ from localhost with valid CLI token (1663.5807ms)
+✔ isLocalOnlyPath: /dashboard/providers/services/ prefix is local-only (0.3543ms)
+✔ isLocalOnlyBypassableByManageScope: /dashboard/providers/services/ is NOT bypassable (0.3984ms)
+✔ management policy rejects /dashboard/providers/services/* from non-localhost (status 403) (0.6697ms)
+✔ isLocalOnlyPath: /api/copilot/ prefix is local-only (0.2163ms)
+✔ isLocalOnlyBypassableByManageScope: /api/copilot/ is bypassable when admin opts in (0.1973ms)
+✔ management policy rejects /api/copilot/chat from non-localhost without auth (status 403) (0.4426ms)
+✔ management policy allows /api/copilot/chat from localhost with valid CLI token (1412.0913ms)
+✔ validation schemas must not VALUE-import from server-side roots (client/CLI build safety) (365.4661ms)
+✔ SPAWN_CAPABLE_PREFIXES is defined in the server-free constants leaf with the expected entries (2.024ms)
+ℹ tests 272
+ℹ suites 5
+ℹ pass 270
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 309460.8867
+
+✖ failing tests:
+
+test at tests\unit\authz\client-api-policy-fallback.test.ts:2:70
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy-fallback.test.ts (14.9102ms)
+  Error: EPERM, Permission denied: \\?\C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-fallback-razhLF '\\?\C:\Users\zodyp\AppData\Local\Temp\omr-clientapi-policy-fallback-razhLF'
+      at Object.rmSync (node:fs:1222:18)
+      at TestContext.<anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy-fallback.test.ts:68:6)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1306:25)
+      at TestHook.run (node:internal/test_runner/test:1651:18)
+      at TestHook.run (node:internal/util:602:20)
+      at Test.runHook (node:internal/test_runner/test:1198:20)
+      at after (node:internal/test_runner/test:1251:20)
+      at Test.run (node:internal/test_runner/test:1332:13) {
+    errno: 1,
+    code: 'EPERM',
+    path: '\\\\?\\C:\\Users\\zodyp\\AppData\\Local\\Temp\\omr-clientapi-policy-fallback-razhLF',
+    syscall: 'rm'
+  }
+
+test at tests\unit\authz\management-policy.test.ts:1:1714
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\management-policy.test.ts (7.4029ms)
+  Error: EPERM, Permission denied: \\?\C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8 '\\?\C:\Users\zodyp\AppData\Local\Temp\omr-mgmt-policy-MPP5o8'
+      at Object.rmSync (node:fs:1222:18)
+      at TestContext.<anonymous> (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\management-policy.test.ts:38:6)
+      at TestHook.runInAsyncScope (node:async_hooks:227:14)
+      at TestHook.run (node:internal/test_runner/test:1306:25)
+      at TestHook.run (node:internal/test_runner/test:1651:18)
+      at TestHook.run (node:internal/util:602:20)
+      at Test.runHook (node:internal/test_runner/test:1198:20)
+      at after (node:internal/test_runner/test:1251:20)
+      at Test.run (node:internal/test_runner/test:1332:13) {
+    errno: 1,
+    code: 'EPERM',
+    path: '\\\\?\\C:\\Users\\zodyp\\AppData\\Local\\Temp\\omr-mgmt-policy-MPP5o8',
+    syscall: 'rm'
+  }
+== EXIT=1 23:44:17Z ==
+-- ok=232 notok=5 errRequire=0
+-- falhas nao-createRequire:
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy-fallback.test.ts (14.9102ms)
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\management-policy.test.ts (7.4029ms)
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\client-api-policy-fallback.test.ts (14.9102ms)
+✖ C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\tests\unit\authz\management-policy.test.ts (7.4029ms)

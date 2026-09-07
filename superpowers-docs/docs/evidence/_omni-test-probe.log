@@ -1,0 +1,47 @@
+== PROBE: subconjunto pequeno (cors) 23:15:22Z ==
+▶ cors/origins.resolveAllowedOrigin
+  ✔ returns null by default — fail-closed without explicit allowlist (8.7662ms)
+  ✔ returns null when origin header is absent (3.037ms)
+  ✔ echoes origin when env allowlist matches (case-insensitive, trailing slash ignored) (2.8284ms)
+  ✔ merges env allowlist and runtime allowlist (2.6762ms)
+  ✔ CORS_ALLOW_ALL=true echoes any origin (with Vary applied later) (2.5094ms)
+  ✔ CORS_ALLOW_ALL falls back to '*' when no Origin header is present (1.3246ms)
+  ✔ legacy CORS_ORIGIN=* behaves like CORS_ALLOW_ALL (1.0761ms)
+  ✔ legacy CORS_ORIGIN=<single> is added to env allowlist (0.9588ms)
+✔ cors/origins.resolveAllowedOrigin (28.4078ms)
+▶ cors/origins.applyCorsHeaders
+  ✔ does not set Allow-Origin when origin is not in allowlist (19.4203ms)
+  ✔ echoes origin and sets Vary: Origin when origin is allowed (3.3033ms)
+  ✔ CLIENT_API: echoes arbitrary Origin (+Vary) for a token-carrying request (relaxForTokenAuth) (2.736ms)
+  ✔ CLIENT_API: returns '*' when no Origin header is present for a token-carrying request (4.72ms)
+  ✔ CLIENT_API: does NOT echo the Origin for a credential-less cross-origin request (GHSA-7px7) (2.4356ms)
+  ✔ CLIENT_API: a CORS preflight (OPTIONS) is still allowed through (relaxForTokenAuth) (1.4467ms)
+  ✔ MANAGEMENT: stays fail-closed for arbitrary Origin with no allowlist (relax off) (1.519ms)
+  ✔ relaxForTokenAuth still honors an explicit allowlist match exactly (no wildcard) (16.6992ms)
+  ✔ CLIENT_API: appends Vary: Accept-Encoding on a 2xx relaxForTokenAuth response (#6737) (11.3044ms)
+  ✔ CLIENT_API: combines with Vary: Origin into a single comma-joined header (#6737) (42.3779ms)
+  ✔ MANAGEMENT: does not append Vary: Accept-Encoding (relax off) (#6737) (2.3216ms)
+  ✔ 204 response: does not append Vary: Accept-Encoding even with relaxForTokenAuth (#6737) (3.2929ms)
+  ✔ CLIENT_API: appends Vary: Accept-Encoding even without an Origin header (#6737) (1.5722ms)
+  ✔ reflects requested headers from Access-Control-Request-Headers preflight (1.6152ms)
+✔ cors/origins.applyCorsHeaders (120.2731ms)
+▶ cors/origins.getCorsStatus
+  ✔ default (no env, no runtime) → allowAll false, empty origins (22.2875ms)
+  ✔ CORS_ALLOW_ALL=true → allowAll true (11.2831ms)
+  ✔ legacy CORS_ORIGIN=* → allowAll true (2.1913ms)
+  ✔ merges env + runtime allowlists, normalized, sorted, deduped (2.1533ms)
+✔ cors/origins.getCorsStatus (38.5649ms)
+▶ cors/origins.STATIC_CORS_HEADERS
+  ✔ never contains Access-Control-Allow-Origin (6.5232ms)
+  ✔ allows the generic managed-lease control headers (0.589ms)
+✔ cors/origins.STATIC_CORS_HEADERS (7.4802ms)
+ℹ tests 28
+ℹ suites 4
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18555.1834
+== PROBE cors EXIT=0 23:15:42Z ==
+-- resumo:

@@ -1,0 +1,30 @@
+# Caddy — TLS pública para o relay Buzz (acesso mobile via wss://).
+#
+# Por que Host explícito: o relay Buzz resolve a COMUNIDADE pelo cabeçalho Host.
+# Encaminhamos o domínio público como Host para o relay casar a comunidade
+# registrada sob esse mesmo host (ver README — foi a causa do 404 em túnel/IP).
+#
+# {$BUZZ_PUBLIC_DOMAIN} e {$CADDY_ACME_EMAIL} vêm do .env (compose.caddy.yml).
+
+{
+	email {$CADDY_ACME_EMAIL}
+	# Descomente para testar contra o staging do Let's Encrypt (evita rate limit):
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$BUZZ_PUBLIC_DOMAIN} {
+	encode zstd gzip
+
+	# WebSocket + HTTP do relay. Caddy faz o upgrade de WS automaticamente.
+	reverse_proxy relay:3000 {
+		# Preserva o Host público para o relay resolver a comunidade correta.
+		header_up Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -1,0 +1,32 @@
+== tsc direto (open-sse/tsconfig.json) pos-vendor 11:13:57Z ==
+open-sse/executors/chatgpt-web-codex.ts(6,8): error TS2307: Cannot find module '@/shared/constants/chatgptWebCodex' or its corresponding type declarations.
+open-sse/handlers/imageGeneration.ts(1588,37): error TS2339: Property 'response' does not exist on type 'Response | { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown; }'.
+  Property 'response' does not exist on type 'Response'.
+open-sse/handlers/imageGeneration.ts(1589,14): error TS2339: Property 'response' does not exist on type 'Response | { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown; }'.
+  Property 'response' does not exist on type 'Response'.
+open-sse/handlers/imageGeneration.ts(1593,22): error TS2339: Property 'response' does not exist on type 'Response | { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown; }'.
+  Property 'response' does not exist on type 'Response'.
+open-sse/handlers/imageGeneration/providers/chatgptWeb.ts(117,39): error TS2339: Property 'response' does not exist on type 'Response | { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown; }'.
+  Property 'response' does not exist on type 'Response'.
+open-sse/handlers/imageGeneration/providers/chatgptWeb.ts(118,16): error TS2339: Property 'response' does not exist on type 'Response | { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown; }'.
+  Property 'response' does not exist on type 'Response'.
+open-sse/handlers/imageGeneration/providers/chatgptWeb.ts(122,24): error TS2339: Property 'response' does not exist on type 'Response | { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown; }'.
+  Property 'response' does not exist on type 'Response'.
+open-sse/utils/chatgptWebExecutorAdapter.ts(12,8): error TS2307: Cannot find module './chatgptWebAttachments.ts' or its corresponding type declarations.
+open-sse/utils/chatgptWebExecutorAdapter.ts(20,8): error TS2307: Cannot find module './chatgptWebBrowserSession.ts' or its corresponding type declarations.
+open-sse/utils/chatgptWebExecutorAdapter.ts(328,5): error TS2353: Object literal may only specify known properties, and 'storageState' does not exist in type 'BrowserPoolContextOptions'.
+src/app/api/v1/models/catalog.ts(1635,27): error TS2367: This comparison appears to be unintentional because the types '"image" | "embedding" | "video" | "rerank" | "audio"' and '"chat"' have no overlap.
+src/app/api/v1/models/catalog.ts(1669,29): error TS2367: This comparison appears to be unintentional because the types '"image" | "embedding" | "video" | "rerank" | "audio"' and '"chat"' have no overlap.
+src/lib/guardrails/videoBridgeHelpers.ts(127,21): error TS2488: Type 'unknown' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/lib/guardrails/videoBridgeHelpers.ts(156,7): error TS2365: Operator '<' cannot be applied to types 'unknown' and 'number'.
+src/lib/guardrails/videoBridgeHelpers.ts(157,7): error TS2365: Operator '>' cannot be applied to types 'unknown' and 'number'.
+src/lib/guardrails/videoBridgeHelpers.ts(165,7): error TS2322: Type 'unknown' is not assignable to type 'number'.
+src/lib/guardrails/videoBridgeHelpers.ts(174,23): error TS2345: Argument of type '{ confidence: unknown; endSeconds: number; source: VideoTranscriptSource; startSeconds: number; text: string; }' is not assignable to parameter of type 'VideoTranscriptCue'.
+  Types of property 'confidence' are incompatible.
+    Type 'unknown' is not assignable to type 'number'.
+src/lib/providers/validation/chatgptWebCodex.ts(74,7): error TS2353: Object literal may only specify known properties, and 'brokerSocketPath' does not exist in type 'BrowserLoginConfig'.
+== EXIT=2 11:14:50Z ==
+-- total error TS: 18
+-- em executors/chatgpt-web: 1
+-- no vendor: 0
+-- OUTROS (fora chatgpt-web) — possivel dep da release: 18

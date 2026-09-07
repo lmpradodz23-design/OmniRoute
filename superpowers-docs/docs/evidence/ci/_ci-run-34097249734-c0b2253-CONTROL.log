@@ -1,0 +1,89 @@
+== CONTROLE: c0b2253 (verde no upstream) no fork, evento workflow_dispatch ==
+URL: https://github.com/lmpradodz23-design/OmniRoute/actions/runs/34097249734
+[07:48:22Z] status=in_progress (poll 1)
+[07:49:03Z] status=queued (poll 2)
+[07:49:44Z] status=queued (poll 3)
+[07:50:26Z] status=queued (poll 4)
+[07:51:07Z] status=in_progress (poll 5)
+[07:51:48Z] status=in_progress (poll 6)
+[07:52:29Z] status=in_progress (poll 7)
+[07:53:11Z] status=in_progress (poll 8)
+[07:53:52Z] status=in_progress (poll 9)
+[07:54:33Z] status=in_progress (poll 10)
+[07:55:14Z] status=in_progress (poll 11)
+[07:55:55Z] status=in_progress (poll 12)
+[07:56:36Z] status=in_progress (poll 13)
+[07:57:17Z] status=in_progress (poll 14)
+[07:57:59Z] status=in_progress (poll 15)
+[07:58:40Z] status=queued (poll 16)
+[07:59:21Z] status=in_progress (poll 17)
+[08:00:02Z] status=in_progress (poll 18)
+[08:00:43Z] status=in_progress (poll 19)
+[08:01:24Z] status=in_progress (poll 20)
+[08:02:05Z] status=in_progress (poll 21)
+[08:02:47Z] status=in_progress (poll 22)
+[08:03:28Z] status=in_progress (poll 23)
+[08:04:09Z] status=in_progress (poll 24)
+[08:04:51Z] status=in_progress (poll 25)
+[08:05:58Z] status=in_progress (poll 26)
+[08:06:51Z] status=in_progress (poll 27)
+[08:07:33Z] status=in_progress (poll 28)
+[08:08:19Z] status=in_progress (poll 29)
+[08:09:00Z] status=in_progress (poll 30)
+[08:09:41Z] status=in_progress (poll 31)
+[08:10:23Z] status=in_progress (poll 32)
+[08:11:04Z] status=in_progress (poll 33)
+[08:11:45Z] status=in_progress (poll 34)
+[08:12:26Z] status=in_progress (poll 35)
+[08:13:07Z] status=in_progress (poll 36)
+[08:13:49Z] status=in_progress (poll 37)
+[08:14:30Z] status=in_progress (poll 38)
+[08:15:11Z] status=in_progress (poll 39)
+[08:15:53Z] status=in_progress (poll 40)
+[08:16:34Z] status=in_progress (poll 41)
+[08:17:15Z] status=in_progress (poll 42)
+[08:17:58Z] status=in_progress (poll 43)
+[08:18:40Z] status=in_progress (poll 44)
+[08:19:21Z] status=in_progress (poll 45)
+[08:20:02Z] status=in_progress (poll 46)
+[08:20:43Z] status=in_progress (poll 47)
+[08:21:25Z] status=in_progress (poll 48)
+[08:22:06Z] status=in_progress (poll 49)
+[08:22:47Z] status=completed (poll 50)
+== JOBS FINAIS ==
+success	Change Classification
+skipped	PR Test Policy
+success	Quality Gates (Extended)
+success	Docs Lint (prose — advisory)
+success	i18n Glossary (zh-CN, ko)
+success	Lint
+success	Docs Sync (Strict)
+success	Protocol Clients E2E (live server, advisory)
+failure	Vitest (MCP / autoCombo / UI components)
+success	i18n Validation (all languages)
+success	Security Tests
+success	Ecosystem E2E (live server)
+success	Bun SQLite Compatibility (windows-latest)
+success	Integration Tests (1/2)
+success	Bun SQLite Compatibility (ubuntu-latest)
+success	Unit Tests (3/8)
+success	Unit Tests (2/8)
+success	Unit Tests (4/8)
+success	Unit Tests (5/8)
+success	Integration Tests (2/2)
+success	Unit Tests (6/8)
+success	Unit Tests (8/8)
+success	Unit Tests (1/8)
+failure	Build
+success	Unit Tests (7/8)
+success	i18n UI Coverage
+skipped	E2E Tests (${{ matrix.shard }}/9)
+skipped	Electron Package Smoke (${{ matrix.os }})
+skipped	Package Artifact
+success	Coverage
+success	Quality Ratchet
+success	CI Dashboard
+skipped	SonarQube
+skipped	PR Coverage Comment
+RUN status=completed conclusion=failure
+== fim 08:22:50Z ==

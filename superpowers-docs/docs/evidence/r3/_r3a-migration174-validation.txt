@@ -1,0 +1,59 @@
+{
+  "P1": {
+    "label": "P1-base163",
+    "base_n": 163,
+    "preTrigCount": 0,
+    "postTrig": [
+      "exclusive_connection_leases_retire_chatgpt_web_insert",
+      "exclusive_connection_leases_retire_chatgpt_web_update",
+      "provider_connections_preserve_chatgpt_web_identity_insert",
+      "provider_connections_preserve_chatgpt_web_identity_update",
+      "provider_connections_retire_chatgpt_web_insert",
+      "provider_connections_retire_chatgpt_web_update"
+    ],
+    "trigSql": [
+      "exclusive_connection_leases_retire_chatgpt_web_insert:1290fb2a",
+      "exclusive_connection_leases_retire_chatgpt_web_update:821f0323",
+      "provider_connections_preserve_chatgpt_web_identity_insert:6af43406",
+      "provider_connections_preserve_chatgpt_web_identity_update:664c7211",
+      "provider_connections_retire_chatgpt_web_insert:97fce567",
+      "provider_connections_retire_chatgpt_web_update:2f073634"
+    ],
+    "preHash": "41c9879f0d270733",
+    "postHash": "424f754ab368a322",
+    "idem": true,
+    "behavior": "cgpt-web.is_active=0(esp.0) | chatgpt-web.is_active=1(esp.1 canonico permitido)"
+  },
+  "P2": {
+    "label": "P2-release173",
+    "base_n": 173,
+    "preTrigCount": 6,
+    "postTrig": [
+      "exclusive_connection_leases_retire_chatgpt_web_insert",
+      "exclusive_connection_leases_retire_chatgpt_web_update",
+      "provider_connections_preserve_chatgpt_web_identity_insert",
+      "provider_connections_preserve_chatgpt_web_identity_update",
+      "provider_connections_retire_chatgpt_web_insert",
+      "provider_connections_retire_chatgpt_web_update"
+    ],
+    "trigSql": [
+      "exclusive_connection_leases_retire_chatgpt_web_insert:1290fb2a",
+      "exclusive_connection_leases_retire_chatgpt_web_update:821f0323",
+      "provider_connections_preserve_chatgpt_web_identity_insert:b153f9b2",
+      "provider_connections_preserve_chatgpt_web_identity_update:6a376fb4",
+      "provider_connections_retire_chatgpt_web_insert:97fce567",
+      "provider_connections_retire_chatgpt_web_update:2f073634"
+    ],
+    "preHash": "4de9fcb6d4f2afde",
+    "postHash": "424273f0b37b09a2",
+    "idem": true,
+    "behavior": "cgpt-web.is_active=0(esp.0) | chatgpt-web.is_active=1(esp.1 canonico permitido)"
+  }
+}
+
+=== VEREDITO ===
+P1 idempotente: true | P2 idempotente: true
+P2 no-op (hash pre==post): ver postTrig igualdade abaixo
+Trigger set final identico P1==P2: true
+P1 postTrig: exclusive_connection_leases_retire_chatgpt_web_insert, exclusive_connection_leases_retire_chatgpt_web_update, provider_connections_preserve_chatgpt_web_identity_insert, provider_connections_preserve_chatgpt_web_identity_update, provider_connections_retire_chatgpt_web_insert, provider_connections_retire_chatgpt_web_update
+P2 postTrig: exclusive_connection_leases_retire_chatgpt_web_insert, exclusive_connection_leases_retire_chatgpt_web_update, provider_connections_preserve_chatgpt_web_identity_insert, provider_connections_preserve_chatgpt_web_identity_update, provider_connections_retire_chatgpt_web_insert, provider_connections_retire_chatgpt_web_update

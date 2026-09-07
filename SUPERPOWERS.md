@@ -92,10 +92,11 @@ automação de navegador** e **observar** — sem perder nada do gateway.
 - **Sem verde artificial:** cada correção tem teste que falharia sem ela; 3 auditorias independentes.
 - **Grátis/self-hosted:** relay Buzz, Qdrant, Caddy/TLS — $0.
 
-## Onde ver mais (repo de docs público)
+## Onde ver mais (tudo neste mesmo repositório)
 
-- Release e certificação: [`docs/RELEASE_SUPERPOWERS.md`](https://github.com/lmpradodz23-design/OmniRoute-Unified-docs/blob/fase-0-auditoria/docs/RELEASE_SUPERPOWERS.md)
-- Receitas por harness: [`docs/HARNESS_RECIPES.md`](https://github.com/lmpradodz23-design/OmniRoute-Unified-docs/blob/fase-0-auditoria/docs/HARNESS_RECIPES.md)
-- Auditoria independente (0 CRIT/0 HIGH): [`audit/FINAL_THREE_AGENT_REVIEW.md`](https://github.com/lmpradodz23-design/OmniRoute-Unified-docs/blob/fase-0-auditoria/audit/FINAL_THREE_AGENT_REVIEW.md)
-- Prova ao vivo dos endpoints: [`docs/evidence/r4/LIVE_ENDPOINTS.md`](https://github.com/lmpradodz23-design/OmniRoute-Unified-docs/blob/fase-0-auditoria/docs/evidence/r4/LIVE_ENDPOINTS.md)
+- Release e certificação: [`superpowers-docs/docs/RELEASE_SUPERPOWERS.md`](./superpowers-docs/docs/RELEASE_SUPERPOWERS.md)
+- Receitas por harness: [`superpowers-docs/docs/HARNESS_RECIPES.md`](./superpowers-docs/docs/HARNESS_RECIPES.md)
+- Auditoria independente (0 CRIT/0 HIGH): [`superpowers-docs/audit/FINAL_THREE_AGENT_REVIEW.md`](./superpowers-docs/audit/FINAL_THREE_AGENT_REVIEW.md)
+- Prova ao vivo dos endpoints: [`superpowers-docs/docs/evidence/r4/LIVE_ENDPOINTS.md`](./superpowers-docs/docs/evidence/r4/LIVE_ENDPOINTS.md)
+- Kit de acesso mobile (Caddy+TLS): [`superpowers-docs/docs/deploy/buzz-mobile-tls/`](./superpowers-docs/docs/deploy/buzz-mobile-tls/)
 - PR: <https://github.com/lmpradodz23-design/OmniRoute/pull/1>

@@ -1,0 +1,60 @@
+== monitor 34095751362 @ validate-d26fe038 (d26fe038, v3.8.51 ancestral de f9a1cc8) ==
+URL: https://github.com/lmpradodz23-design/OmniRoute/actions/runs/34095751362
+[07:30:32Z] status=in_progress (poll 1)
+[07:31:16Z] status=queued (poll 2)
+[07:31:58Z] status=queued (poll 3)
+[07:32:40Z] status=in_progress (poll 4)
+[07:33:23Z] status=in_progress (poll 5)
+[07:34:06Z] status=in_progress (poll 6)
+[07:34:50Z] status=in_progress (poll 7)
+[07:35:32Z] status=in_progress (poll 8)
+[07:36:14Z] status=in_progress (poll 9)
+[07:36:57Z] status=in_progress (poll 10)
+[07:37:42Z] status=in_progress (poll 11)
+[07:38:27Z] status=in_progress (poll 12)
+[07:39:12Z] status=in_progress (poll 13)
+[07:39:53Z] status=in_progress (poll 14)
+[07:40:34Z] status=in_progress (poll 15)
+[07:41:15Z] status=in_progress (poll 16)
+[07:41:57Z] status=in_progress (poll 17)
+[07:42:39Z] status=in_progress (poll 18)
+[07:43:21Z] status=in_progress (poll 19)
+[07:44:03Z] status=in_progress (poll 20)
+[07:44:44Z] status=completed (poll 21)
+== JOBS FINAIS ==
+success	Change Classification
+skipped	PR Test Policy
+failure	Quality Gates (Extended)
+success	i18n Validation (all languages)
+success	Docs Lint (prose — advisory)
+failure	Vitest (MCP / autoCombo / UI components)
+failure	Integration Tests (1/2)
+success	Lint
+failure	Ecosystem E2E (live server)
+success	Docs Sync (Strict)
+failure	Integration Tests (2/2)
+success	Bun SQLite Compatibility (ubuntu-latest)
+success	i18n Glossary (zh-CN, ko)
+success	Security Tests
+success	i18n UI Coverage
+success	Unit Tests (5/8)
+success	Unit Tests (8/8)
+success	Unit Tests (3/8)
+success	Unit Tests (4/8)
+success	Unit Tests (7/8)
+success	Bun SQLite Compatibility (windows-latest)
+success	Unit Tests (2/8)
+success	Unit Tests (1/8)
+failure	Protocol Clients E2E (live server, advisory)
+failure	Build
+failure	Unit Tests (6/8)
+failure	Quality Ratchet
+skipped	Coverage
+skipped	SonarQube
+skipped	PR Coverage Comment
+skipped	E2E Tests (${{ matrix.shard }}/9)
+skipped	Package Artifact
+skipped	Electron Package Smoke (${{ matrix.os }})
+success	CI Dashboard
+RUN status=completed conclusion=failure
+== fim 07:44:48Z ==

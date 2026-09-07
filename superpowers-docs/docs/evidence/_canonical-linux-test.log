@@ -1,0 +1,99 @@
+== docker canonical run iniciado 23:47:00Z ==
+Unable to find image 'node:24-bookworm' locally
+24-bookworm: Pulling from library/node
+7a7aabd284fa: Download complete
+e5a74028d132: Pulling fs layer
+01a6a9ffe665: Pulling fs layer
+abf56b2f8724: Pulling fs layer
+08457856946d: Pulling fs layer
+8cab6ce149c2: Pulling fs layer
+fc43bb6c3dac: Pulling fs layer
+1252dbc77c17: Pulling fs layer
+753c789c5198: Pulling fs layer
+1ba065c35cbc: Download complete
+e5a74028d132: Download complete
+08457856946d: Download complete
+1252dbc77c17: Download complete
+abf56b2f8724: Download complete
+abf56b2f8724: Pull complete
+08457856946d: Pull complete
+8cab6ce149c2: Download complete
+753c789c5198: Download complete
+8cab6ce149c2: Pull complete
+fc43bb6c3dac: Download complete
+01a6a9ffe665: Download complete
+01a6a9ffe665: Pull complete
+1252dbc77c17: Pull complete
+fc43bb6c3dac: Pull complete
+753c789c5198: Pull complete
+e5a74028d132: Pull complete
+Digest: sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2
+Status: Downloaded newer image for node:24-bookworm
+== container start 23:54:12Z ==
+-- apt deps (git build-essential python3 libsecret-1-dev)
+v24.20.0
+11.19.0
+-- clone @ f9a1cc8
+HEAD=f9a1cc8a9b7336e394ef921c753f5da691798df9
+-- npm ci (dev+optional, ignore-scripts)
+npm ci EXIT=0 (tail:)
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
+-- npm rebuild natives
+rebuild EXIT=0
+-- check-native-deps
+[check-native-deps] OK — all 31 externalised packages resolve (8 optional deps checked).
+== RUN npm run test:unit:ci 00:07:45Z ==
+== CANONICAL_TEST_EXIT=1 01:52:20Z ==
+-- test summary:
+grep: /tmp/test.log: binary file matches
+-- ultimas falhas (se houver):
+grep: /tmp/test.log: binary file matches
+✖ #9147 — catalog build at catalog-scale must not pin the event loop for a long stretch (11544.851852ms)
+✖ POST /v1/chat/completions with a HuggingFace image model returns 400 + generations hint (#6457) (1347.575525ms)
+✖ the gate exits 0 against the current (synced) repo state (12013.860451ms)
+✖ resolveConversationId: duplicate-heavy long history resolves in bounded time (#7847) (4338.991842ms)
+✖ sanitizeErrorMessage terminates on long adversarial input (ReDoS guard) (6146.007081ms)
+✖ persistAttemptLogs redacts request.failed delivery/replay but keeps its internal log (5101.583922ms)
+✖ redactSensitiveErrorText — raw credential patterns (GHSA-qv45-56jc-4wmj) (72.111142ms)
+✖ the two redaction layers stay in step (11.223714ms)
+✖ guide-settings POST creates new hermes config.yaml if it doesn't exist (240.936437ms)
+✖ guide-settings POST writes OpenCode config with current schema and multi-model selection (153.04237ms)
+✖ guide-settings POST preserves existing OpenCode config fields while only updating provider.omniroute (75.465878ms)
+✖ guide-settings POST refuses to overwrite an invalid opencode.jsonc (#10227) (76.887027ms)
+✖ HuggingChat stream error boundaries stay isolated from shared DB and usage state (6323.714999ms)
+✖ HuggingChat sanitizes conversation-creation transport failures in body and log (4541.449768ms)
+✖ HuggingChat sanitizes message-send transport failures in body and log (4913.70848ms)
+✖ handleImageGeneration (codex) sanitizes upstream HTTP errors (48.114236ms)
+✖ handleImageGeneration (codex) marks the ChatGPT-account model-access 400 as retryable (7.647496ms)
+✖ handleImageGeneration (codex) does not mark an ordinary 400 as retryable (4.813755ms)
+✖ Kiro stream errors become Responses response.failed events (56.443555ms)
+✖ the log-unavailable notice is emitted at most once, to the real stderr (927.218476ms)
+-- (full test log tail):
+✖ a 200 stream carrying an error frame emits a terminal error instead of false success (27.37029ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+        error: {
+  +       code: 'bad_gateway',
+  -       code: 'zai_stream_error',
+          message: 'Z.ai stream failed: signature invalid',
+          type: 'upstream_error'
+        }
+      }
+    ]
+  
+      at TestContext.<anonymous> (/omni/tests/unit/zai-web-silent-empty-repro.test.ts:120:10)
+      at async Test.run (node:internal/test_runner/test:1404:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:969:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { error: [Object] } ],
+    expected: [ { error: [Object] } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+== docker EXIT=1 01:52:42Z ==

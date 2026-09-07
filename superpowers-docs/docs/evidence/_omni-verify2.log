@@ -1,0 +1,176 @@
+## node v24.16.0 npm 11.13.0 | DATA_DIR=C:/Users/zodyp/Downloads/OmniRoute-Unified/tmp/omni-data
+===== [INSTALL_DEV] START 17:18:36Z (to 900s) =====
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\esbuild',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\esbuild'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\esbuild'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\opencode-ai',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\opencode-ai'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\opencode-ai'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\unrs-resolver',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\unrs-resolver'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\unrs-resolver'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\@swc\\core',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\@swc\core'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\@swc\\core'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\@swc',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\@swc\core'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\@swc\\core'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\promptfoo\\node_modules',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\promptfoo\node_modules'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\promptfoo\\node_modules'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\@opentelemetry\\sdk-metrics',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\@opentelemetry\sdk-metrics\node_modules\@opentelemetry\resources\build'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\@opentelemetry\\sdk-metrics\\node_modules\\@opentelemetry\\resources\\build'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code 1
+npm error path C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node install.js
+npm error Failed to find package "@oven/bun-windows-x64". You may have used the "--no-optional" flag when running "npm install".
+npm error Error: Failed to install package "bun"
+npm error     at C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun\install.js:427:11
+npm error     at Generator.throw (<anonymous>)
+npm error     at rejected (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun\install.js:36:27)
+npm error     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+npm error A complete log of this run can be found in: C:\Users\zodyp\AppData\Local\npm-cache\_logs\2026-09-06T17_18_38_200Z-debug-0.log
+===== [INSTALL_DEV] EXIT=1 17:23:28Z =====
+-- .bin/eslint=y next=y tsx=y
+===== [LINT] START 17:23:29Z (to 480s) =====
+
+> omniroute@3.8.51 lint
+> eslint . --cache --cache-location .eslintcache --suppressions-location config/quality/eslint-suppressions.json
+
+node:internal/modules/cjs/loader:1503
+  throw err;
+  ^
+
+Error: Cannot find module 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\eslint\bin\eslint.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1500:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.16.0
+===== [LINT] EXIT=1 17:23:31Z =====
+===== [TEST_FAST] START 17:23:31Z (to 720s) =====
+
+> omniroute@3.8.51 test:unit:fast
+> cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-isolation=none tests/unit/*.test.ts "tests/unit/{api,auth,authz,build,cli,cli-helper,combo,compression,correctness,cors,db,db-adapters,docs,gamification,guardrails,lib,mcp,memory,runtime,security,services,settings,shared,translator,ui,usage}/**/*.test.ts" "tests/unit/**/*.test.mjs" && cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-isolation=none "tests/unit/dashboard/**/*.test.ts" && npm run test:unit:serial
+
+node:internal/modules/cjs/loader:1503
+  throw err;
+  ^
+
+Error: Cannot find module 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\cross-env\dist\bin\cross-env.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1500:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.16.0
+===== [TEST_FAST] EXIT=1 17:23:33Z =====
+===== [BUILD] START 17:23:34Z (to 900s) =====
+
+> omniroute@3.8.51 prebuild
+> npm run check:native-deps
+
+
+> omniroute@3.8.51 check:native-deps
+> node scripts/check/check-native-deps.mjs
+
+[check-native-deps] FAIL — packages required by the build are not installed:
+
+  • better-sqlite3
+  • sqlite-vec
+  • keytar
+  • wreq-js
+  • @huggingface/transformers
+
+These are optionalDependencies that npm skipped. npm 11 blocks install scripts
+for optional dependencies by default, drops the package, and still exits 0 — so
+`npm install` looked like it succeeded.
+
+They cannot simply be ignored: each one is listed in serverExternalPackages, and
+the bundler must resolve a request before it can externalise it. Without them the
+build fails with "Module not found" several minutes from now.
+
+Fix (any one of these):
+  1. npm install better-sqlite3 sqlite-vec keytar wreq-js @huggingface/transformers --no-save --foreground-scripts
+  2. npm approve-scripts better-sqlite3 sqlite-vec keytar wreq-js @huggingface/transformers && npm install
+  3. ./start.sh reinstall     (Linux/macOS)
+     START.cmd reinstall      (Windows)
+
+If the install fails on a missing C++ toolchain:
+  Linux   apt install build-essential python3
+  macOS   xcode-select --install
+  Windows Build Tools for Visual Studio (Desktop development with C++) + Python
+
+More detail: docs/guides/TROUBLESHOOTING.md#npm-v11-better-sqlite3-not-installed-cannot-find-module
+
+Escape hatch for vendored trees: OMNIROUTE_SKIP_NATIVE_DEP_CHECK=1
+===== [BUILD] EXIT=1 17:23:37Z =====
+===== RESUMO =====
+===== [INSTALL_DEV] EXIT=1 17:23:28Z =====
+===== [LINT] EXIT=1 17:23:31Z =====
+===== [TEST_FAST] EXIT=1 17:23:33Z =====
+===== [BUILD] EXIT=1 17:23:37Z =====
+== fim 17:23:37Z ==

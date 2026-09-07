@@ -1,0 +1,63 @@
+## DATA_DIR isolado: C:/Users/zodyp/Downloads/OmniRoute-Unified/tmp/omni-data
+## node v24.16.0 npm 11.13.0
+===== [LINT] START 17:07:20Z (timeout 480s) =====
+
+> omniroute@3.8.51 lint
+> eslint . --cache --cache-location .eslintcache --suppressions-location config/quality/eslint-suppressions.json
+
+'eslint' nÆo ‚ reconhecido como um comando interno
+ou externo, um programa oper vel ou um arquivo em lotes.
+===== [LINT] EXIT=1 17:07:23Z =====
+===== [TEST_FAST] START 17:07:23Z (timeout 720s) =====
+
+> omniroute@3.8.51 test:unit:fast
+> cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-isolation=none tests/unit/*.test.ts "tests/unit/{api,auth,authz,build,cli,cli-helper,combo,compression,correctness,cors,db,db-adapters,docs,gamification,guardrails,lib,mcp,memory,runtime,security,services,settings,shared,translator,ui,usage}/**/*.test.ts" "tests/unit/**/*.test.mjs" && cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-isolation=none "tests/unit/dashboard/**/*.test.ts" && npm run test:unit:serial
+
+'cross-env' nÆo ‚ reconhecido como um comando interno
+ou externo, um programa oper vel ou um arquivo em lotes.
+===== [TEST_FAST] EXIT=1 17:07:26Z =====
+===== [BUILD] START 17:07:27Z (timeout 1200s) =====
+
+> omniroute@3.8.51 prebuild
+> npm run check:native-deps
+
+
+> omniroute@3.8.51 check:native-deps
+> node scripts/check/check-native-deps.mjs
+
+[check-native-deps] FAIL â€” packages required by the build are not installed:
+
+  â€¢ better-sqlite3
+  â€¢ sqlite-vec
+  â€¢ keytar
+  â€¢ wreq-js
+  â€¢ @huggingface/transformers
+
+These are optionalDependencies that npm skipped. npm 11 blocks install scripts
+for optional dependencies by default, drops the package, and still exits 0 â€” so
+`npm install` looked like it succeeded.
+
+They cannot simply be ignored: each one is listed in serverExternalPackages, and
+the bundler must resolve a request before it can externalise it. Without them the
+build fails with "Module not found" several minutes from now.
+
+Fix (any one of these):
+  1. npm install better-sqlite3 sqlite-vec keytar wreq-js @huggingface/transformers --no-save --foreground-scripts
+  2. npm approve-scripts better-sqlite3 sqlite-vec keytar wreq-js @huggingface/transformers && npm install
+  3. ./start.sh reinstall     (Linux/macOS)
+     START.cmd reinstall      (Windows)
+
+If the install fails on a missing C++ toolchain:
+  Linux   apt install build-essential python3
+  macOS   xcode-select --install
+  Windows Build Tools for Visual Studio (Desktop development with C++) + Python
+
+More detail: docs/guides/TROUBLESHOOTING.md#npm-v11-better-sqlite3-not-installed-cannot-find-module
+
+Escape hatch for vendored trees: OMNIROUTE_SKIP_NATIVE_DEP_CHECK=1
+===== [BUILD] EXIT=1 17:07:32Z =====
+===== RESUMO =====
+===== [LINT] EXIT=1 17:07:23Z =====
+===== [TEST_FAST] EXIT=1 17:07:26Z =====
+===== [BUILD] EXIT=1 17:07:32Z =====
+== fim 17:07:32Z ==

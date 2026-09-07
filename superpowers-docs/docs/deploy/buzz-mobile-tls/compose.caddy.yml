@@ -1,0 +1,32 @@
+# Overlay Caddy (TLS pública) para o relay Buzz — acesso mobile via wss://.
+# ADITIVO: não altera o compose do Buzz. Sobe na MESMA invocação/rede do relay,
+# então o serviço `relay` é alcançável pelo nome (rede `buzz-net` do compose base).
+#
+# Uso (a partir de deploy/compose do Buzz):
+#   cp <repo>/docs/deploy/buzz-mobile-tls/Caddyfile ./Caddyfile
+#   cp <repo>/docs/deploy/buzz-mobile-tls/compose.caddy.yml ./compose.caddy.yml
+#   cp <repo>/docs/deploy/buzz-mobile-tls/.env.caddy.example ./.env.caddy   # edite domínio+e-mail
+#   docker compose -f compose.yml -f compose.caddy.yml --env-file .env.caddy up -d caddy
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: buzz-caddy
+    restart: unless-stopped
+    depends_on:
+      - relay
+    environment:
+      BUZZ_PUBLIC_DOMAIN: ${BUZZ_PUBLIC_DOMAIN:?set BUZZ_PUBLIC_DOMAIN}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:?set CADDY_ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - buzz-caddy-data:/data
+      - buzz-caddy-config:/config
+    networks:
+      - buzz-net
+
+volumes:
+  buzz-caddy-data:
+  buzz-caddy-config:

@@ -1,0 +1,34 @@
+== SMOKE start 21:20:06Z PORT=28128 DATA_DIR=C:/Users/zodyp/Downloads/OmniRoute-Unified/tmp/omni-data ==
+-- dev server PID=19410; aguardando readiness (ate 240s)
+-- readiness apos 110s (health HTTP 200)
+== ENDPOINTS ==
+GET  /v1/models            -> 401
+OPT  /v1/messages          -> 204
+OPT  /v1/responses         -> 204
+POST /v1/messages (no key) -> 400
+POST /v1/responses(no key) -> 400
+ERRO: o processo "19410" n�o foi encontrado.
+== SMOKE EXIT=0 21:23:56Z ==
+
+===== [CORRECAO DE HONESTIDADE — cleanup do smoke] =====
+FALHA DO CLEANUP INICIAL: o taskkill do script mirou $SVPID (PID do processo `bash`/wrapper
+que lancou `npm run dev`), nao o PID real do servidor Next. Resultado: o dev server ficou
+ORFAO — PID 27284 (`node --max-old-space-size=8192 scripts/dev/run-next.mjs dev`) continuou
+LISTENING em 0.0.0.0:28128, com filho esbuild PID 34940.
+ACAO CORRETIVA (manual, sem tocar no job longo omni-ltb-full.sh):
+- taskkill /PID 27284 /T /F  -> matou 27284 + esbuild 34940;
+- taskkill /PID 30712 /T /F  -> matou o cmd.exe wrapper;
+- verificado: 27284/34940/30712 mortos; `netstat` sem listener em 28128; 0 node.exe com
+  run-next.mjs dev; job longo (bash 23136) preservado.
+
+PENDENCIA PARA O PROXIMO SMOKE:
+- Forcar bind em 127.0.0.1 (o dev subiu em 0.0.0.0 — expor so loopback).
+- Encerrar a ARVORE COMPLETA no finally/trap (capturar o PID real do node do run-next e
+  usar taskkill /T, com trap EXIT), evitando orfaos.
+
+ESCOPO CORRETO DO QUE O SMOKE COMPROVA (nao exagerar):
+- Comprova: startup do gateway, /api/monitoring/health=200, EXISTENCIA das rotas
+  (/v1/models 401, OPTIONS /v1/messages 204, OPTIONS /v1/responses 204) e TRATAMENTO de
+  requisicao SEM autenticacao (POST /v1/messages e /v1/responses -> 400 tipado).
+- NAO comprova: geracao/roteamento real de modelo. Isso exigira uma chamada AUTENTICADA
+  com um provider configurado (ficara para fase posterior, apos login/credencial).

@@ -1,0 +1,174 @@
+## node v24.16.0 npm 11.13.0 | DATA_DIR=C:/Users/zodyp/Downloads/OmniRoute-Unified/tmp/omni-data
+===== [INSTALL_DEV] START 17:25:28Z (to 900s) =====
+npm warn deprecated prebuild-install@7.1.3: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
+npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\onnxruntime-node',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\onnxruntime-node'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\onnxruntime-node'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\libxmljs2',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\libxmljs2\node_modules'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\zodyp\\Downloads\\OmniRoute-Unified\\repos\\OmniRoute\\node_modules\\libxmljs2\\node_modules'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code 1
+npm error path C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node install.js
+npm error Error: Your package manager doesn't seem to support bun. To use bun, install using the following command: powershell -c "irm bun.sh/install.ps1 | iex"
+npm error     at optimizeBun (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun\install.js:526:9)
+npm error     at C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun\install.js:534:3
+npm error A complete log of this run can be found in: C:\Users\zodyp\AppData\Local\npm-cache\_logs\2026-09-06T17_25_31_658Z-debug-0.log
+===== [INSTALL_DEV] EXIT=1 17:33:10Z =====
+-- eslint.js=n crossenv=n tsx=n
+===== [NATIVE_DEPS] START 17:33:10Z (to 600s) =====
+npm warn deprecated prebuild-install@7.1.3: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
+npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+> @parcel/watcher@2.5.6 install
+> node scripts/build-from-source.js
+
+
+> @playwright/browser-chromium@1.61.1 install
+> node install.js
+
+
+> keytar@7.9.0 install
+> prebuild-install || npm run build
+
+(node:20700) [DEP0176] DeprecationWarning: fs.R_OK is deprecated, use fs.constants.R_OK instead
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> libxmljs2@0.37.0 install
+> prebuild-install || node-gyp rebuild
+
+(node:14332) [DEP0176] DeprecationWarning: fs.R_OK is deprecated, use fs.constants.R_OK instead
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> bun@1.4.0 postinstall
+> node install.js
+
+Error: Your package manager doesn't seem to support bun. To use bun, install using the following command: powershell -c "irm bun.sh/install.ps1 | iex"
+    at optimizeBun (C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun\install.js:526:9)
+    at C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun\install.js:534:3
+npm error code 1
+npm error path C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\bun
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node install.js
+npm error A complete log of this run can be found in: C:\Users\zodyp\AppData\Local\npm-cache\_logs\2026-09-06T17_33_12_514Z-debug-0.log
+===== [NATIVE_DEPS] EXIT=1 17:40:41Z =====
+-- better-sqlite3 build=n
+===== [LINT] START 17:40:42Z (to 480s) =====
+
+> omniroute@3.8.51 lint
+> eslint . --cache --cache-location .eslintcache --suppressions-location config/quality/eslint-suppressions.json
+
+node:internal/modules/cjs/loader:1503
+  throw err;
+  ^
+
+Error: Cannot find module 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\eslint\bin\eslint.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1500:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.16.0
+===== [LINT] EXIT=1 17:40:44Z =====
+===== [TEST_FAST] START 17:40:44Z (to 720s) =====
+
+> omniroute@3.8.51 test:unit:fast
+> cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-isolation=none tests/unit/*.test.ts "tests/unit/{api,auth,authz,build,cli,cli-helper,combo,compression,correctness,cors,db,db-adapters,docs,gamification,guardrails,lib,mcp,memory,runtime,security,services,settings,shared,translator,ui,usage}/**/*.test.ts" "tests/unit/**/*.test.mjs" && cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-isolation=none "tests/unit/dashboard/**/*.test.ts" && npm run test:unit:serial
+
+node:internal/modules/cjs/loader:1503
+  throw err;
+  ^
+
+Error: Cannot find module 'C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute\node_modules\cross-env\dist\bin\cross-env.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1500:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.16.0
+===== [TEST_FAST] EXIT=1 17:40:46Z =====
+===== [BUILD] START 17:40:46Z (to 900s) =====
+
+> omniroute@3.8.51 prebuild
+> npm run check:native-deps
+
+
+> omniroute@3.8.51 check:native-deps
+> node scripts/check/check-native-deps.mjs
+
+[check-native-deps] FAIL — packages required by the build are not installed:
+
+  • better-sqlite3
+  • sqlite-vec
+  • keytar
+  • wreq-js
+  • @huggingface/transformers
+
+These are optionalDependencies that npm skipped. npm 11 blocks install scripts
+for optional dependencies by default, drops the package, and still exits 0 — so
+`npm install` looked like it succeeded.
+
+They cannot simply be ignored: each one is listed in serverExternalPackages, and
+the bundler must resolve a request before it can externalise it. Without them the
+build fails with "Module not found" several minutes from now.
+
+Fix (any one of these):
+  1. npm install better-sqlite3 sqlite-vec keytar wreq-js @huggingface/transformers --no-save --foreground-scripts
+  2. npm approve-scripts better-sqlite3 sqlite-vec keytar wreq-js @huggingface/transformers && npm install
+  3. ./start.sh reinstall     (Linux/macOS)
+     START.cmd reinstall      (Windows)
+
+If the install fails on a missing C++ toolchain:
+  Linux   apt install build-essential python3
+  macOS   xcode-select --install
+  Windows Build Tools for Visual Studio (Desktop development with C++) + Python
+
+More detail: docs/guides/TROUBLESHOOTING.md#npm-v11-better-sqlite3-not-installed-cannot-find-module
+
+Escape hatch for vendored trees: OMNIROUTE_SKIP_NATIVE_DEP_CHECK=1
+===== [BUILD] EXIT=1 17:40:50Z =====
+===== RESUMO =====
+===== [INSTALL_DEV] EXIT=1 17:33:10Z =====
+===== [NATIVE_DEPS] EXIT=1 17:40:41Z =====
+===== [LINT] EXIT=1 17:40:44Z =====
+===== [TEST_FAST] EXIT=1 17:40:46Z =====
+===== [BUILD] EXIT=1 17:40:50Z =====
+== fim 17:40:50Z ==

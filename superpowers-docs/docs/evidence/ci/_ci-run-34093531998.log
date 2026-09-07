@@ -1,0 +1,59 @@
+== monitor CI run 34093531998 @ validate-f9a1cc8 (f9a1cc8) 07:03:39Z ==
+URL: https://github.com/lmpradodz23-design/OmniRoute/actions/runs/34093531998
+[07:03:40Z] status=queued (poll 1)
+[07:04:22Z] status=queued (poll 2)
+[07:05:03Z] status=queued (poll 3)
+[07:05:44Z] status=in_progress (poll 4)
+[07:06:26Z] status=in_progress (poll 5)
+[07:07:08Z] status=in_progress (poll 6)
+[07:07:51Z] status=in_progress (poll 7)
+[07:08:33Z] status=in_progress (poll 8)
+[07:09:16Z] status=in_progress (poll 9)
+[07:09:58Z] status=in_progress (poll 10)
+[07:10:41Z] status=in_progress (poll 11)
+[07:11:25Z] status=in_progress (poll 12)
+[07:12:08Z] status=in_progress (poll 13)
+[07:12:49Z] status=in_progress (poll 14)
+[07:13:31Z] status=in_progress (poll 15)
+[07:14:14Z] status=in_progress (poll 16)
+[07:14:57Z] status=in_progress (poll 17)
+[07:15:39Z] status=in_progress (poll 18)
+[07:16:21Z] status=completed (poll 19)
+== JOBS FINAIS ==
+success	Change Classification	101651974518
+skipped	PR Test Policy	101651975624
+success	Quality Gates (Extended)	101652145853
+failure	Lint	101652145864
+success	Docs Lint (prose — advisory)	101652145865
+failure	Docs Sync (Strict)	101652145889
+success	Protocol Clients E2E (live server, advisory)	101652145890
+success	i18n Glossary (zh-CN, ko)	101652145903
+failure	Vitest (MCP / autoCombo / UI components)	101652145927
+success	Bun SQLite Compatibility (windows-latest)	101652145938
+failure	Integration Tests (2/2)	101652145953
+success	i18n Validation (all languages)	101652145964
+success	i18n UI Coverage	101652145968
+success	Ecosystem E2E (live server)	101652145990
+success	Security Tests	101652145998
+failure	Integration Tests (1/2)	101652146006
+failure	Unit Tests (6/8)	101652146058
+success	Bun SQLite Compatibility (ubuntu-latest)	101652146061
+failure	Unit Tests (3/8)	101652146074
+failure	Unit Tests (1/8)	101652146087
+failure	Unit Tests (5/8)	101652146100
+success	Unit Tests (4/8)	101652146115
+failure	Build	101652146123
+failure	Unit Tests (8/8)	101652146128
+failure	Unit Tests (2/8)	101652146139
+failure	Unit Tests (7/8)	101652146203
+skipped	Electron Package Smoke (${{ matrix.os }})	101654060666
+skipped	Package Artifact	101654061146
+skipped	E2E Tests (${{ matrix.shard }}/9)	101654061175
+success	Quality Ratchet	101654551560
+skipped	Coverage	101654552109
+skipped	PR Coverage Comment	101654552632
+skipped	SonarQube	101654552691
+success	CI Dashboard	101654606267
+== CONCLUSAO DO RUN ==
+status=completed conclusion=failure
+== fim monitor 07:16:26Z ==
