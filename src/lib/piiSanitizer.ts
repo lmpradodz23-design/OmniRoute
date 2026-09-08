@@ -81,6 +81,21 @@ const PII_PATTERNS: PIIPattern[] = [
     severity: "high",
   },
   {
+    // CEP brasileiro NNNNN-NNN (exige hífen; boundary de 3 dígitos descarta ZIP+4 dos EUA).
+    name: "cep",
+    regex: /(?<=^|[^A-Za-z0-9])\d{5}-\d{3}(?=$|[^A-Za-z0-9])/g,
+    replacement: "[CEP_REDACTED]",
+    severity: "medium",
+  },
+  {
+    // Chave PIX aleatória (UUID v4) redigida só com a pista "pix" por perto (evita nuke de UUIDs).
+    name: "pix_key",
+    regex:
+      /(?<=\bpix\b[^\n]{0,30})[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/gi,
+    replacement: "[PIX_KEY_REDACTED]",
+    severity: "high",
+  },
+  {
     name: "ip_address",
     regex: /(?<=^|[^A-Za-z0-9])(?:\d{1,3}\.){3}\d{1,3}(?=$|[^A-Za-z0-9])/g,
     replacement: "[IP_REDACTED]",

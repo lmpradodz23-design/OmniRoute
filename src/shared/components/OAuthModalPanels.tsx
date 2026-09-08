@@ -348,6 +348,18 @@ export function OAuthManualInputPanel({
           <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
           <div className="flex gap-2">
             <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
+            {/* Abrir em NOVA ABA (gesto do usuário → o navegador não bloqueia e não abre por cima
+                do painel). O painel segue aberto e recebe o retorno do login. */}
+            <Button
+              variant="secondary"
+              icon="open_in_new"
+              disabled={!authUrl}
+              onClick={() => {
+                if (authUrl) window.open(authUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              Abrir em nova aba
+            </Button>
             <Button
               variant="secondary"
               icon={copied === "auth_url" ? "check" : "content_copy"}

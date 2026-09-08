@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
@@ -132,6 +133,27 @@ export default function CallbackPage() {
         // loopback/tunnel callback. Keep the full URL visible as a manual fallback
         // in case the opener cannot receive the cross-origin postMessage.
         queueStatusUpdate("manual");
+        // Retorno automático ao OmniRoute — APENAS em máquina local (loopback) e com sucesso:
+        // o relay já foi enviado ao painel na mesma origem; tenta fechar (popup) e, se continuar
+        // aberto (era a MESMA aba), volta ao painel. Caso remoto/túnel permanece no manual.
+        const host = window.location.hostname;
+        const isLoopback = host === "localhost" || /^127(?:\.\d{1,3}){3}$/.test(host);
+        if (code && !error && isLoopback) {
+          setTimeout(() => {
+            try {
+              window.close();
+            } catch {
+              /* popup pode não fechar por política do navegador */
+            }
+            setTimeout(() => {
+              try {
+                window.location.replace("/dashboard/providers");
+              } catch {
+                /* mantém o estado manual como fallback */
+              }
+            }, 1000);
+          }, 2500);
+        }
       }
     } else {
       // No code/error in URL or all send methods failed — show URL for manual copy.
@@ -179,6 +201,16 @@ export default function CallbackPage() {
             <div className="bg-surface border border-border rounded-lg p-3 text-left">
               <code className="text-xs break-all">{currentUrl}</code>
             </div>
+            {/* Login abriu na MESMA aba (sem popup/opener): caminho de volta ao OmniRoute. */}
+            <Link
+              href="/dashboard/providers"
+              className="mt-4 inline-flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">
+                arrow_back
+              </span>
+              Voltar ao OmniRoute
+            </Link>
           </>
         )}
       </div>

@@ -620,6 +620,24 @@ const AGENTIC_FEATURES_ITEMS: readonly SidebarSectionChild[] = [
     subtitleKey: "pluginsSubtitle",
     icon: "extension",
   },
+  {
+    id: "loop",
+    href: "/dashboard/loop",
+    i18nKey: "loopEngine",
+    labelFallback: "Loop Engine",
+    subtitleKey: "loopEngineSubtitle",
+    subtitleFallback: "Ciclos report-only + aprovações",
+    icon: "sync",
+  },
+  {
+    id: "buzz",
+    href: "/dashboard/buzz",
+    i18nKey: "buzzHub",
+    labelFallback: "Buzz Hub",
+    subtitleKey: "buzzHubSubtitle",
+    subtitleFallback: "Colaboração humano+agente via Nostr",
+    icon: "hive",
+  },
 ];
 
 const GAMIFICATION_GROUP: SidebarItemGroup = {
