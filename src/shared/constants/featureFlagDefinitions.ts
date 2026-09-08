@@ -12,7 +12,7 @@ export interface FeatureFlagDefinition {
 }
 
 export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
-  // ──────────────── Security (10) ────────────────
+  // ──────────────── Security ────────────────
   {
     key: "REQUIRE_API_KEY",
     label: "Require API Key",
@@ -298,7 +298,7 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     warningLevel: "info",
   },
 
-  // ──────────────── Runtime (17) ────────────────
+  // ──────────────── Runtime ────────────────
   {
     key: "UNIVERSAL_CONTEXT_HANDOFF_ENABLED",
     label: "Universal Context Handoff",
@@ -619,7 +619,7 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     warningLevel: "caution",
   },
 
-  // ──────────────── Health (3) ────────────────
+  // ──────────────── Health ────────────────
   {
     key: "OMNIROUTE_DISABLE_LOCAL_HEALTHCHECK",
     label: "Disable Local Health Check",

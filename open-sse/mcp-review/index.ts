@@ -126,8 +126,14 @@ export function reviewMcpCandidate(
     return { state: "review_required", requiresHumanApproval: true, reasons, newlyRequested };
   }
 
-  // Sem ampliação: carrega a aprovação anterior, se havia.
+  // Sem ampliação: carrega a aprovação anterior — MAS fail-closed no publisher: se a verificação
+  // externa REPROVOU o publisher (publisherVerified === false), volta à revisão mesmo sem ampliar
+  // (assinatura/publisher divergente é sinal de comprometimento, não um simples patch).
   if (prior.approved) {
+    if (candidate.publisherVerified === false) {
+      reasons.push("publisher não verificado — re-revisão obrigatória apesar de não ampliar");
+      return { state: "review_required", requiresHumanApproval: true, reasons, newlyRequested: [] };
+    }
     reasons.push("update sem novas permissões — aprovação anterior mantida");
     return { state: "approved", requiresHumanApproval: false, reasons, newlyRequested: [] };
   }

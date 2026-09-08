@@ -56,6 +56,22 @@ test("mcp-review: update SEM novas permissões, com prior aprovado -> approved (
   assert.equal(v.requiresHumanApproval, false);
 });
 
+test("mcp-review: publisher REPROVADO na verificação -> review_required mesmo sem ampliar", () => {
+  const prior = { version: "1.0.0", permissions: ["net:fetch"], approved: true };
+  const v = reviewMcpCandidate(
+    {
+      name: "x",
+      source: "reg",
+      version: "1.0.1",
+      permissions: ["net:fetch"],
+      publisherVerified: false,
+    },
+    prior
+  );
+  assert.equal(v.state, "review_required");
+  assert.equal(v.requiresHumanApproval, true);
+});
+
 test("mcp-review: prior NÃO aprovado -> review_required (não carrega aprovação inexistente)", () => {
   const prior = { version: "1.0.0", permissions: ["net:fetch"], approved: false };
   const v = reviewMcpCandidate(

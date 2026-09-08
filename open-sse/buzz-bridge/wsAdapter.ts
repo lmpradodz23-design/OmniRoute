@@ -19,6 +19,12 @@ export interface WebSocketBuzzConfig {
   readonly timeoutMs?: number;
   /** Janela (ms) sem AUTH para assumir relay sem auth_required (default 400). */
   readonly authGraceMs?: number;
+  /** Reconectar automaticamente após queda inesperada (default true). */
+  readonly autoReconnect?: boolean;
+  /** Backoff base da reconexão (ms, default 500). */
+  readonly reconnectBaseMs?: number;
+  /** Teto do backoff da reconexão (ms, default 15000). */
+  readonly reconnectMaxMs?: number;
 }
 
 function toBuzzEvent(e: SignedNostrEvent): BuzzEvent {
@@ -50,15 +56,30 @@ export class WebSocketBuzzAdapter implements BuzzAdapter {
   private authReadyResolve?: () => void;
   private authGraceTimer?: ReturnType<typeof setTimeout>;
   private authChallengeSeen = false;
+  // Reconexão automática (resiliência do consumidor de entrada após uma queda).
+  private readonly autoReconnect: boolean;
+  private readonly reconnectBaseMs: number;
+  private readonly reconnectMaxMs: number;
+  private closedByUser = false;
+  private reconnectAttempts = 0;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
+  private connectInFlight?: Promise<void>;
 
   constructor(private readonly config: WebSocketBuzzConfig) {
     this.pubkey = getPublicKey(config.secretKeyHex);
     this.timeout = config.timeoutMs ?? 8000;
     this.authGraceMs = config.authGraceMs ?? 400;
+    this.autoReconnect = config.autoReconnect ?? true;
+    this.reconnectBaseMs = config.reconnectBaseMs ?? 500;
+    this.reconnectMaxMs = config.reconnectMaxMs ?? 15000;
   }
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    // Single-flight: uma reconexão automática e um ensureConnected concorrentes compartilham o
+    // MESMO connect em andamento (nunca abrimos dois sockets).
+    if (this.connectInFlight) return this.connectInFlight;
+    this.closedByUser = false;
+    this.connectInFlight = new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(this.config.relayUrl);
       this.ws = ws;
       this.authChallengeSeen = false;
@@ -69,12 +90,14 @@ export class WebSocketBuzzAdapter implements BuzzAdapter {
       this.authReady = new Promise<void>((res) => {
         this.authReadyResolve = res;
       });
-      const openTimer = setTimeout(
-        () => reject(new Error("buzz relay connect timeout")),
-        this.timeout
-      );
+      const openTimer = setTimeout(() => {
+        this.connectInFlight = undefined;
+        reject(new Error("buzz relay connect timeout"));
+      }, this.timeout);
       ws.on("open", () => {
         clearTimeout(openTimer);
+        this.reconnectAttempts = 0; // conexão saudável zera o backoff
+        this.connectInFlight = undefined;
         this.authGraceTimer = setTimeout(() => {
           if (!this.authChallengeSeen) this.markAuthReady();
         }, this.authGraceMs);
@@ -84,10 +107,41 @@ export class WebSocketBuzzAdapter implements BuzzAdapter {
       });
       ws.on("error", (e: Error) => {
         clearTimeout(openTimer);
+        this.connectInFlight = undefined;
         reject(e);
       });
+      ws.on("close", () => this.onSocketClose(ws));
       ws.on("message", (data: WebSocket.RawData) => this.onMessage(data.toString()));
     });
+    return this.connectInFlight;
+  }
+
+  /**
+   * Queda do socket: libera waiters e agenda reconexão (salvo close() explícito). Ignora eventos
+   * de um socket OBSOLETO — se já reconectamos, o `close` tardio do socket antigo não pode zerar o
+   * novo (senão o publish enviaria para um socket órfão e expiraria).
+   */
+  private onSocketClose(closed: WebSocket): void {
+    if (this.ws !== closed) return; // close tardio de um socket já substituído
+    this.ws = undefined;
+    this.markAuthReady(); // não deixa um publish preso esperando authReady de um socket morto
+    if (this.closedByUser || !this.autoReconnect) return;
+    this.scheduleReconnect();
+  }
+
+  /** Reconexão com backoff exponencial + jitter, com teto. Um timer por vez. */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer || this.closedByUser) return;
+    const backoff = Math.min(
+      this.reconnectBaseMs * 2 ** this.reconnectAttempts,
+      this.reconnectMaxMs
+    );
+    const delay = backoff + Math.floor(Math.random() * this.reconnectBaseMs);
+    this.reconnectAttempts++;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      this.connect().catch(() => this.scheduleReconnect());
+    }, delay);
   }
 
   /** Libera o publish (AUTH confirmado ou dispensado). Idempotente. */
@@ -210,7 +264,12 @@ export class WebSocketBuzzAdapter implements BuzzAdapter {
   }
 
   async close(): Promise<void> {
-    // Libera qualquer authReady pendente para não deixar promise pendurada, e fecha o socket.
+    // Fecho explícito: desliga a reconexão automática, cancela timers e libera waiters.
+    this.closedByUser = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
     this.markAuthReady();
     this.ws?.close();
   }

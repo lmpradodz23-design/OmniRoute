@@ -51,6 +51,7 @@ export default function BuzzHubPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial do status do Buzz (a mesma seq de load é reusada pelo refresh)
     void load();
   }, [load]);
 

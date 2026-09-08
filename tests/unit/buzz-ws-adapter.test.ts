@@ -5,9 +5,21 @@ import test from "node:test";
 
 import { WebSocketServer } from "ws";
 
-import { generateSecretKey } from "@omniroute/open-sse/buzz-bridge/index.ts";
-import type { OutboxEntry } from "@omniroute/open-sse/buzz-bridge/index.ts";
+import {
+  finalizeEvent,
+  generateSecretKey,
+  getPublicKey,
+} from "@omniroute/open-sse/buzz-bridge/index.ts";
+import type { BuzzEvent, OutboxEntry } from "@omniroute/open-sse/buzz-bridge/index.ts";
 import { WebSocketBuzzAdapter } from "@omniroute/open-sse/buzz-bridge/wsAdapter.ts";
+
+async function waitFor(cond: () => boolean, timeoutMs = 3000): Promise<void> {
+  const start = Date.now();
+  while (!cond()) {
+    if (Date.now() - start > timeoutMs) throw new Error("timeout esperando condição");
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
 
 function outboxEntry(): OutboxEntry {
   return {
@@ -75,6 +87,54 @@ test("wsAdapter: relay SEM auth_required libera o publish após a janela de gra�
   } finally {
     await adapter.close();
     relay.close();
+  }
+});
+
+test("wsAdapter: consumidor AUTO-reconecta após queda e volta a receber eventos", async () => {
+  // Relay que derruba a 1ª conexão logo após o REQ e, na 2ª (reconexão), envia um EVENT assinado.
+  const sk = generateSecretKey();
+  const pk = getPublicKey(sk);
+  const signed = finalizeEvent(
+    { created_at: 1700000001, kind: 1, tags: [], content: "após reconectar" },
+    sk
+  );
+  const wss = new WebSocketServer({ port: 0 });
+  await once(wss, "listening");
+  const port = (wss.address() as AddressInfo).port;
+  let connCount = 0;
+  wss.on("connection", (socket) => {
+    connCount += 1;
+    const myConn = connCount;
+    socket.on("message", (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg[0] === "REQ") {
+        const subId = msg[1];
+        if (myConn === 1) {
+          socket.close(); // simula queda inesperada da conexão do consumidor
+        } else {
+          socket.send(JSON.stringify(["EVENT", subId, signed])); // reconectou: entrega o evento
+        }
+      }
+    });
+  });
+
+  const received: BuzzEvent[] = [];
+  const adapter = new WebSocketBuzzAdapter({
+    relayUrl: `ws://127.0.0.1:${port}`,
+    secretKeyHex: sk,
+    authGraceMs: 20,
+    reconnectBaseMs: 20,
+    reconnectMaxMs: 100,
+  });
+  try {
+    await adapter.connect();
+    await adapter.subscribe({ kinds: [1] }, (ev) => received.push(ev));
+    await waitFor(() => received.length > 0); // só passa se auto-reconectou e re-assinou
+    assert.ok(connCount >= 2, "houve pelo menos uma reconexão");
+    assert.equal(received[0].pubkey, pk, "recebeu o evento entregue após a reconexão");
+  } finally {
+    await adapter.close();
+    wss.close();
   }
 });
 

@@ -52,7 +52,8 @@ export interface SequenceValidation {
 /**
  * Valida invariantes do fluxo (para catch de bugs de emissão, não de segurança):
  * - `seq` estritamente crescente;
- * - primeiro evento = RUN_STARTED;
+ * - primeiro evento = RUN_STARTED e RUN_STARTED aparece SÓ no índice 0 (nunca reinicia no meio);
+ * - todos os eventos do MESMO runId (fluxo de um run só);
  * - exatamente um terminal (RUN_FINISHED|RUN_ERROR), e ele é o último;
  * - nenhum evento após o terminal.
  */
@@ -61,12 +62,15 @@ export function validateEventSequence(events: ReadonlyArray<AgUiEvent>): Sequenc
   if (events.length === 0) return { ok: false, errors: ["fluxo vazio"] };
 
   if (events[0].type !== "RUN_STARTED") errors.push("primeiro evento deve ser RUN_STARTED");
+  const runId = events[0].runId;
 
   let lastSeq = -Infinity;
   let terminalAt = -1;
   events.forEach((e, i) => {
     if (e.seq <= lastSeq) errors.push(`seq não crescente em ${i} (${e.seq})`);
     lastSeq = e.seq;
+    if (e.type === "RUN_STARTED" && i !== 0) errors.push(`RUN_STARTED duplicado no índice ${i}`);
+    if (e.runId !== runId) errors.push(`runId inconsistente no índice ${i} (${e.runId})`);
     if (TERMINAL_EVENTS.has(e.type)) {
       if (terminalAt !== -1) errors.push(`múltiplos eventos terminais (índice ${i})`);
       terminalAt = i;

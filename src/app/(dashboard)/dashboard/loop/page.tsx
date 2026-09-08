@@ -100,6 +100,7 @@ export default function LoopEnginePage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial dos runs (a mesma seq de load é reusada pelo refresh)
     void load();
   }, [load]);
 

@@ -54,3 +54,19 @@ test("ag-ui: faltou terminal -> inválido", () => {
   const ev = validRun().slice(0, 4); // sem RUN_FINISHED
   assert.equal(validateEventSequence(ev).ok, false);
 });
+
+test("ag-ui: RUN_STARTED duplicado no meio do fluxo -> inválido", () => {
+  const ev = validRun();
+  ev.splice(2, 0, { seq: 99, runId: "r1", type: "RUN_STARTED" }); // reinício espúrio no meio
+  const v = validateEventSequence(ev);
+  assert.equal(v.ok, false);
+  assert.ok(v.errors.some((e) => /RUN_STARTED duplicado/.test(e)));
+});
+
+test("ag-ui: runId inconsistente entre eventos -> inválido", () => {
+  const ev = validRun();
+  (ev[2] as { runId: string }).runId = "OUTRO"; // evento de outro run misturado
+  const v = validateEventSequence(ev);
+  assert.equal(v.ok, false);
+  assert.ok(v.errors.some((e) => /runId inconsistente/.test(e)));
+});
