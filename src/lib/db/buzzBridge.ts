@@ -1,5 +1,5 @@
 /**
- * Repositório do Buzz Bridge — persistência do outbox/inbox (tabelas da migração 175).
+ * Repositório do Buzz Bridge — persistência do outbox/inbox (tabelas da migração 174).
  *
  * Torna a ponte funcional mesmo com o relay AUSENTE: os eventos de saída ficam duráveis no
  * outbox até haver relay + flag ON; os de entrada são deduplicados no inbox. Idempotente.
@@ -98,6 +98,28 @@ export function markOutbox(id: string, status: "published" | "failed"): void {
   } else {
     db.prepare("UPDATE buzz_outbox SET status='published' WHERE id=?").run(id);
   }
+}
+
+/** Teto de re-tentativas de publicação antes de desistir (evita loop infinito num relay quebrado). */
+export const MAX_OUTBOX_ATTEMPTS = 5;
+
+/**
+ * Reenfileira entradas 'failed' que ainda estão sob o teto de tentativas (failed -> pending), para
+ * o próximo flush tentar publicar de novo. Falhas costumam ser transitórias (relay fora do ar,
+ * corrida com o AUTH do NIP-42); sem isto a entrada ficaria presa em 'failed' para sempre. As que
+ * estouraram o teto permanecem 'failed' (não voltam). Retorna quantas foram reenfileiradas.
+ * Escopado por tenant. Idempotente por id (o dedup do relay cobre uma eventual republicação dupla).
+ */
+export function requeueFailedOutbox(
+  tenantId: string = DEFAULT_TENANT,
+  maxAttempts: number = MAX_OUTBOX_ATTEMPTS
+): number {
+  const res = getDbInstance()
+    .prepare(
+      "UPDATE buzz_outbox SET status='pending' WHERE tenant_id = ? AND status='failed' AND attempts < ?"
+    )
+    .run(tenantId, maxAttempts);
+  return res.changes;
 }
 
 export interface BuzzCounts {

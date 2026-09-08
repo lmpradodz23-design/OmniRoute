@@ -16,7 +16,13 @@ import {
   type WebSocketBuzzConfig,
 } from "@omniroute/open-sse/buzz-bridge/index.ts";
 
-import { buzzCounts, markOutbox, pendingOutbox, type BuzzCounts } from "./db/buzzBridge";
+import {
+  buzzCounts,
+  markOutbox,
+  pendingOutbox,
+  requeueFailedOutbox,
+  type BuzzCounts,
+} from "./db/buzzBridge";
 import { getDbInstance } from "./db/core";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 
@@ -109,6 +115,9 @@ export async function flushBuzzOutbox(limit = 50): Promise<FlushResult> {
   if (!isFeatureFlagEnabled("BUZZ_HUB_ENABLED")) {
     return { published: 0, failed: 0, skipped: true };
   }
+  // Reenfileira falhas transitórias (sob o teto de tentativas) antes de coletar as pendentes, para
+  // que uma queda passageira do relay não estrangule a mensagem em 'failed' para sempre.
+  requeueFailedOutbox();
   const pending = pendingOutbox(limit);
   if (pending.length === 0) return { published: 0, failed: 0, skipped: false };
 

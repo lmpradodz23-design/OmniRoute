@@ -1,5 +1,5 @@
 /**
- * Repositório do Loop Engine — persistência dos runs/steps (tabelas da migração 175).
+ * Repositório do Loop Engine — persistência dos runs/steps (tabelas da migração 174).
  *
  * Torna o núcleo puro (`open-sse/loop-engine`) FUNCIONAL: grava e recarrega o estado no DB
  * do OmniRoute (fonte de verdade). Report-only; nenhum efeito externo aqui.

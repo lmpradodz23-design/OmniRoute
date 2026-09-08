@@ -2,7 +2,7 @@
  * Loop Engine — API pública do núcleo (report-only).
  *
  * Módulo LEVE do OmniRoute (não é serviço). O estado durável (runs/steps/checkpoints/
- * aprovações) vive no DB do OmniRoute (migração 175); este núcleo é a lógica pura de
+ * aprovações) vive no DB do OmniRoute (migração 174); este núcleo é a lógica pura de
  * ciclo, orçamento e política. Fica atrás da feature flag `loop_engine` (OFF por padrão).
  *
  * Configuração e controle ficam no PAINEL ÚNICO do OmniRoute (dashboard), não numa UI à parte.

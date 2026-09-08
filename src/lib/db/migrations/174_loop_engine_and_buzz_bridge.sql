@@ -1,4 +1,4 @@
--- 175_loop_engine_and_buzz_bridge.sql
+-- 174_loop_engine_and_buzz_bridge.sql
 --
 -- Estado durável dos módulos agentic da Fase 1 (Loop Engine + Buzz Bridge). Aditiva,
 -- idempotente (IF NOT EXISTS) e não-destrutiva: só cria tabelas/índices novos, não toca

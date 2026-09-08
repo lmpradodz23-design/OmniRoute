@@ -6,11 +6,17 @@ import test from "node:test";
 import type { BuzzEvent } from "@omniroute/open-sse/buzz-bridge/index.ts";
 
 import { getDbInstance } from "@/lib/db/core";
-import { enqueueOutbox, markOutbox, pendingOutbox, receiveInbox } from "@/lib/db/buzzBridge";
+import {
+  enqueueOutbox,
+  markOutbox,
+  pendingOutbox,
+  receiveInbox,
+  requeueFailedOutbox,
+} from "@/lib/db/buzzBridge";
 
 function ensureSchema(): void {
   const sql = readFileSync(
-    join(process.cwd(), "src/lib/db/migrations/175_loop_engine_and_buzz_bridge.sql"),
+    join(process.cwd(), "src/lib/db/migrations/174_loop_engine_and_buzz_bridge.sql"),
     "utf8"
   );
   getDbInstance().exec(sql);
@@ -49,6 +55,23 @@ test("buzz repo: enqueue carimba createdAt (estavel) quando ausente -> publish i
   enqueueOutbox({ event: { ...raw, createdAt: 999 }, correlationId: "c1" });
   const again = pendingOutbox().find((e) => e.id === id);
   assert.equal(again!.event.createdAt, first, "createdAt persiste estavel entre re-enqueues");
+});
+
+test("buzz repo: requeueFailedOutbox reenfileira falhas sob o teto e desiste acima dele", () => {
+  ensureSchema();
+  const transient = "ft-" + Math.random().toString(36).slice(2);
+  const exhausted = "fx-" + Math.random().toString(36).slice(2);
+  const tenant = "reqA-" + Math.random().toString(36).slice(2);
+  enqueueOutbox({ event: ev(transient), correlationId: "c", tenantId: tenant });
+  enqueueOutbox({ event: ev(exhausted), correlationId: "c", tenantId: tenant });
+  // 'transient' falhou 1x; 'exhausted' estourou o teto (5 falhas).
+  markOutbox(transient, "failed");
+  for (let i = 0; i < 5; i++) markOutbox(exhausted, "failed");
+  assert.equal(pendingOutbox(100, tenant).length, 0, "ambos saíram de pending após falhar");
+  const requeued = requeueFailedOutbox(tenant);
+  assert.equal(requeued, 1, "só a falha transitória (sob o teto) volta para pending");
+  const pend = pendingOutbox(100, tenant).map((e) => e.id);
+  assert.deepEqual(pend, [transient], "a que estourou o teto permanece failed");
 });
 
 test("buzz repo: receiveInbox deduplica (processa no maximo uma vez)", () => {

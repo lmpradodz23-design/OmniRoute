@@ -18,7 +18,7 @@ import {
 
 function ensureSchema(): void {
   const sql = readFileSync(
-    join(process.cwd(), "src/lib/db/migrations/175_loop_engine_and_buzz_bridge.sql"),
+    join(process.cwd(), "src/lib/db/migrations/174_loop_engine_and_buzz_bridge.sql"),
     "utf8"
   );
   getDbInstance().exec(sql);

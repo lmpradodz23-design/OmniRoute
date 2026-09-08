@@ -11,7 +11,7 @@ import { getLoopRun, listLoopRuns, saveLoopRun } from "@/lib/db/loopEngine";
 // Garante o schema da migracao 175 no DB isolado do teste (IF NOT EXISTS -> idempotente).
 function ensureSchema(): void {
   const sql = readFileSync(
-    join(process.cwd(), "src/lib/db/migrations/175_loop_engine_and_buzz_bridge.sql"),
+    join(process.cwd(), "src/lib/db/migrations/174_loop_engine_and_buzz_bridge.sql"),
     "utf8"
   );
   getDbInstance().exec(sql);
