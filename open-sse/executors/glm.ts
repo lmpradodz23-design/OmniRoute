@@ -223,8 +223,9 @@ export function translateSseResponse(
   suppressThinkClose: boolean = false
 ): Response {
   if (!response.body) return response;
-  // GLM is a high-throughput provider — use a larger stream buffer (64KB) to
-  // keep provider → client pacing ahead of the model's token emission rate.
+  // GLM is a high-throughput provider. (A previous extra positional arg here — an intended 64KB
+  // buffer hint — was silently ignored: createSSETransformStreamWithLogger takes 15 params and
+  // never consumed it, so passing it only tripped TS2554. Removed; behavior is unchanged.)
   const transform = createSSETransformStreamWithLogger(
     FORMATS.CLAUDE,
     FORMATS.OPENAI,
@@ -240,8 +241,7 @@ export function translateSseResponse(
     false,
     suppressThinkClose,
     undefined,
-    undefined,
-    65536
+    undefined
   );
   const headers = cloneHeaders(response.headers);
   headers.set("content-type", "text/event-stream");
