@@ -3,11 +3,23 @@
 - **mission_id:** omniroute-sec-remediation-v3.8.51
 - **objetivo:** corrigir os 8 findings do scan de segurança + hardening (Fase 2) + CI/supply-chain (Fase 3), com teste de regressão por correção. Sem push/deploy/publish.
 - **branch:** `security/remediation-v3.8.51` (base `b345c7f6c` = SHA da missão)
-- **estado:** EXECUTING (Fase 1)
-- **iteração:** 1
+- **estado:** COMPLETED (escopo dos 8 findings + hardening da Fase 1) — mergeado em `release/v3.8.51` (`31c6f4413`) com autorização explícita do operador.
+- **iteração:** final
 - **início:** 2026-09-09 (sessão retomada)
-- **último_heartbeat:** Fase 0 concluída
-- **último_progresso_real:** baseline + branch + secret scan feitos; iniciando #1 (SSRF)
+- **último_heartbeat:** validação integrada concluída
+- **último_progresso_real:** #3 (8 findings) + #4 (base hygiene + sanitizador) mergeados; suíte integrada 64/64 verde; gates de qualidade validados no estado integrado.
+
+## Conclusão — evidência no estado INTEGRADO `release/v3.8.51` @ 31c6f4413
+- **Merges (autorizados):** PR #4 base-hygiene → `d4e96a5ee`; #3 atualizado sobre a base nova (merge limpo, zero overlap de arquivos) → PR #3 → `31c6f4413`.
+- **Regressão integrada (os 8 findings + sanitizador juntos):** `64/64` testes PASS (`--test-concurrency=1`).
+- **open-sse typecheck:** `0` erros. **API Route Typecheck (baseline gate):** PASS — 289 erros, todos no baseline congelado, `0` regressões.
+- **Docs gates:** `check:docs-counts` OK · `check:changelog-integrity` OK · `check:env-doc-sync` OK · `check:agent-skills-sync` em sync (o exit 2 local é só CRLF do working tree Windows; `git diff` = vazio; CI Linux verde).
+- **CI da branch de release:** o único vermelho é `Build Docker` — falha em `##[error]Username and password required` (login Docker Hub) porque a fork não tem os secrets `DOCKERHUB_*` e a imagem alvo é `diegosouzapw/omniroute`. É etapa de **publish/infra**, não de código.
+
+## Pendências honestas (fora do escopo mergeado)
+- **Smoke autenticado** `/v1/messages` e `/v1/responses`: `BLOCKED_BY_EXTERNAL_DEPENDENCY` — exige credencial do operador (harness pronto em `scripts/smoke/authenticated-smoke.mjs`, passos pagos atrás de `OMNIROUTE_SMOKE_ALLOW_PAID`).
+- **Fase 2** (CSP unsafe-eval, TS strict/ignoreBuildErrors, god-files, plugins sandbox, marketplace, browser/CDP) e **Fase 3** (supply-chain: Actions pinadas, gitleaks/osv/actionlint/oasdiff, SBOM, deploy digest-pinned, remover refs a diegosouzapw): **não iniciadas** — trabalho futuro, requer nova autorização de escopo.
+- **Release/publish/deploy/npm-publish/tag:** não executados — reservados à sua autorização explícita (constraint inegociável).
 
 ## Critérios de aceite (gate final)
 working tree limpa · secret scan · lint · typecheck · unit · integração · build · testes Electron · testes MCP authz · testes SSRF · migração+rollback · smoke /v1/models · smoke autenticado /v1/messages e /v1/responses (pede credencial) · nova auditoria sem Critical/High.
@@ -36,4 +48,4 @@ Actions fixadas em SHA · Dependabot · gitleaks/osv/actionlint/oasdiff fixos ·
 Commits pequenos e separados na branch; base `b345c7f` intocada. `git revert <commit>` por correção.
 
 ## Próxima ação
-Ler `src/app/api/webhooks/[id]/test/route.ts` + `safeOutboundFetch.ts`, escrever teste que prova o SSRF por redirect/rebinding, corrigir via helper hardened, testar, commit `fix(ssrf): ...`.
+Missão concluída e integrada. Próximas ações possíveis (todas requerem autorização/insumo do operador): rodar o smoke autenticado com credencial; abrir PR da fork → upstream `diegosouzapw`; iniciar Fase 2/3; ou taggear/publicar um release.
