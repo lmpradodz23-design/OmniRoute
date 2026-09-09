@@ -35,7 +35,7 @@ import {
   writeCallArtifact,
   type CallLogArtifact,
 } from "../usage/callLogArtifacts";
-import { migrateLegacyEncryptedString } from "./encryption";
+import { assertStorageEncryptionConfigured, migrateLegacyEncryptedString } from "./encryption";
 import { encryptExistingWebhookSecrets } from "./webhooks";
 import { invalidateDbCache } from "./readCache";
 import { rowToCamel } from "./caseMapping";
@@ -1379,6 +1379,11 @@ export function getDbInstance(): SqliteDatabase {
       createBackupBeforeRepair: () => createHealthCheckBackup(db),
     });
   }
+
+  // #3: in an exposed/production profile, refuse to proceed without a storage encryption key —
+  // fail-closed rather than silently persisting plaintext secrets. No-op in dev/test. Runs before
+  // setDb so a retry re-evaluates it (never leaves a half-initialized singleton on a bad profile).
+  assertStorageEncryptionConfigured();
 
   setDb(db);
 

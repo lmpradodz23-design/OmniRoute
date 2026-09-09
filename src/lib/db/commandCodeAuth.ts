@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 
 import { getDbInstance, rowToCamel } from "./core";
-import { decrypt, encrypt } from "./encryption";
+import { decrypt, encryptSensitive } from "./encryption";
 
 export type CommandCodeAuthStatus = "pending" | "received" | "applied" | "expired";
 
@@ -139,7 +139,7 @@ export function markCommandCodeAuthSessionReceived(input: {
     ...(input.metadata || {}),
     receivedAt: now,
   };
-  const encryptedApiKey = encrypt(input.apiKey);
+  const encryptedApiKey = encryptSensitive(input.apiKey); // #3: fail-closed in prod
   db()
     .prepare(
       `UPDATE command_code_auth_sessions

@@ -19,7 +19,7 @@ working tree limpa · secret scan · lint · typecheck · unit · integração �
 - [x] #2 LOCAL_ONLY loopback-only — removida exceção LAN; LAN só via carve-out autenticado; spawn só loopback. 22/22 + 93/93.
 - [x] #4 MCP scopes default-on fail-closed — isMcpScopeEnforcementEnabled (default ON, opt-out explicito). 6/6 + 70/70 sem regressao.
 - [ ] #7 apiKeys somente hash/prefix + migração
-- [ ] #3 encryptOrThrow fail-closed + migração
+- [x] #3 encryptOrThrow fail-closed — contrato + gate de startup + 3 writers convertidos. 5/5 + 22/22 regressao. (varredura dos demais writers = follow-up)
 - [ ] #6 Electron remote IPC isolamento
 
 ## Fase 2 (após Fase 1 verde)

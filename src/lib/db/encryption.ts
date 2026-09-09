@@ -212,6 +212,89 @@ export function encrypt(plaintext: string | null | undefined): string | null | u
 }
 
 /**
+ * #3 — raised when a sensitive write is attempted but storage encryption cannot produce real
+ * ciphertext (no/invalid STORAGE_ENCRYPTION_KEY). Callers must let this reject the write instead
+ * of persisting plaintext.
+ */
+export class EncryptionUnavailableError extends Error {
+  constructor(
+    message = "Storage encryption unavailable: STORAGE_ENCRYPTION_KEY is not set or is invalid"
+  ) {
+    super(message);
+    this.name = "EncryptionUnavailableError";
+  }
+}
+
+/**
+ * Whether sensitive writes MUST be encrypted (fail-closed) in this deployment profile (#3).
+ * True in production or when explicitly required; dev/test default to passthrough for convenience.
+ */
+export function isStorageEncryptionRequired(): boolean {
+  // Explicit opt-in/opt-out wins over everything (including test context), so operators can force
+  // fail-closed on and tests can exercise the required path.
+  const explicit = process.env.OMNIROUTE_REQUIRE_STORAGE_ENCRYPTION;
+  if (typeof explicit === "string" && explicit.trim() !== "") {
+    return ["1", "true", "yes", "on"].includes(explicit.trim().toLowerCase());
+  }
+  if (isTestContext()) return false;
+  return process.env.NODE_ENV === "production";
+}
+
+/**
+ * Fail-closed encryption (#3): returns a real `enc:v1:` ciphertext or THROWS
+ * `EncryptionUnavailableError` — NEVER a plaintext passthrough. Use for any sensitive credential
+ * write so a missing/invalid key rejects the write instead of silently persisting plaintext.
+ */
+export function encryptOrThrow(plaintext: string): string {
+  if (typeof plaintext !== "string" || plaintext.length === 0) {
+    throw new TypeError("encryptOrThrow requires a non-empty string");
+  }
+  if (plaintext.startsWith(PREFIX)) return plaintext; // already ciphertext
+
+  const key = getStaticKey();
+  if (!key) throw new EncryptionUnavailableError();
+
+  try {
+    const iv = randomBytes(IV_LENGTH);
+    const cipher = createCipheriv(ALGORITHM, key, iv);
+    let encrypted = cipher.update(plaintext, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    const authTag = cipher.getAuthTag().toString("hex");
+    return `${PREFIX}${iv.toString("hex")}:${encrypted}:${authTag}`;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new EncryptionUnavailableError(`Storage encryption failed: ${message}`);
+  }
+}
+
+/**
+ * Contract for sensitive credential writers (#3): fail-closed (encryptOrThrow) when encryption is
+ * required by the deployment profile, otherwise the dev-friendly passthrough `encrypt`. Preserves
+ * local/dev convenience while guaranteeing production never persists plaintext secrets.
+ */
+export function encryptSensitive(
+  plaintext: string | null | undefined
+): string | null | undefined {
+  if (!plaintext || typeof plaintext !== "string") return plaintext;
+  return isStorageEncryptionRequired() ? encryptOrThrow(plaintext) : encrypt(plaintext);
+}
+
+/**
+ * Startup gate (#3): throw when the deployment profile requires encryption but no key is
+ * configured, so an exposed/production instance refuses to start rather than silently storing
+ * plaintext secrets. No-op in dev/test.
+ */
+export function assertStorageEncryptionConfigured(): void {
+  if (isStorageEncryptionRequired() && !isEncryptionEnabled()) {
+    throw new EncryptionUnavailableError(
+      "STORAGE_ENCRYPTION_KEY is required in this deployment profile " +
+        "(NODE_ENV=production or OMNIROUTE_REQUIRE_STORAGE_ENCRYPTION). Refusing to start with " +
+        "sensitive-data encryption disabled. Generate one with: openssl rand -base64 32"
+    );
+  }
+}
+
+/**
  * Decrypt a ciphertext string. Attempts static-salt key first (primary),
  * then falls back to legacy dynamic-salt key for backward compatibility.
  *
