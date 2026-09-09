@@ -36,6 +36,7 @@ import {
   type CallLogArtifact,
 } from "../usage/callLogArtifacts";
 import { migrateLegacyEncryptedString } from "./encryption";
+import { encryptExistingWebhookSecrets } from "./webhooks";
 import { invalidateDbCache } from "./readCache";
 import { rowToCamel } from "./caseMapping";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
@@ -1387,6 +1388,17 @@ export function getDbInstance(): SqliteDatabase {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[DB] Legacy encryption migration failed: ${message}`);
+  }
+
+  // #8: encrypt any webhook HMAC secret still stored in plaintext (idempotent; no-op without key).
+  try {
+    const encryptedWebhookSecrets = encryptExistingWebhookSecrets();
+    if (encryptedWebhookSecrets > 0) {
+      console.log(`[DB] Encrypted ${encryptedWebhookSecrets} plaintext webhook secret(s) at rest.`);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[DB] Webhook secret encryption migration failed: ${message}`);
   }
 
   startDbHealthCheckScheduler(db);

@@ -4,6 +4,7 @@
  */
 
 import { getDbInstance } from "./core";
+import { decrypt, encrypt, isEncryptionEnabled } from "./encryption";
 import crypto from "crypto";
 
 export type WebhookKind = "slack" | "telegram" | "discord" | "custom";
@@ -44,6 +45,11 @@ function rowToWebhook(row: WebhookRow): Webhook {
     kind: (row.kind as WebhookKind) || "custom",
     events: JSON.parse(row.events || '["*"]'),
     enabled: row.enabled === 1,
+    // #8: the HMAC signing secret is encrypted at rest. Decrypt on read so every internal
+    // consumer (dispatcher/test HMAC) keeps seeing the plaintext, while the DB/backup only ever
+    // holds ciphertext. A stale/absent key yields null here — the delivery then goes unsigned
+    // rather than signed with a wrong key.
+    secret: row.secret == null ? null : (decrypt(row.secret) ?? null),
   };
 }
 
@@ -93,6 +99,9 @@ export function createWebhook(data: {
   const id = crypto.randomUUID();
   const secret = data.secret || `whsec_${crypto.randomBytes(24).toString("hex")}`;
   const kind = data.kind || "custom";
+  // #8: encrypt the HMAC secret before it touches the DB (passthrough only when no key is
+  // configured — hardened to fail-closed in exposed profiles by finding #3).
+  const storedSecret = encrypt(secret) ?? secret;
 
   db.prepare(
     `INSERT INTO webhooks (id, url, events, secret, description, kind, metadata_encrypted)
@@ -101,7 +110,7 @@ export function createWebhook(data: {
     id,
     data.url,
     JSON.stringify(data.events || ["*"]),
-    secret,
+    storedSecret,
     data.description || "",
     kind,
     data.metadataEncrypted ?? null
@@ -139,7 +148,7 @@ export function updateWebhook(
   }
   if (data.secret !== undefined) {
     fields.push("secret = ?");
-    values.push(data.secret);
+    values.push(encrypt(data.secret) ?? data.secret); // #8: encrypt at rest
   }
   if (data.enabled !== undefined) {
     fields.push("enabled = ?");
@@ -191,4 +200,37 @@ export function disableWebhooksWithHighFailures(threshold = 10): number {
     .prepare(`UPDATE webhooks SET enabled = 0 WHERE failure_count >= ? AND enabled = 1`)
     .run(threshold);
   return (result as any).changes;
+}
+
+/**
+ * #8 backfill: encrypt any webhook signing secret still stored in plaintext (pre-migration rows).
+ * Idempotent (skips values already carrying the `enc:v1:` prefix) and transactional. No-op when no
+ * encryption key is configured (nothing to gain from passthrough re-writes). Returns the count
+ * migrated. Runs at DB init alongside the legacy-encryption migration; the signature stays valid
+ * because the plaintext round-trips (decrypt-on-read) to the exact same value.
+ */
+export function encryptExistingWebhookSecrets(): number {
+  if (!isEncryptionEnabled()) return 0;
+  const db = getDbInstance();
+  const rows = db
+    .prepare(
+      "SELECT id, secret FROM webhooks WHERE secret IS NOT NULL AND secret <> '' AND secret NOT LIKE 'enc:v1:%'"
+    )
+    .all() as Array<{ id: string; secret: string }>;
+  if (rows.length === 0) return 0;
+
+  const update = db.prepare("UPDATE webhooks SET secret = ? WHERE id = ?");
+  let migrated = 0;
+  const runAll = db.transaction(() => {
+    for (const row of rows) {
+      const enc = encrypt(row.secret);
+      // Only write back a genuine ciphertext — never re-store plaintext (passthrough) as if migrated.
+      if (typeof enc === "string" && enc.startsWith("enc:v1:")) {
+        update.run(enc, row.id);
+        migrated++;
+      }
+    }
+  });
+  runAll();
+  return migrated;
 }
