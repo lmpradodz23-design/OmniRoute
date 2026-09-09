@@ -16,7 +16,7 @@ working tree limpa · secret scan · lint · typecheck · unit · integração �
 - [x] #1 SSRF teste de webhook — hardenedWebhookFetch (resolve+pin+no-redirect+no-body-privado). Commit 7488e1cbf. 18/18 testes.
 - [x] #5 OpenAPI Try confused deputy — bloqueia LOCAL_ONLY/ALWAYS_PROTECTED + GET/HEAD no /api/ + sem cookie implícito. 6/6 testes.
 - [x] #8 webhook secret encryption — cifra no write, decifra na leitura, backfill idempotente + integridade HMAC. 4/4 + 46/46 regressao.
-- [ ] #2 LOCAL_ONLY loopback-only vs TRUSTED_LAN
+- [x] #2 LOCAL_ONLY loopback-only — removida exceção LAN; LAN só via carve-out autenticado; spawn só loopback. 22/22 + 93/93.
 - [x] #4 MCP scopes default-on fail-closed — isMcpScopeEnforcementEnabled (default ON, opt-out explicito). 6/6 + 70/70 sem regressao.
 - [ ] #7 apiKeys somente hash/prefix + migração
 - [ ] #3 encryptOrThrow fail-closed + migração
