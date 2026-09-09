@@ -343,6 +343,17 @@ function findTokenEnd(value: string, start: number): number {
   return end;
 }
 
+// A resolved `.ext:line:col` (or `.ext:line`) endpoint is an unambiguous
+// terminal stack location: a filesystem path never legitimately continues past
+// the numeric coordinate suffix. Detect it by walking back over the trailing
+// `:<digits>` immediately preceding the resolved extension end.
+function extensionEndHasLineColumnSuffix(value: string, extensionEnd: number): boolean {
+  let index = extensionEnd;
+  if (index <= 0 || !isAsciiDigit(value.charCodeAt(index - 1))) return false;
+  while (index > 0 && isAsciiDigit(value.charCodeAt(index - 1))) index--;
+  return index > 0 && value.charCodeAt(index - 1) === 0x3a;
+}
+
 function findExtensionEndInToken(value: string, start: number, end: number): number {
   let lastExtensionEnd = -1;
   for (let index = start; index < end; index++) {
@@ -461,11 +472,17 @@ function findUnquotedPathEnd(
   let firstTrimmedTokenEnd = -1;
   let lastPathTokenEnd = -1;
   let resolvedExtensionEnd = -1;
+  let resolvedCoordinateEnd = -1;
   let hasFilesystemEvidence = false;
   let hasUnresolvedFragments = false;
 
   const resolveEndpoint = (): number => {
     if (hasUnresolvedFragments) {
+      // A coordinate-terminated stack location (`file.ts:42:9`) is a definite
+      // endpoint: prefer it over failing closed so trailing prose such as
+      // "Authorization: Bearer <secret>" is not swallowed into <path> and can
+      // still be redacted independently by the sensitive-text pass.
+      if (resolvedCoordinateEnd >= 0) return resolvedCoordinateEnd;
       return failClosedAmbiguity || hasFilesystemEvidence ? value.length : -1;
     }
     if (resolvedExtensionEnd >= 0) return resolvedExtensionEnd;
@@ -514,10 +531,16 @@ function findUnquotedPathEnd(
       if (extensionEnd < 0 && containsExtensionEvidence) {
         resolvedExtensionEnd = trimmedTokenEnd;
       }
+      if (extensionEnd >= 0 && extensionEndHasLineColumnSuffix(value, extensionEnd)) {
+        resolvedCoordinateEnd = extensionEnd;
+      }
     } else if (extensionEnd >= 0) {
       resolvedExtensionEnd = extensionEnd;
       hasFilesystemEvidence = true;
       hasUnresolvedFragments = false;
+      if (extensionEndHasLineColumnSuffix(value, extensionEnd)) {
+        resolvedCoordinateEnd = extensionEnd;
+      }
     } else if (containsExtensionEvidence) {
       resolvedExtensionEnd = trimmedTokenEnd;
       hasFilesystemEvidence = true;
