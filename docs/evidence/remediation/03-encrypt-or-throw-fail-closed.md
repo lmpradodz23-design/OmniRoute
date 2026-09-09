@@ -36,9 +36,19 @@ Writers convertidos para `encryptSensitive` (rejeitam a escrita sem chave em pro
   (cloud-agent-credentials, db-command-code-auth, migration-071) — writers convertidos sem quebra.
 - `tsc --noEmit` (core): 0 erros nos arquivos; `eslint` (com suppressions): exit 0.
 
-## Escopo honesto / follow-up (mesmo contrato, menor risco)
-Outros writers ainda usam o `encrypt()` passthrough e devem adotar `encryptSensitive` numa
-varredura subsequente: `db/obsidian.ts`, `db/radar.ts`, `db/settings.ts` (oidcClientSecret),
-`logExport/secrets.ts`, `webhookDispatcher.ts` (metadata), `db/secrets.ts`. A "readiness que
-detecta campos sensíveis sem envelope" (varredura de todas as colunas) também fica como follow-up
-— o gate de startup + os writers de credencial de maior risco já fecham o caminho principal.
+## Varredura dos demais writers — CONCLUÍDA
+Todos os writers com `encrypt()` passthrough foram convertidos para `encryptSensitive`
+(fail-closed em perfil exposto): `db/obsidian.ts` (token + password), `db/radar.ts` (key),
+`db/settings.ts` (oidcClientSecret), `logExport/secrets.ts`, `webhookDispatcher.ts` (metadata) e
+`db/secrets.ts` (`persistSecret`/`getPersistedSecret`). **Achado extra:** `persistSecret` — usado
+pelo `login:start` do Electron para salvar credenciais de provedor — gravava em **texto puro**;
+agora cifra no repouso + decifra na leitura (legado plaintext segue lido via passthrough do
+`decrypt`).
+
+Testes: `tests/unit/db-secrets-encryption.test.ts` (ciphertext no repouso, round-trip, legado
+plaintext). Regressão: **207/207** nos testes unitários dos writers (db-secrets, db-settings,
+obsidian, log-export, cli-radar). tsc 0 erros; eslint exit 0.
+
+## Follow-up remanescente
+A "readiness que detecta campos sensíveis sem envelope" (varredura de todas as colunas) permanece
+como follow-up — o gate de startup + todos os writers de credencial fechados já cobrem o caminho.
