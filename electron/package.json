@@ -69,6 +69,7 @@
       "lib/windowLifecycle.js",
       "lib/loginHeaderCapture.js",
       "lib/resolveRemoteServerUrl.js",
+      "lib/ipcOriginGuard.js",
       "lib/remoteServerPreferences.js",
       "lib/serverReadiness.js",
       "lib/windowClosePolicy.js",

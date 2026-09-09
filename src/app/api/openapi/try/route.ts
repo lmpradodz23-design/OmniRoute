@@ -8,8 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
+import { isLocalOnlyPath, isAlwaysProtectedPath } from "@/server/authz/routeGuard";
 
 const ALLOWED_TRY_PATH_PREFIXES = ["/api/", "/v1/", "/v1beta/", "/a2a", "/.well-known/agent.json"];
+
 const BLOCKED_FORWARD_HEADERS = new Set([
   "connection",
   "content-length",
@@ -80,12 +82,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Path must be same-origin" }, { status: 400 });
     }
 
+    const upperMethod = method.toUpperCase();
+    const pathname = targetUrl.pathname;
+
+    // #5 (confused deputy — core fix): never let the same-origin self-fetch reach host-sensitive
+    // (LOCAL_ONLY) or always-protected routes. Those rely on the caller's network locality / login,
+    // which the SERVER itself satisfies over loopback — so proxying them would let an authenticated
+    // management caller (or, with requireLogin=false, an anonymous one) drive install/spawn/config
+    // routes reserved for the local host. Blocking the destination closes the escalation while
+    // preserving the feature's legitimate use (an authenticated admin exercising ordinary
+    // management / inference APIs, including mutations, under their own session).
+    if (isLocalOnlyPath(pathname, upperMethod) || isAlwaysProtectedPath(pathname)) {
+      return NextResponse.json(
+        { error: "Target endpoint is not available through Try It" },
+        { status: 403 }
+      );
+    }
+
     const start = performance.now();
 
-    // Forward cookies/auth from the original request
+    // Forward cookies/auth from the original (already management-authenticated) request.
     const forwardHeaders = buildForwardHeaders(headers as Record<string, string>);
 
-    // Forward auth from the dashboard session
+    // Forward auth from the dashboard session so the proxied call runs as the same admin.
     const cookie = request.headers.get("cookie");
     if (cookie && !forwardHeaders["Cookie"]) {
       forwardHeaders["Cookie"] = cookie;

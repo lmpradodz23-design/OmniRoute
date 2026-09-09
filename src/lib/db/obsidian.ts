@@ -1,6 +1,6 @@
 import { getDbInstance } from "./core";
 import { getApiKeyContextSource } from "./apiKeyContextSources";
-import { encrypt, decrypt } from "./encryption";
+import { decrypt, encryptSensitive } from "./encryption";
 
 const OBSIDIAN_NAMESPACE = "obsidian";
 const OBSIDIAN_TOKEN_KEY = "api_key";
@@ -28,7 +28,7 @@ export function getObsidianToken(): string | null {
 export function setObsidianToken(token: string): void {
   try {
     const db = getDbInstance();
-    const encrypted = encrypt(token) ?? token;
+    const encrypted = encryptSensitive(token) ?? token; // #3: fail-closed in prod
     db.prepare(
       "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
     ).run(OBSIDIAN_NAMESPACE, OBSIDIAN_TOKEN_KEY, JSON.stringify(encrypted));
@@ -187,7 +187,7 @@ export function getWebdavPassword(): string | null {
 export function setWebdavPassword(password: string): void {
   try {
     const db = getDbInstance();
-    const encrypted = encrypt(password) ?? password;
+    const encrypted = encryptSensitive(password) ?? password; // #3: fail-closed in prod
     db.prepare(
       "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
     ).run(OBSIDIAN_NAMESPACE, "webdav_password", JSON.stringify(encrypted));

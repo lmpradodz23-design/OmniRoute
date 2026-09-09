@@ -30,7 +30,7 @@
  */
 
 import { getDbInstance } from "./core";
-import { encrypt, decrypt } from "./encryption";
+import { decrypt, encryptSensitive } from "./encryption";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -197,7 +197,7 @@ export function setRadarOptIn(optIn: boolean): void {
  */
 export function setRadarKey(key: string | null): void {
   const db = getDbInstance();
-  const encrypted = key !== null ? encrypt(key) : null;
+  const encrypted = key !== null ? encryptSensitive(key) : null; // #3: fail-closed in prod
   const updateKey = db.prepare(
     "UPDATE radar_settings SET supporter_key_encrypted = ?, updated_at = datetime('now') WHERE id = 1"
   );

@@ -20,7 +20,6 @@ import {
 import {
   hasValidLoopbackCliToken,
   isLoopbackRequest,
-  isPrivateLanRequest,
   LOCAL_CLI_SUBJECT,
 } from "../peerContext";
 import {
@@ -79,28 +78,23 @@ export const managementPolicy: RoutePolicy = {
       return allow({ kind: "management_key", id: "ws-bridge", label: "codex-ws-bridge-secret" });
     }
 
-    // Tier 1: local-only gate — block spawn-capable routes from non-loopback.
+    // Tier 1: local-only gate — LOCAL_ONLY paths are LOOPBACK-ONLY. (#2 security remediation)
     //
-    // Carve-out: a small allow-list of LOCAL_ONLY paths (see
-    // LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES) is reachable from non-loopback
-    // when the caller presents EITHER (a) a valid API key with the `manage`
-    // scope, or (b) an authenticated dashboard session. This lets:
-    //   - headless / remote MCP clients drive the management surface with a
-    //     manage-scope Bearer key, and
-    //   - the Dashboard UI itself (cookie session) render its MCP pages
-    //     (/api/mcp/status, /api/mcp/tools) from a public hostname.
+    // A non-loopback caller — including a private-LAN device — MUST pass the gate below; it never
+    // skips it on locality alone. The only way a non-loopback caller reaches a LOCAL_ONLY path is
+    // the explicit, AUTHENTICATED carve-out: a small allow-list (see
+    // LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES) reachable when the caller presents EITHER (a) a
+    // valid API key with the `manage`/`admin` scope (or `mcp:connect` for `/api/mcp/`), or (b) an
+    // authenticated dashboard session. This is the "TRUSTED_LAN" surface — it requires real auth.
     //
-    // The strict-loopback default still applies to everything else (notably
-    // the subprocess-spawning /api/cli-tools/runtime/* surface, which is NOT
-    // in the bypass list).
+    // The strict-loopback default applies to everything else, notably the subprocess-spawning
+    // /api/cli-tools/runtime/* surface (NOT in the bypass list): a LAN peer cannot reach it AT ALL,
+    // authenticated or not. Host control stays on the loopback boundary.
     //
-    // Anonymous (no Bearer / invalid key / wrong scope / no session) requests
-    // still hit the same 403 LOCAL_ONLY they did before.
-    if (
-      isLocalOnlyPath(path, ctx.request?.method) &&
-      !isLoopbackRequest(ctx) &&
-      !isPrivateLanRequest(ctx)
-    ) {
+    // Previously a private-LAN peer skipped this gate entirely and fell through to the
+    // requireLogin=false anonymous allow, letting an untrusted LAN device drive install/spawn/
+    // config routes with no credential (scan finding #2). Removing the LAN exception closes that.
+    if (isLocalOnlyPath(path, ctx.request?.method) && !isLoopbackRequest(ctx)) {
       if (isLocalOnlyBypassableByManageScope(path)) {
         // Management auth is header-only — a URL-borne token must never satisfy a
         // manage-scope bypass of a LOCAL_ONLY route. See #3300 follow-up.

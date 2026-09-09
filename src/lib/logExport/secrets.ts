@@ -6,7 +6,7 @@
  * and redact before anything reaches an API response.
  */
 
-import { decrypt, encrypt, isEncryptionEnabled } from "@/lib/db/encryption";
+import { decrypt, encryptSensitive, isEncryptionEnabled } from "@/lib/db/encryption";
 import { getLogExportDestinationType } from "./registry";
 
 /** Placeholder returned by the API in place of a stored secret. */
@@ -19,10 +19,10 @@ function secretKeysFor(type: string): readonly string[] {
 /**
  * True when this destination type stores a credential AND field encryption is off.
  *
- * `encrypt()` is a silent passthrough without STORAGE_ENCRYPTION_KEY, which is the
- * default for a fresh install — so writing a service-account key would land it in
- * SQLite as plaintext. Callers refuse the write instead (the same guard the Telegram
- * webhook uses).
+ * Field encryption is a passthrough without STORAGE_ENCRYPTION_KEY (the default for a fresh
+ * install), so writing a service-account key would land it in SQLite as plaintext. Callers refuse
+ * the write instead (the same guard the Telegram webhook uses). Writes here go through
+ * `encryptSensitive` (#3), which additionally fails closed in exposed/production profiles.
  */
 export function requiresEncryptionKey(type: string, config: Record<string, unknown>): boolean {
   if (isEncryptionEnabled()) return false;
@@ -42,7 +42,7 @@ export function encryptDestinationConfig(
   const out: Record<string, unknown> = { ...config };
   for (const key of secretKeys) {
     const value = out[key];
-    if (typeof value === "string" && value.length > 0) out[key] = encrypt(value);
+    if (typeof value === "string" && value.length > 0) out[key] = encryptSensitive(value); // #3
   }
   return out;
 }

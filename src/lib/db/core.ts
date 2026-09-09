@@ -35,7 +35,9 @@ import {
   writeCallArtifact,
   type CallLogArtifact,
 } from "../usage/callLogArtifacts";
-import { migrateLegacyEncryptedString } from "./encryption";
+import { assertStorageEncryptionConfigured, migrateLegacyEncryptedString } from "./encryption";
+import { encryptExistingWebhookSecrets } from "./webhooks";
+import { encryptExistingApiKeyPlaintext } from "./apiKeys";
 import { invalidateDbCache } from "./readCache";
 import { rowToCamel } from "./caseMapping";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
@@ -1379,6 +1381,11 @@ export function getDbInstance(): SqliteDatabase {
     });
   }
 
+  // #3: in an exposed/production profile, refuse to proceed without a storage encryption key —
+  // fail-closed rather than silently persisting plaintext secrets. No-op in dev/test. Runs before
+  // setDb so a retry re-evaluates it (never leaves a half-initialized singleton on a bad profile).
+  assertStorageEncryptionConfigured();
+
   setDb(db);
 
   // Re-encrypt any tokens using the legacy dynamic salt to canonical static salt
@@ -1387,6 +1394,28 @@ export function getDbInstance(): SqliteDatabase {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[DB] Legacy encryption migration failed: ${message}`);
+  }
+
+  // #8: encrypt any webhook HMAC secret still stored in plaintext (idempotent; no-op without key).
+  try {
+    const encryptedWebhookSecrets = encryptExistingWebhookSecrets();
+    if (encryptedWebhookSecrets > 0) {
+      console.log(`[DB] Encrypted ${encryptedWebhookSecrets} plaintext webhook secret(s) at rest.`);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[DB] Webhook secret encryption migration failed: ${message}`);
+  }
+
+  // #7: encrypt any API key still stored in plaintext in the `key` column (idempotent; no-op without key).
+  try {
+    const encryptedApiKeys = encryptExistingApiKeyPlaintext();
+    if (encryptedApiKeys > 0) {
+      console.log(`[DB] Encrypted ${encryptedApiKeys} plaintext API key(s) at rest.`);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[DB] API key encryption migration failed: ${message}`);
   }
 
   startDbHealthCheckScheduler(db);

@@ -5,7 +5,7 @@
  */
 
 import crypto from "crypto";
-import { encrypt, decrypt } from "./db/encryption";
+import { decrypt, encryptSensitive } from "./db/encryption";
 import { parseAndValidateWebhookUrl } from "@/shared/network/outboundUrlGuardPolicy";
 import type { WebhookEvent } from "./webhooks/eventDescriptions";
 
@@ -22,7 +22,7 @@ function signPayload(payload: string, secret: string): string {
 }
 
 export function encryptMetadata(meta: Record<string, string>): string {
-  return encrypt(JSON.stringify(meta)) ?? JSON.stringify(meta);
+  return encryptSensitive(JSON.stringify(meta)) ?? JSON.stringify(meta); // #3: fail-closed in prod
 }
 
 export function decryptMetadata(encrypted: string | null): Record<string, string> | null {

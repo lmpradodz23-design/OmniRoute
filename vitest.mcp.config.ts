@@ -4,6 +4,10 @@ import path from "path";
 export default defineConfig({
   test: {
     environment: "node",
+    // #4: these are MCP tool FUNCTIONAL tests (tool logic), not scope-gate tests — they don't
+    // provide caller scopes, so run them with per-tool enforcement off. The default-ON behavior is
+    // verified separately by tests/unit/mcp-scope-enforcement-default.test.ts.
+    env: { OMNIROUTE_MCP_ENFORCE_SCOPES: "false" },
     globals: true,
     pool: "threads",
     maxWorkers: 20,
