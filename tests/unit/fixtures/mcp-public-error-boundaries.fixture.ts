@@ -14,6 +14,11 @@ const originalApiKeyId = process.env.OMNIROUTE_API_KEY_ID;
 const originalInternalToken = process.env.OMNIROUTE_INTERNAL_SERVICE_TOKEN;
 const originalInternalTokenFile = process.env.OMNIROUTE_INTERNAL_SERVICE_TOKEN_FILE;
 const originalBaseUrl = process.env.OMNIROUTE_BASE_URL;
+const originalMcpEnforce = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES;
+// #4: this fixture tests the public/audit SANITIZATION of tool handlers, not the scope gate — it
+// invokes handlers without caller scopes, so per-tool enforcement (default-ON) is disabled here.
+// Must be set BEFORE server.ts is imported below (it reads the flag at module load).
+process.env.OMNIROUTE_MCP_ENFORCE_SCOPES = "false";
 process.env.DATA_DIR = path.join(testRoot, "data");
 process.env.OMNIROUTE_PLUGINS_DIR = path.join(testRoot, "plugins");
 process.env.OMNIROUTE_API_KEY = "mcp-boundary-test-key";
@@ -77,6 +82,8 @@ test.after(() => {
   }
   if (originalBaseUrl === undefined) delete process.env.OMNIROUTE_BASE_URL;
   else process.env.OMNIROUTE_BASE_URL = originalBaseUrl;
+  if (originalMcpEnforce === undefined) delete process.env.OMNIROUTE_MCP_ENFORCE_SCOPES;
+  else process.env.OMNIROUTE_MCP_ENFORCE_SCOPES = originalMcpEnforce;
   fs.rmSync(testRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 

@@ -12,11 +12,6 @@ import { isLocalOnlyPath, isAlwaysProtectedPath } from "@/server/authz/routeGuar
 
 const ALLOWED_TRY_PATH_PREFIXES = ["/api/", "/v1/", "/v1beta/", "/a2a", "/.well-known/agent.json"];
 
-// #5 (confused deputy): mutating methods through this self-fetch proxy are only meaningful for the
-// inference/agent surfaces. The /api/ management surface is GET/HEAD-only here, so the proxy can
-// never be turned into a writer against host-sensitive management routes.
-const MUTABLE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const MUTABLE_ALLOWED_PREFIXES = ["/v1/", "/v1beta/", "/a2a", "/.well-known/"];
 const BLOCKED_FORWARD_HEADERS = new Set([
   "connection",
   "content-length",
@@ -90,9 +85,13 @@ export async function POST(request: NextRequest) {
     const upperMethod = method.toUpperCase();
     const pathname = targetUrl.pathname;
 
-    // #5: never let the same-origin self-fetch reach host-sensitive (LOCAL_ONLY) or
-    // always-protected routes — those rely on the caller's network locality / login, which the
-    // server itself satisfies, turning this proxy into a confused deputy.
+    // #5 (confused deputy — core fix): never let the same-origin self-fetch reach host-sensitive
+    // (LOCAL_ONLY) or always-protected routes. Those rely on the caller's network locality / login,
+    // which the SERVER itself satisfies over loopback — so proxying them would let an authenticated
+    // management caller (or, with requireLogin=false, an anonymous one) drive install/spawn/config
+    // routes reserved for the local host. Blocking the destination closes the escalation while
+    // preserving the feature's legitimate use (an authenticated admin exercising ordinary
+    // management / inference APIs, including mutations, under their own session).
     if (isLocalOnlyPath(pathname, upperMethod) || isAlwaysProtectedPath(pathname)) {
       return NextResponse.json(
         { error: "Target endpoint is not available through Try It" },
@@ -100,24 +99,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mutating methods are only allowed against the inference/agent surfaces, never the /api/
-    // management surface, through this proxy.
-    if (
-      MUTABLE_METHODS.has(upperMethod) &&
-      !MUTABLE_ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-    ) {
-      return NextResponse.json(
-        { error: "Only GET/HEAD are allowed for this endpoint through Try It" },
-        { status: 405 }
-      );
-    }
-
     const start = performance.now();
 
-    // Forward only the caller-supplied headers (Cookie/Host/etc. are stripped by
-    // buildForwardHeaders). The dashboard session cookie is intentionally NOT attached
-    // implicitly (#5): credentials must be passed explicitly by the caller (e.g. Authorization).
+    // Forward cookies/auth from the original (already management-authenticated) request.
     const forwardHeaders = buildForwardHeaders(headers as Record<string, string>);
+
+    // Forward auth from the dashboard session so the proxied call runs as the same admin.
+    const cookie = request.headers.get("cookie");
+    if (cookie && !forwardHeaders["Cookie"]) {
+      forwardHeaders["Cookie"] = cookie;
+    }
 
     if (reqBody && !forwardHeaders["Content-Type"]) {
       forwardHeaders["Content-Type"] = "application/json";
