@@ -38,6 +38,7 @@ const { killProcessTree } = require("./processTree");
 const { resolveServerEntry } = require("./lib/resolveServerEntry");
 const { resolveDarwinHelperExecutable } = require("./lib/resolveNodeHelper");
 const { resolveRemoteServerUrl, isValidHttpUrl } = require("./lib/resolveRemoteServerUrl");
+const { isPrivilegedSenderAllowed } = require("./lib/ipcOriginGuard");
 const {
   readPreferences,
   writeRemoteServerUrl,
@@ -1064,10 +1065,21 @@ function setupIpcHandlers() {
     sendToRenderer("login:status", status);
   });
 
-  ipcMain.handle("login:start", async (_event, providerId, options) => {
+  ipcMain.handle("login:start", async (event, providerId, options) => {
+    // #6: privileged IPC — only the LOCAL renderer may drive provider login. A remote/compromised
+    // page loaded in this window (Remote Server mode) is rejected outright and never reaches the
+    // credential-extraction flow below.
+    if (!isPrivilegedSenderAllowed(event?.senderFrame?.url)) {
+      return { success: false, error: "Login is not available from a remote context" };
+    }
+    // #6: validate the caller-supplied providerId before using it as a secret key / login target.
+    if (typeof providerId !== "string" || providerId.length === 0 || providerId.length > 128) {
+      return { success: false, error: "Invalid providerId" };
+    }
+
     const result = await loginManager.startLogin(providerId, options);
 
-    // Persist extracted credentials
+    // Persist extracted credentials IN THE MAIN PROCESS ONLY.
     if (result.success && result.credentials) {
       try {
         // Store as JSON blob under the provider ID
@@ -1086,7 +1098,13 @@ function setupIpcHandlers() {
       }
     }
 
-    return result;
+    // #6: NEVER return extracted credentials to the renderer — a remote/compromised page must not
+    // receive provider tokens/cookies. Strip them and return only non-sensitive status.
+    const { credentials: _omitCredentials, ...safeResult } = result || {};
+    return {
+      ...safeResult,
+      credentialsPersisted: Boolean(result && result.success && result.credentials),
+    };
   });
 
   ipcMain.handle("login:cancel", async () => {

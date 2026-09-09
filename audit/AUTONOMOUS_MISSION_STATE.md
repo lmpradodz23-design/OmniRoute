@@ -20,7 +20,7 @@ working tree limpa · secret scan · lint · typecheck · unit · integração �
 - [x] #4 MCP scopes default-on fail-closed — isMcpScopeEnforcementEnabled (default ON, opt-out explicito). 6/6 + 70/70 sem regressao.
 - [x] #7 apiKeys cifrada no repouso + validação hash-only + migração (Opção B). 3/3 + 197 subtestes de regressao. (Opção A = hardening futuro)
 - [x] #3 encryptOrThrow fail-closed — contrato + gate de startup + 3 writers convertidos. 5/5 + 22/22 regressao. (varredura dos demais writers = follow-up)
-- [ ] #6 Electron remote IPC isolamento
+- [x] #6 Electron: login:start rejeita sender remoto + valida providerId + NUNCA retorna credentials; guard puro testado. 7/7 + 25/25. (window/preload split + nav-block + sandbox = BLOCKED_BY_EXTERNAL runtime)
 
 ## Fase 2 (após Fase 1 verde)
 CSP unsafe-eval · TS strict/ignoreBuildErrors · god-files · plugins sandbox · marketplace extração tar.gz · guardrails obrigatórios · browser/CDP.
