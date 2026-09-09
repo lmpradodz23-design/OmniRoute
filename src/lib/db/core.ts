@@ -37,6 +37,7 @@ import {
 } from "../usage/callLogArtifacts";
 import { assertStorageEncryptionConfigured, migrateLegacyEncryptedString } from "./encryption";
 import { encryptExistingWebhookSecrets } from "./webhooks";
+import { encryptExistingApiKeyPlaintext } from "./apiKeys";
 import { invalidateDbCache } from "./readCache";
 import { rowToCamel } from "./caseMapping";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
@@ -1404,6 +1405,17 @@ export function getDbInstance(): SqliteDatabase {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[DB] Webhook secret encryption migration failed: ${message}`);
+  }
+
+  // #7: encrypt any API key still stored in plaintext in the `key` column (idempotent; no-op without key).
+  try {
+    const encryptedApiKeys = encryptExistingApiKeyPlaintext();
+    if (encryptedApiKeys > 0) {
+      console.log(`[DB] Encrypted ${encryptedApiKeys} plaintext API key(s) at rest.`);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[DB] API key encryption migration failed: ${message}`);
   }
 
   startDbHealthCheckScheduler(db);

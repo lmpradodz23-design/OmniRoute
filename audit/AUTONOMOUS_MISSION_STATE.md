@@ -18,7 +18,7 @@ working tree limpa · secret scan · lint · typecheck · unit · integração �
 - [x] #8 webhook secret encryption — cifra no write, decifra na leitura, backfill idempotente + integridade HMAC. 4/4 + 46/46 regressao.
 - [x] #2 LOCAL_ONLY loopback-only — removida exceção LAN; LAN só via carve-out autenticado; spawn só loopback. 22/22 + 93/93.
 - [x] #4 MCP scopes default-on fail-closed — isMcpScopeEnforcementEnabled (default ON, opt-out explicito). 6/6 + 70/70 sem regressao.
-- [ ] #7 apiKeys somente hash/prefix + migração
+- [x] #7 apiKeys cifrada no repouso + validação hash-only + migração (Opção B). 3/3 + 197 subtestes de regressao. (Opção A = hardening futuro)
 - [x] #3 encryptOrThrow fail-closed — contrato + gate de startup + 3 writers convertidos. 5/5 + 22/22 regressao. (varredura dos demais writers = follow-up)
 - [ ] #6 Electron remote IPC isolamento
 
