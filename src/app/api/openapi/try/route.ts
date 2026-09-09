@@ -8,8 +8,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
+import { isLocalOnlyPath, isAlwaysProtectedPath } from "@/server/authz/routeGuard";
 
 const ALLOWED_TRY_PATH_PREFIXES = ["/api/", "/v1/", "/v1beta/", "/a2a", "/.well-known/agent.json"];
+
+// #5 (confused deputy): mutating methods through this self-fetch proxy are only meaningful for the
+// inference/agent surfaces. The /api/ management surface is GET/HEAD-only here, so the proxy can
+// never be turned into a writer against host-sensitive management routes.
+const MUTABLE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MUTABLE_ALLOWED_PREFIXES = ["/v1/", "/v1beta/", "/a2a", "/.well-known/"];
 const BLOCKED_FORWARD_HEADERS = new Set([
   "connection",
   "content-length",
@@ -80,16 +87,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Path must be same-origin" }, { status: 400 });
     }
 
+    const upperMethod = method.toUpperCase();
+    const pathname = targetUrl.pathname;
+
+    // #5: never let the same-origin self-fetch reach host-sensitive (LOCAL_ONLY) or
+    // always-protected routes — those rely on the caller's network locality / login, which the
+    // server itself satisfies, turning this proxy into a confused deputy.
+    if (isLocalOnlyPath(pathname, upperMethod) || isAlwaysProtectedPath(pathname)) {
+      return NextResponse.json(
+        { error: "Target endpoint is not available through Try It" },
+        { status: 403 }
+      );
+    }
+
+    // Mutating methods are only allowed against the inference/agent surfaces, never the /api/
+    // management surface, through this proxy.
+    if (
+      MUTABLE_METHODS.has(upperMethod) &&
+      !MUTABLE_ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+    ) {
+      return NextResponse.json(
+        { error: "Only GET/HEAD are allowed for this endpoint through Try It" },
+        { status: 405 }
+      );
+    }
+
     const start = performance.now();
 
-    // Forward cookies/auth from the original request
+    // Forward only the caller-supplied headers (Cookie/Host/etc. are stripped by
+    // buildForwardHeaders). The dashboard session cookie is intentionally NOT attached
+    // implicitly (#5): credentials must be passed explicitly by the caller (e.g. Authorization).
     const forwardHeaders = buildForwardHeaders(headers as Record<string, string>);
-
-    // Forward auth from the dashboard session
-    const cookie = request.headers.get("cookie");
-    if (cookie && !forwardHeaders["Cookie"]) {
-      forwardHeaders["Cookie"] = cookie;
-    }
 
     if (reqBody && !forwardHeaders["Content-Type"]) {
       forwardHeaders["Content-Type"] = "application/json";

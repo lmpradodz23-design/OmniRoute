@@ -13,8 +13,8 @@
 working tree limpa · secret scan · lint · typecheck · unit · integração · build · testes Electron · testes MCP authz · testes SSRF · migração+rollback · smoke /v1/models · smoke autenticado /v1/messages e /v1/responses (pede credencial) · nova auditoria sem Critical/High.
 
 ## Tarefas (8 findings)
-- [ ] #1 SSRF teste de webhook — safeOutboundFetch hardened (EM ANDAMENTO)
-- [ ] #5 OpenAPI Try confused deputy
+- [x] #1 SSRF teste de webhook — hardenedWebhookFetch (resolve+pin+no-redirect+no-body-privado). Commit 7488e1cbf. 18/18 testes.
+- [x] #5 OpenAPI Try confused deputy — bloqueia LOCAL_ONLY/ALWAYS_PROTECTED + GET/HEAD no /api/ + sem cookie implícito. 6/6 testes.
 - [ ] #8 webhook secret encryption + migração
 - [ ] #2 LOCAL_ONLY loopback-only vs TRUSTED_LAN
 - [ ] #4 MCP scopes default-on fail-closed
