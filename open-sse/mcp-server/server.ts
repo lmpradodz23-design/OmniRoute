@@ -45,6 +45,7 @@ import { z } from "zod";
 import { closeAuditDb, logToolCall } from "./audit.ts";
 import {
   evaluateToolScopes,
+  isMcpScopeEnforcementEnabled,
   resolveCallerScopeContext,
   type McpToolExtraLike,
 } from "./scopeEnforcement.ts";
@@ -101,7 +102,9 @@ import type { TextToolResult } from "./toolResult.ts";
 export { getMcpModelsCatalog } from "./catalog.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
-const MCP_ENFORCE_SCOPES = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES === "true";
+// #4: default ON (fail-closed) — a mcp:connect transport key must not reach write tools when the
+// env var is simply unset. Explicit false/0/no/off opts out (legacy migration).
+const MCP_ENFORCE_SCOPES = isMcpScopeEnforcementEnabled();
 const MCP_ALLOWED_SCOPES = new Set(
   (process.env.OMNIROUTE_MCP_SCOPES || "")
     .split(",")

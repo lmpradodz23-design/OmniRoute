@@ -17,7 +17,7 @@ working tree limpa · secret scan · lint · typecheck · unit · integração �
 - [x] #5 OpenAPI Try confused deputy — bloqueia LOCAL_ONLY/ALWAYS_PROTECTED + GET/HEAD no /api/ + sem cookie implícito. 6/6 testes.
 - [ ] #8 webhook secret encryption + migração
 - [ ] #2 LOCAL_ONLY loopback-only vs TRUSTED_LAN
-- [ ] #4 MCP scopes default-on fail-closed
+- [x] #4 MCP scopes default-on fail-closed — isMcpScopeEnforcementEnabled (default ON, opt-out explicito). 6/6 + 70/70 sem regressao.
 - [ ] #7 apiKeys somente hash/prefix + migração
 - [ ] #3 encryptOrThrow fail-closed + migração
 - [ ] #6 Electron remote IPC isolamento
