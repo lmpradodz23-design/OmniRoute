@@ -12,8 +12,8 @@ import { buildTelegramUrl, buildTelegramPayload } from "@/lib/webhooks/integrati
 import { buildDiscordPayload } from "@/lib/webhooks/integrations/discord";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { insertDelivery } from "@/lib/db/webhookDeliveries";
-import { isPrivateHost, OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
-import { parseAndValidateWebhookUrl } from "@/shared/network/outboundUrlGuardPolicy";
+import { hardenedWebhookFetch } from "@/shared/network/hardenedWebhookFetch";
+import { arePrivateProviderUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
 import crypto from "crypto";
 
 const MAX_RESPONSE_BODY = 2048;
@@ -31,37 +31,22 @@ async function testFetch(
 }> {
   const start = Date.now();
   try {
-    const parsed = parseAndValidateWebhookUrl(url);
-    // For private (opted-in) targets, return connectivity diagnostics only — never the
-    // upstream response body, so this endpoint can't be used to exfiltrate content from
-    // internal services reachable from the server. (#3269 hardening)
-    const redactBody = isPrivateHost(parsed.hostname);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10_000);
-    const res = await fetch(url, {
+    // Hardened path (SSRF #1): resolves + validates every resolved ip, pins the connection to the
+    // validated ip (no DNS rebinding), never follows redirects, and never returns the body of a
+    // private target. Private/LAN targets are reachable only under the explicit opt-in.
+    const result = await hardenedWebhookFetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "OmniRoute-Webhook/1.0",
-        ...headers,
-      },
+      headers,
       body: JSON.stringify(body),
-      signal: controller.signal,
+      timeoutMs: 10_000,
+      allowPrivate: arePrivateProviderUrlsAllowed(),
+      maxBodyBytes: MAX_RESPONSE_BODY,
     });
-    clearTimeout(timeoutId);
-    const latencyMs = Date.now() - start;
-    let rawBody = "";
-    try {
-      rawBody = await res.text();
-      if (rawBody.length > MAX_RESPONSE_BODY) rawBody = rawBody.slice(0, MAX_RESPONSE_BODY) + "…";
-    } catch {
-      rawBody = "";
-    }
     return {
-      success: res.ok,
-      status: res.status,
-      latencyMs,
-      responseBody: redactBody ? "<redacted: private target>" : rawBody,
+      success: result.ok,
+      status: result.status,
+      latencyMs: Date.now() - start,
+      responseBody: result.isPrivateTarget ? "<redacted: private target>" : result.bodyText,
     };
   } catch (error: any) {
     return {
