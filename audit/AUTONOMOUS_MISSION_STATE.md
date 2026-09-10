@@ -6,91 +6,105 @@
 - **diretório:** `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`
 - **branch de trabalho:** `fix/final-user-readiness` (criada de `release/v3.8.51`)
 - **HEAD inicial:** `2a156c73812d45119d5a06a2f55d611280442860`
-- **HEAD atual:** `b40ad2242` (56 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
-- **estado:** EXECUTING — **Fases 1, 3, 7, 8 concluídas; Fase 5 (onboarding U1–U4, U8) concluída**; próximo: ordem 12–13 do plano (Fase 2 confiabilidade/DB + higiene de testes + tipagem), depois Fase 4, Fase 5 restante, Fase 6, Fase 9, CANDIDATE_COMPLETED
-- **iteração:** 7
+- **HEAD atual:** `efa30272e` (68 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
+- **estado:** EXECUTING — **Fases 1, 3, 7, 8 concluídas; Fase 5 (onboarding U1–U4, U8) concluída; Fase 2 higiene de testes concluída (0 exclusões #8618, UI 2363/2364→2364 com budget, MCP 468/468); R-1 rollback concluído (`audit/ROLLBACK.md`)**; próximo: R-2 transações → R-3 → R-5/R-6/R-9/R-12/13/14 → R-20 → Fase 4 → Fase 5 restante → Fase 6 → Fase 9 → CANDIDATE_COMPLETED
+- **iteração:** 8
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-10 — P-8 commitado (`b40ad2242`); docs `03`/`04` com status por achado
-- **último_progresso_real:** 2026-09-10 — Fase 3 (P-1/P-4 extração segura + checksum obrigatório, P-2/P-3 disclosure, P-6, P-8), Fase 7 (SC-1/2/4/5/6/7/8, 192 actions em SHA), Fase 8 (identidade: código, packaging, workflows, README/docs/llm.txt), hono
+- **último_heartbeat:** 2026-09-10 — R-1 commitado (`efa30272e`); `02-ARCHITECTURE` R-1 marcado CORRIGIDO
+- **último_progresso_real:** 2026-09-10 — Fase 2 higiene: 13 commits (split de ambientes vitest, jest-dom, locale Intl fixo, mocks/fixtures desatualizados, time-bomb HistoryTab, ComboSortSelect sem runner, budgets de transform, remoção de todas as 63 exclusões #8618) + R-1
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` = junction para o checkout irmão (nunca `npm install` sem `--package-lock-only`)
 
 ## Autorizações (desta missão)
+
 - PODE: auditar; branch de correção; modificar código/testes/docs/migrations/workflows/scripts; instalar deps do lockfile; lint/typecheck/testes/build/pack local; commits locais pequenos; subagentes.
 - NÃO PODE sem nova confirmação: push; abrir/mesclar PR; publicar npm/Docker/Electron/Release; deploy; apagar dados reais; force push; reescrever histórico; credenciais reais; custos externos; reduzir segurança; enfraquecer testes.
 - **Autorização adicional do operador (2026-09-09):** ao **finalizar** auditoria e correções, subir/atualizar o GitHub (open source, imagem, tudo atualizado). Escopo interpretado: **condicional a COMPLETED** (após as 3 auditorias) → push da branch + PR/merge em `origin` = `LMPrado-DZ23/OmniRoute`; repo público; imagem via **GHCR com `GITHUB_TOKEN`** (Docker Hub exigiria token do operador — não digitar credenciais). **Fora:** deploy VPS/produção, npm publish, credenciais reais. Até COMPLETED: **sem push**.
 - Chaves de API coladas pelo operador no chat: **recusadas, nunca usadas**; recomendação de rotação registrada.
 
-## Concluído (todos red-first, um problema por commit; status por achado em `03`/`04`)
-| Fase | Itens | Commits (principais) |
-|---|---|---|
-| 1 §4 SSRF | S-1…S-7 + trava estrutural | `33b7f20ee` … `2f5a80e04` |
-| 1 §7 MCP | M-1, R-10, M-2 | `0e594e7a6` `482511918` `2ef9671c4` |
-| 1 §1 Electron | E-1/2/3/7, E-10 HTTPS remoto | `f90d3e2d0` `a639938bf` |
-| 1 §3/§5/§6/§2 | #5 Try, #7 reveal-once, #3 readiness, #2 matriz (144 células) | `7cdf5a0a8` `f9ec8e0ed` `87c4478a5` `ee822b5d6` |
-| 5 onboarding | U1, U2, U3 (causa raiz no servidor), U4, U8, i18n caps-lock | `3f524cbdb` `ec4939423` `c3dbff45a` `73e188465` `d2fd682e9` `b3b4ce963` |
-| 8 identidade | `distribution.ts`, gate npm por `repository.url`, packaging/workflows/scripts, README/docs/skills, 41 espelhos `llm.txt` | `e32178574` `8c1679002` `2c2826c93` |
-| 7 supply chain | SC-1 strict + composite, 192 `uses:` → SHA, SC-4 checksums, SC-2/6 digests+pip, SC-7, SC-8, SC-5 deploy exato+identidade, trava `workflows-supply-chain-pins` | `58bfa9be8` `8a32fce7f` `9c1284d7a` `19544b0b1` `a4464d112` `ae59709be` `8e6946d1e` |
-| deps | hono → ^4.13.7 (lockfile-only) | `1aa4df0db` |
-| 3 plugins | P-6, P-1/P-4 (`archive.ts`), P-2/P-3 disclosure, P-8; P-5/P-7/SC-3 aceitos com justificativa | `4c710fd9f` `18951837e` `d28d9066b` `9e4a8cb0a` `b40ad2242` |
+## Concluído (todos red-first, um problema por commit; status por achado em `02`/`03`/`04`)
+
+| Fase                | Itens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Commits (principais)                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 §4 SSRF           | S-1…S-7 + trava estrutural                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `33b7f20ee` … `2f5a80e04`                                                                                                                       |
+| 1 §7 MCP            | M-1, R-10, M-2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `0e594e7a6` `482511918` `2ef9671c4`                                                                                                             |
+| 1 §1 Electron       | E-1/2/3/7, E-10 HTTPS remoto                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `f90d3e2d0` `a639938bf`                                                                                                                         |
+| 1 §3/§5/§6/§2       | #5 Try, #7 reveal-once, #3 readiness, #2 matriz (144 células)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `7cdf5a0a8` `f9ec8e0ed` `87c4478a5` `ee822b5d6`                                                                                                 |
+| 5 onboarding        | U1, U2, U3 (causa raiz no servidor), U4, U8, i18n caps-lock                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `3f524cbdb` `ec4939423` `c3dbff45a` `73e188465` `d2fd682e9` `b3b4ce963`                                                                         |
+| 8 identidade        | `distribution.ts`, gate npm por `repository.url`, packaging/workflows/scripts, README/docs/skills, 41 espelhos `llm.txt`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `e32178574` `8c1679002` `2c2826c93`                                                                                                             |
+| 7 supply chain      | SC-1 strict + composite, 192 `uses:` → SHA, SC-4 checksums, SC-2/6 digests+pip, SC-7, SC-8, SC-5 deploy exato+identidade, trava `workflows-supply-chain-pins`                                                                                                                                                                                                                                                                                                                                                                                                                                                | `58bfa9be8` `8a32fce7f` `9c1284d7a` `19544b0b1` `a4464d112` `ae59709be` `8e6946d1e`                                                             |
+| deps                | hono → ^4.13.7 (lockfile-only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `1aa4df0db`                                                                                                                                     |
+| 3 plugins           | P-6, P-1/P-4 (`archive.ts`), P-2/P-3 disclosure, P-8; P-5/P-7/SC-3 aceitos com justificativa                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `4c710fd9f` `18951837e` `d28d9066b` `9e4a8cb0a` `b40ad2242`                                                                                     |
+| 2 higiene (Windows) | teardowns EPERM (fechar SQLite antes do `rmSync`), path separator, `npm.cmd`, CRLF em `check-workflows`, symlink→cópia em `version-manager`, `radar-export`/`check-workflows` (`pathToFileURL`, `where`), qdrant embedding-models por provedor configurado                                                                                                                                                                                                                                                                                                                                                   | `8ec8324ca` `2b4bd05e0` `94b0d179b`                                                                                                             |
+| 2 higiene (vitest)  | split de ambientes (`open-sse/mcp-server` etc. só no config node) + trava `vitest-config-environments`; jest-dom no setup; suites cache (span "for test assertions" removido do componente, fixtures); mocks next-intl pós-#7935; `serverState` em agent-card; HistoryTab relógio fixo (time bomb); ComboSortSelect portado p/ vitest; budgets de transform (30s/60s); ApiEndpointsTab (`t` estável — loop infinito de fetch com mock instável, dois endpoints de chaves); webhook wizard (open-effect assíncrono); locale Intl fixado ao `navigator.language` do jsdom; **63/63 exclusões #8618 removidas** | `02db987ed` `4829258fb` `b20756257` `380a963ed` `d26214b6f` `c38e3f534` `cff10533a` `e988ad30d` `7c2f903b4` `57bec0056` `cdb4833a8` `b261963c7` |
+| 2 R-1 rollback      | `describeRestorePoint` na falha de migration, handle fechado no startup falho, `restoreDbBackup` verifica SHA-256 do snapshot content-addressed; `docs/ops/DATABASE_GUIDE.md` § rollback; **`audit/ROLLBACK.md`**                                                                                                                                                                                                                                                                                                                                                                                            | `efa30272e`                                                                                                                                     |
 
 ## Tarefa atual
-Ordem 12 do plano — **Fase 2 confiabilidade/DB + higiene de testes**: começar pela higiene que já foi provada (teardowns EPERM no Windows, path separator em `electron-resolve-server-entry`, `npm.cmd` em `cli-update-prefer-online-4376`, `radar-export` ESM URL scheme, `qdrant-routes` embedding-models, `version-manager` symlink EPERM, `proxy-fallback-ssrf` teardown, `check-workflows` 2 falhas, 63 testes mascarados no `vitest.config.ts` #8618), depois R-1 rollback (+ `ROLLBACK.md`), R-2 transações, R-3 SQLITE_BUSY, R-5, R-6, R-9, R-12/13/14; R-20 tipagem progressiva.
+
+Ordem 12 do plano — **Fase 2 confiabilidade/DB**: R-2 transações (`createApiKey` insert+`setNoLog`, `deleteApiKey` 4 writes, `reorderConnections`, `registeredKeys`, call-log artefato+linha; `updateApiKeyPermissions` com `BEGIN IMMEDIATE` cru vs savepoints dos adapters), depois R-3 retry `SQLITE_BUSY`, R-5, R-6, R-9, R-12/13/14; R-20 tipagem progressiva; poda de suppressions ESLint.
 
 ## Tarefas pendentes (ordem do plano)
-- [ ] 12 · Fase 2 confiabilidade/DB + higiene de testes (acima).
-- [ ] 13 · Fase 2 tipagem: R-20 progressivo; poda de suppressions ESLint não usadas (`--prune-suppressions`, tornadas obsoletas pelas correções desta missão).
+
+- [ ] 12 · Fase 2 confiabilidade/DB: R-2, R-3, R-5, R-6, R-9, R-12/13/14 (R-1 ✔; higiene ✔).
+- [ ] 13 · Fase 2 tipagem: R-20 progressivo; poda de suppressions ESLint não usadas (`--prune-suppressions`).
 - [ ] 14 · Fase 4 guardrails/PII fail-closed; paridade `/v1/chat/completions`, `/v1/messages`, `/v1/responses`.
-- [ ] 15 · Fase 5 restante: U5, U6, U7, J2, J13, J17, A1, A2, M1, I1–I3 + docs pt-BR "primeiro uso".
+- [ ] 15 · Fase 5 restante: U5, U6, U7, J2, J13, J17, A1, A2, M1, I1–I3 + docs pt-BR "primeiro uso"; E-5 (snapshot pré-update no Electron — ver `ROLLBACK.md` §2.3).
 - [ ] 16 · Fase 6 compatibilidade (Codex, Claude Code, SDKs, MCP, SSE, cancelamento, usage) com instância isolada.
 - [ ] 17 · Fase 9 matriz de testes + empacotamento → `TEST_MATRIX.md`; lint completo (`npm run lint` com suppressions).
 - [ ] 18 · CANDIDATE_COMPLETED → 3 auditorias independentes → `FINAL_THREE_AGENT_REVIEW.md` → fix loop → COMPLETED → (autorização condicional) push/PR/GHCR.
-- [ ] Entregáveis: `FINAL_REPORT`, `TEST_MATRIX`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`, `RELEASE_READINESS`, `ROLLBACK`.
+- [ ] Entregáveis: `FINAL_REPORT`, `TEST_MATRIX`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`, `RELEASE_READINESS` (`ROLLBACK` ✔).
 
-## Falhas pré-existentes provadas (via `git stash` no HEAD sem a alteração) — Fase 2 higiene, NÃO tocadas ainda
-- `tests/integration/qdrant-routes.test.ts` embedding-models ×3.
-- `tests/unit/version-manager*.test.ts` "rolls back" — EPERM `symlinkSync` no Windows.
-- `tests/unit/proxy-fallback-ssrf.test.ts`, `api-key-lifecycle`, `api-key-regeneration` — EPERM de teardown (`rmSync` com SQLite aberto).
-- `tests/unit/electron-resolve-server-entry.test.ts` — separador de caminho Windows.
-- `tests/unit/cli-update-prefer-online-4376.test.ts` — espera cmd `npm`, `npmBin()` devolve `npm.cmd` no Windows.
-- `tests/unit/radar-export.test.mjs` ×3 — `ERR_UNSUPPORTED_ESM_URL_SCHEME` (import por caminho absoluto Windows).
-- `tests/unit/build/check-workflows.test.ts` ×2 — `isBinaryAvailable` usa `which`; asserção "#7307 quality.yml advisory build".
-- Gate `eslint` completo: suppressions agora não usadas (arquivos corrigidos) → `npm run lint` sai 2 até `--prune-suppressions` (Fase 2/9).
+## Falhas pré-existentes — situação
+
+- Todas as falhas provadas por `git stash` no checkpoint anterior (qdrant ×3, version-manager, teardowns EPERM ×3, electron-resolve-server-entry, cli-update-prefer-online, radar-export ×3, check-workflows ×2) **corrigidas** (`8ec8324ca` `2b4bd05e0` `94b0d179b`).
+- 63 suites mascaradas por #8618 no `vitest.config.ts`: **todas religadas** (12 precisavam de correção real; 51 já passavam). Corrida completa `vitest.config.ts`: 363/364 arquivos (única falha = budget do `combos-page-smoke`, ajustado para 60s e verde isolado), 2363/2364 testes; `vitest.mcp.config.ts`: 51/51, 468/468.
+- Gate `eslint` completo: suppressions agora não usadas → `npm run lint` sai 2 até `--prune-suppressions` (ordem 13).
+- Ambiente: números/moeda dependiam do locale do host (pt-BR) nos testes jsdom → resolvido no setup (`cdb4833a8`); **produto** formata com o locale do navegador, não com o locale da UI (registrar em `04` como IMPROVEMENT, baixo).
 
 ## Blockers
+
 - Internos: nenhum.
 - `BLOCKED_BY_EXTERNAL_DEPENDENCY`: gate de secret scan local (gitleaks ausente; download exige autorização) — controle compensatório em todo commit (`git diff --cached --check` + regex de segredos no diff staged); CI/release agora **estrito** (SC-1).
 - `BLOCKED_BY_EXTERNAL_DEPENDENCY`: code-signing Electron (E-4) — certificados do operador.
 - `BLOCKED_BY_EXTERNAL_DEPENDENCY` (previstos): smoke autenticado real de `/v1/messages`/`/v1/responses` (credencial + custo — as chaves coladas não serão usadas); push/PR/publish/deploy (condicional a COMPLETED).
 
 ## Gates verificados até aqui (exit code real)
-| Gate | Comando | Resultado |
-|---|---|---|
-| Testes focados por commit | `node --import tsx/esm [--import ./open-sse/utils/setupPolyfill.ts] --test --test-concurrency=1 <arquivos>` / `vitest run --config vitest.config.ts <arquivos>` | PASS em cada commit (falhas listadas acima são pré-existentes e provadas) |
-| ESLint (arquivos tocados) | `eslint --max-warnings=0 --suppressions-location config/quality/eslint-suppressions.json --pass-on-unpruned-suppressions <arquivos>` | 0 |
-| Prettier (arquivos tocados) | `prettier --write` | aplicado |
-| api-typecheck baseline | `_apitc.mjs` | 289 = baseline, 0 regressões |
-| tsc core | `tsc -p tsconfig.typecheck-core.json --noEmit` | 0 |
-| YAML dos workflows | `_yaml_check.mjs` (parser `yaml`) | 28/28 |
-| docs-sync | `node scripts/check/check-docs-sync.mjs` | **PASS** (era FAIL ×41 no HEAD inicial) |
-| Dependency scan (prod) | `npm audit --omit=dev --json` | 0 critical · 0 high · **3 moderate** (era 4; restante = cadeia `adm-zip`/onnxruntime, aceita e rastreada) |
-| Secret scan local | gitleaks | **NOT_RUN** (binário ausente) |
+
+| Gate                              | Comando                                                                                                                              | Resultado                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Testes focados por commit         | node:test / vitest por arquivo                                                                                                       | PASS em cada commit (RED observado antes de cada correção)                                |
+| UI vitest completo                | `vitest run --config vitest.config.ts` (sem exclusões)                                                                               | 363/364 arquivos · 2363/2364 testes (única falha = timeout de transform, budget ajustado) |
+| MCP vitest completo               | `vitest run --config vitest.mcp.config.ts`                                                                                           | 51/51 · 468/468                                                                           |
+| Migrations/backup (regressão R-1) | 6 suites node:test                                                                                                                   | 61 pass · 0 fail · 1 skip pré-existente                                                   |
+| ESLint (arquivos tocados)         | `eslint --max-warnings=0 --suppressions-location config/quality/eslint-suppressions.json --pass-on-unpruned-suppressions <arquivos>` | 0                                                                                         |
+| Prettier (arquivos tocados)       | `prettier --write`                                                                                                                   | aplicado                                                                                  |
+| api-typecheck baseline            | `_apitc.mjs`                                                                                                                         | 289 = baseline, 0 regressões                                                              |
+| tsc core                          | `tsc -p tsconfig.typecheck-core.json --noEmit`                                                                                       | 0                                                                                         |
+| test-discovery                    | `node scripts/check/check-test-discovery.mjs`                                                                                        | OK (0 órfãos novos)                                                                       |
+| YAML dos workflows                | `_yaml_check.mjs` (parser `yaml`)                                                                                                    | 28/28                                                                                     |
+| docs-sync                         | `node scripts/check/check-docs-sync.mjs`                                                                                             | PASS                                                                                      |
+| Dependency scan (prod)            | `npm audit --omit=dev --json`                                                                                                        | 0 critical · 0 high · 3 moderate (cadeia `adm-zip`/onnxruntime, aceita e rastreada)       |
+| Secret scan local                 | gitleaks                                                                                                                             | **NOT_RUN** (binário ausente)                                                             |
 
 ## Processos / portas
+
 - PID **8488** escuta 20128/20131/20132 = instância de teste do operador (NÃO encerrar).
 - Instâncias da missão: nenhuma ativa. Regra: bind 127.0.0.1, porta isolada, `DATA_DIR` temporário, PID registrado, encerrar árvore e confirmar porta livre.
 
 ## Riscos
+
 - Escopo amplo → uma fase por vez, um problema por commit, checkpoint a cada progresso.
-- `ignoreBuildErrors` esconde erros TS reais → remoção progressiva por pacote (Fase 2).
-- Windows: junction do `node_modules` (nunca `npm install` real aqui); CRLF gera falso "drift"; EPERM de `rmSync` com SQLite aberto.
+- `ignoreBuildErrors` esconde erros TS reais → remoção progressiva por pacote (R-20).
+- Windows: junction do `node_modules` (nunca `npm install` real aqui); CRLF gera falso "drift"; EPERM de `rmSync` com SQLite aberto (fechar antes); transform frio lento no vitest (budgets documentados).
 
 ## Próxima ação
-1. Commit `docs(audit): checkpoint — Fases 3/5/7/8` (este arquivo + `03` + `04`).
-2. Fase 2 higiene: corrigir os teardowns EPERM (fechar DB antes do `rmSync`, `maxRetries`), path separator, `npm.cmd`, `radar-export` (`pathToFileURL`), `check-workflows` (`where`/`which`), revisar os 63 `exclude` do vitest (#8618) — cada um RED→GREEN, sem enfraquecer asserções.
-3. R-1 rollback de migração + `audit/ROLLBACK.md`; R-2/R-3/R-5/R-6/R-9/R-12/13/14.
+
+1. Commit `docs(audit): checkpoint — Fase 2 higiene + R-1` (este arquivo + `02`).
+2. R-2: envolver os multi-writes em `db.transaction()`; trocar o `BEGIN IMMEDIATE` cru de `updateApiKeyPermissions` por `db.immediate()`/savepoint do adapter; teste RED (crash simulado entre writes → estado parcial) → GREEN.
+3. R-3 retry `SQLITE_BUSY` no caminho de escrita; R-5/R-6/R-9/R-12/13/14; R-20.
 
 ## Instruções de retomada
+
 1. `cd C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port && git status --short --branch && git rev-parse HEAD`
 2. Confirmar branch `fix/final-user-readiness` e `origin` = `LMPrado-DZ23/OmniRoute`.
-3. Ler este arquivo e `audit/0*.md`; comparar com o estado real; retomar da tarefa pendente mais alta.
+3. Ler este arquivo e `audit/0*.md` + `audit/ROLLBACK.md`; comparar com o estado real; retomar da tarefa pendente mais alta.
 4. Nunca `reset --hard`; nunca push sem autorização; nunca usar credenciais coladas no chat; nunca `npm install` sem `--package-lock-only` (junction).
