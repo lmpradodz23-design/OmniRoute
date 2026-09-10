@@ -319,7 +319,9 @@ test("GET /api/settings/qdrant/health — reports named collection vector metada
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(
           JSON.stringify({
-            result: { config: { params: { vectors: { omniao: { size: 2048, distance: "Cosine" } } } } },
+            result: {
+              config: { params: { vectors: { omniao: { size: 2048, distance: "Cosine" } } } },
+            },
           })
         );
       }
@@ -534,6 +536,35 @@ test("GET /api/settings/qdrant/embedding-models — still excludes a remote prov
   assert.ok(
     body.models.every((model: EmbeddingModelOptionLike) => !model.value.startsWith("openai/")),
     "should not list a remote provider's models when its active connection has no API key"
+  );
+});
+
+test("GET /api/settings/qdrant/embedding-models — curated registry models appear only for configured providers (#11390 ∩ #11949)", async () => {
+  // mistral has no embedding entry in the chat catalog: it is listed ONLY through the
+  // curated EMBEDDING_PROVIDERS registry — and only because it is configured here.
+  await localDb.createProviderConnection({
+    provider: "mistral",
+    authType: "apikey",
+    name: "embedding-test-mistral",
+    apiKey: "test-mistral-key",
+  });
+
+  const headers = await createManagementSessionHeaders();
+  const req = new Request("http://localhost/api/settings/qdrant/embedding-models", {
+    method: "GET",
+    headers: Object.fromEntries(headers.entries()),
+  });
+
+  const res = await qdrantEmbeddingModelsRoute.GET(asNextRequest(req));
+  assert.strictEqual(res.status, 200);
+  const models = (await res.json()).models as EmbeddingModelOptionLike[];
+  assert.ok(
+    models.some((model) => model.value === "mistral/mistral-embed"),
+    "a configured registry provider contributes its curated models"
+  );
+  assert.ok(
+    models.every((model) => model.value.startsWith("mistral/")),
+    "unconfigured registry providers (cohere, voyage, jina, …) and the unconditional openai default stay out"
   );
 });
 
