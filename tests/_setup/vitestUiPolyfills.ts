@@ -85,3 +85,38 @@ vi.mock("next-intl", () => ({
   // passed to it are inert here.
   NextIntlClientProvider: ({ children }: { children?: ReactNode }) => children,
 }));
+
+// jsdom reports `navigator.language === "en-US"`, but Node resolves Intl's DEFAULT locale
+// from the host OS (a pt-BR machine formats 1000 as "1.000" and 73.55 USD as "US$ 73,55")
+// — something no real browser does: a browser formats with its own UI locale, the very
+// one `navigator.language` reports. Components that call `toLocaleString()` /
+// `new Intl.NumberFormat()` without an explicit locale therefore rendered differently per
+// developer machine while CI (en-US) passed. Pin the default to the simulated browser's
+// locale so jsdom output is host-independent; explicit locales passed by components are
+// left untouched.
+const browserLocale = typeof navigator !== "undefined" ? navigator.language : "en-US";
+if (new Intl.NumberFormat().resolvedOptions().locale !== browserLocale) {
+  type IntlCtor = new (locales?: unknown, options?: unknown) => unknown;
+  const pinDefaultLocale = <T extends IntlCtor>(Original: T): T => {
+    const Pinned = function (this: unknown, locales?: unknown, options?: unknown) {
+      return new Original(locales ?? browserLocale, options);
+    } as unknown as T;
+    Object.setPrototypeOf(Pinned, Original); // keeps statics such as supportedLocalesOf
+    Pinned.prototype = Original.prototype; // keeps `instanceof` and prototype methods
+    return Pinned;
+  };
+  const intl = Intl as unknown as Record<string, IntlCtor>;
+  intl.NumberFormat = pinDefaultLocale(intl.NumberFormat);
+  intl.DateTimeFormat = pinDefaultLocale(intl.DateTimeFormat);
+
+  const numberToLocaleString = Number.prototype.toLocaleString;
+  Number.prototype.toLocaleString = function (locales?, options?) {
+    return numberToLocaleString.call(this, locales ?? browserLocale, options);
+  };
+  for (const method of ["toLocaleString", "toLocaleDateString", "toLocaleTimeString"] as const) {
+    const original = Date.prototype[method];
+    Date.prototype[method] = function (locales?, options?) {
+      return original.call(this, locales ?? browserLocale, options);
+    };
+  }
+}
