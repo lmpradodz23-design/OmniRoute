@@ -1,5 +1,7 @@
 import { getSettings } from "@/lib/db/settings";
 import { createEmbeddingResponse } from "@/lib/embeddings/service";
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -167,16 +169,37 @@ function baseUrl(cfg: QdrantConfig): string {
   }
 }
 
-async function qdrantFetch(cfg: QdrantConfig, path: string, init?: RequestInit): Promise<Response> {
+const QDRANT_TIMEOUT_MS = 30_000;
+
+interface QdrantRequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+/**
+ * SSRF S-5: every Qdrant request goes through `guardedFetch` — the resolved address of the
+ * operator-configured host is validated (cloud metadata never; private/LAN under the
+ * local-first integration policy), the connection is pinned to it, and redirects are never
+ * followed. Callers keep consuming a real `Response`.
+ */
+async function qdrantFetch(
+  cfg: QdrantConfig,
+  path: string,
+  init: QdrantRequestInit = {}
+): Promise<Response> {
   const headers: Record<string, string> = {
     "content-type": "application/json",
-    ...(init?.headers as Record<string, string> | undefined),
+    ...(init.headers ?? {}),
   };
   if (cfg.apiKey) headers["api-key"] = cfg.apiKey;
 
-  return fetch(`${baseUrl(cfg)}${path}`, {
-    ...init,
+  return guardedFetch(`${baseUrl(cfg)}${path}`, {
+    method: init.method ?? "GET",
     headers,
+    body: init.body,
+    timeoutMs: QDRANT_TIMEOUT_MS,
+    allowPrivate: areIntegrationPrivateUrlsAllowed(),
   });
 }
 
