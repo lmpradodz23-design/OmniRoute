@@ -7,6 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { guardedFetch } from "@/shared/network/guardedFetch";
 import type { AgentSkill, SkillCoverage, SkillMarkdown } from "./types";
 import {
   CURATED_SKILLS,
@@ -198,21 +199,13 @@ export async function fetchSkillMarkdown(id: string): Promise<SkillMarkdown> {
     // File not present locally — fall through to GitHub
   }
 
-  // 2. Fetch from GitHub raw (with Next.js revalidate cache if available)
+  // 2. Fetch from GitHub raw (1-hour in-process cache, see below)
   const skill = getSkillById(id);
   if (!skill) {
     throw new Error(`Skill not found in catalog: ${id}`);
   }
 
-  const response = await fetch(skill.rawUrl, {
-    next: { revalidate: 3600 },
-  } as unknown as RequestInit);
-
-  if (!response.ok) {
-    throw new Error(`GitHub raw fetch failed: HTTP ${response.status} for ${skill.rawUrl}`);
-  }
-
-  const raw = await response.text();
+  const raw = await fetchGithubRawCached(skill.rawUrl);
   const parsed = parseMarkdownFrontmatter(raw);
 
   return {
@@ -222,6 +215,33 @@ export async function fetchSkillMarkdown(id: string): Promise<SkillMarkdown> {
     source: "github",
     fetchedAt: new Date().toISOString(),
   };
+}
+
+const GITHUB_RAW_TTL_MS = 60 * 60 * 1000;
+const GITHUB_RAW_TIMEOUT_MS = 15_000;
+const githubRawCache = new Map<string, { body: string; expiresAt: number }>();
+
+/**
+ * SSRF S-6: raw.githubusercontent.com is a fixed public host, but the request still goes
+ * through the pinned guarded client (public targets only; a rebound answer or a redirect can
+ * never steer the fetch elsewhere). The former Next.js `revalidate: 3600` cache option is
+ * replaced by an equivalent in-process 1-hour cache — the guarded client does not use the
+ * framework fetch.
+ */
+async function fetchGithubRawCached(rawUrl: string): Promise<string> {
+  const cached = githubRawCache.get(rawUrl);
+  if (cached && cached.expiresAt > Date.now()) return cached.body;
+
+  const response = await guardedFetch(rawUrl, {
+    timeoutMs: GITHUB_RAW_TIMEOUT_MS,
+    allowPrivate: false,
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub raw fetch failed: HTTP ${response.status} for ${rawUrl}`);
+  }
+  const body = await response.text();
+  githubRawCache.set(rawUrl, { body, expiresAt: Date.now() + GITHUB_RAW_TTL_MS });
+  return body;
 }
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
