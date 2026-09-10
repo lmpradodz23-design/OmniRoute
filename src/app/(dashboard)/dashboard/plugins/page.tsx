@@ -99,6 +99,15 @@ export default function PluginsPage() {
         <h1 className="text-2xl font-bold">{t("title")}</h1>
       </div>
 
+      {/* P-2/P-3: plugins are trusted code — say so where the operator decides to run one. */}
+      <div
+        role="note"
+        className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm"
+      >
+        <p className="font-medium text-amber-700 dark:text-amber-300">{t("trustNoticeTitle")}</p>
+        <p className="mt-1 text-text-muted">{t("trustNotice")}</p>
+      </div>
+
       <div className="flex items-center justify-end">
         <Button onClick={handleScan} disabled={scanning}>
           {scanning ? t("scanning") : t("scanForPlugins")}

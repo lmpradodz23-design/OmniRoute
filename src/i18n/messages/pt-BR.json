@@ -11689,6 +11689,8 @@
   "plugins": {
     "title": "Plugins",
     "description": "Install and manage plugins for extending OmniRoute functionality",
+    "trustNoticeTitle": "Plugins rodam como código confiável",
+    "trustNotice": "Um plugin roda em um processo filho do Node.js com os mesmos privilégios do servidor OmniRoute — arquivos, rede e comandos incluídos. As permissões que um plugin declara são informativas (só o filtro de variáveis de ambiente é aplicado). Instale apenas plugins de fontes em que você confia e prefira entradas do marketplace com checksum publicado.",
     "loading": "Loading plugins...",
     "scanning": "Scanning...",
     "scanForPlugins": "Scan for Plugins",

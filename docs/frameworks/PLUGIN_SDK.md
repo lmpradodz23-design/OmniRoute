@@ -139,17 +139,26 @@ Or as simple booleans (default priority 100):
 
 ## Permission System
 
-Plugins run in a sandboxed VM context. Access to external resources requires explicit permissions:
+> **Plugins are trusted code.** A plugin runs in a Node.js **child process** with the same
+> privileges as the OmniRoute server — it can read and write any file the server can, open any
+> network connection and spawn commands. There is **no sandbox**: the permissions below are
+> _declarations_ that describe what a plugin intends to do, shown to the operator before
+> installation. **Only `env` is enforced** — the loader filters the environment variables the
+> child receives (`getFilteredEnv`); every other permission is informational. Install only
+> plugins from sources you trust, and prefer marketplace entries with a published SHA-256.
 
-| Permission   | Grants                                                       |
-| ------------ | ------------------------------------------------------------ |
-| `network`    | `fetch`, `AbortController`, `Headers`, `Request`, `Response` |
-| `file-read`  | `fs.readFile`, `fs.readdir`, `fs.stat`                       |
-| `file-write` | `fs.writeFile`, `fs.mkdir`, `fs.rm`                          |
-| `env`        | Read-only `process.env` proxy                                |
-| `exec`       | `child_process.exec`, `child_process.execSync`               |
+| Permission   | Declares                                | Enforced?                                          |
+| ------------ | --------------------------------------- | -------------------------------------------------- |
+| `network`    | the plugin makes outbound HTTP requests | no — informational                                 |
+| `file-read`  | the plugin reads files                  | no — informational                                 |
+| `file-write` | the plugin writes files                 | no — informational                                 |
+| `env`        | the plugin needs environment variables  | **yes** — without it the child gets a filtered env |
+| `exec`       | the plugin spawns commands              | no — informational                                 |
 
-Without a permission, the corresponding globals are simply not available in the sandbox.
+Process isolation (crash containment, hook timeouts, IPC) is real; privilege isolation is not.
+If the Node.js permission model is adopted for the child process in the future, this section
+and the Plugins page notice will be updated together (see
+`tests/unit/plugins-trust-disclosure.test.ts`).
 
 ## Config Schema
 
