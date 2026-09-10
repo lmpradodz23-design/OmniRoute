@@ -27,7 +27,11 @@
  */
 import { Agent, fetch as undiciFetch } from "undici";
 
-import { resolveAndAssertWebhookTarget, type WebhookLookupFn } from "./hardenedWebhookFetch";
+import {
+  pinnedLookup,
+  resolveAndAssertWebhookTarget,
+  type WebhookLookupFn,
+} from "./hardenedWebhookFetch";
 import { OutboundUrlGuardError } from "./outboundUrlGuard";
 import { arePrivateProviderUrlsAllowed } from "./outboundUrlGuardPolicy";
 import { normalizeHost } from "./privateHost";
@@ -76,14 +80,9 @@ export async function guardedFetch(
   const target = await resolveAndAssertWebhookTarget(input, { lookup, allowPrivate });
   const pinned = target.addresses[0];
 
-  const agent = new Agent({
-    connect: {
-      // Pin the socket to the pre-validated ip so DNS cannot rebind between the check above and
-      // the connect below. undici's lookup follows Node's dns.lookup callback shape.
-      lookup: (_hostname, _opts, cb) =>
-        (cb as (e: Error | null, a: string, f: number) => void)(null, pinned.address, pinned.family),
-    },
-  });
+  // Pin the socket to the pre-validated ip so DNS cannot rebind between the check above and
+  // the connect below.
+  const agent = new Agent({ connect: { lookup: pinnedLookup(pinned) } });
 
   const controller = new AbortController();
   const headerTimer = setTimeout(() => controller.abort(), timeoutMs);

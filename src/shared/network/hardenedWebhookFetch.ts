@@ -45,6 +45,32 @@ export interface ResolvedWebhookTarget {
 
 export type WebhookLookupFn = (hostname: string) => Promise<ResolvedAddress[]>;
 
+type PinnedLookupCallback = (
+  err: Error | null,
+  address: string | Array<{ address: string; family: number }>,
+  family?: number
+) => void;
+
+/**
+ * Dispatcher `connect.lookup` that pins the socket to the pre-validated address so DNS cannot
+ * rebind between validation and connect. Node's `net.connect` (autoSelectFamily, on by default
+ * since Node 20) calls it with `{ all: true }` and expects an ARRAY of `{ address, family }`;
+ * the legacy form expects `(err, address, family)`. Both must be honoured — answering the `all`
+ * form with a bare string fails every hostname target with "Invalid IP address: undefined".
+ */
+export function pinnedLookup(pinned: ResolvedAddress) {
+  return (_hostname: string, options: unknown, callback: unknown) => {
+    const cb = callback as PinnedLookupCallback;
+    const wantsAll =
+      typeof options === "object" && options !== null && (options as { all?: boolean }).all === true;
+    if (wantsAll) {
+      cb(null, [{ address: pinned.address, family: pinned.family }]);
+    } else {
+      cb(null, pinned.address, pinned.family);
+    }
+  };
+}
+
 const nodeLookup: WebhookLookupFn = async (hostname) => {
   const recs = await dnsp.lookup(hostname, { all: true, verbatim: true });
   return recs.map((r) => ({ address: r.address, family: r.family === 6 ? 6 : 4 }));
@@ -176,14 +202,9 @@ export async function hardenedWebhookFetch(
   const target = await resolveAndAssertWebhookTarget(input, { lookup, allowPrivate });
   const pinned = target.addresses[0];
 
-  const agent = new Agent({
-    connect: {
-      // Pin the socket to the pre-validated ip so DNS cannot rebind between the check above and
-      // the connect below. undici's lookup follows Node's dns.lookup callback shape.
-      lookup: (_hostname, _opts, cb) =>
-        (cb as (e: Error | null, a: string, f: number) => void)(null, pinned.address, pinned.family),
-    },
-  });
+  // Pin the socket to the pre-validated ip so DNS cannot rebind between the check above and
+  // the connect below.
+  const agent = new Agent({ connect: { lookup: pinnedLookup(pinned) } });
 
   // Manual timer (cleared in finally) instead of AbortSignal.timeout so no timer is left pending
   // after the request settles.
