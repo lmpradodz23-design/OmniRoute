@@ -38,7 +38,12 @@ const { killProcessTree } = require("./processTree");
 const { resolveServerEntry } = require("./lib/resolveServerEntry");
 const { resolveDarwinHelperExecutable } = require("./lib/resolveNodeHelper");
 const { resolveRemoteServerUrl, isValidHttpUrl } = require("./lib/resolveRemoteServerUrl");
-const { isPrivilegedSenderAllowed } = require("./lib/ipcOriginGuard");
+const {
+  isPrivilegedSenderAllowed,
+  shouldBlockNavigation,
+  withPrivilegedSender,
+} = require("./lib/ipcOriginGuard");
+const { writeOwnerOnlyFile } = require("./lib/ownerOnlyFile");
 const {
   readPreferences,
   writeRemoteServerUrl,
@@ -404,6 +409,9 @@ function createWindow({ showWhenReady = true } = {}) {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // E-3: explicit — the renderer sandbox is Electron's default when nodeIntegration is
+      // off, but the privileged window must never depend on that default silently changing.
+      sandbox: true,
       webSecurity: true,
       webviewTag: false,
     },
@@ -445,6 +453,18 @@ function createWindow({ showWhenReady = true } = {}) {
     }
     return { action: "deny" };
   });
+
+  // E-1: this window carries the privileged preload bridge. Neither a page nor a server-side
+  // redirect may steer it onto another origin (loopback ↔ loopback excepted — the embedded
+  // server may move port/spelling on restart). Main-process loadURL calls do not emit these.
+  const blockCrossOriginNavigation = (event, targetUrl) => {
+    if (shouldBlockNavigation(window.webContents.getURL(), targetUrl)) {
+      event.preventDefault();
+      console.warn("[Electron] Blocked cross-origin navigation of the privileged window");
+    }
+  };
+  window.webContents.on("will-navigate", blockCrossOriginNavigation);
+  window.webContents.on("will-redirect", blockCrossOriginNavigation);
 
   // Keep the server alive while either hiding the renderer for a fast reopen or
   // unloading it to reclaim memory, according to the persisted tray preference.
@@ -791,7 +811,8 @@ function startNextServer() {
         ...Object.entries(persisted).map(([k, v]) => `${k}=${v}`),
         "",
       ];
-      fs.writeFileSync(serverEnvPath, lines.join("\n"), "utf8");
+      // E-7: these are the keys that unlock the credential store — owner-only (0o600).
+      writeOwnerOnlyFile(serverEnvPath, lines.join("\n"));
       console.log("[Electron] 📁 Secrets persisted to:", serverEnvPath);
     } catch (e) {
       console.warn("[Electron] Could not persist secrets:", e.message);
@@ -993,28 +1014,40 @@ function setupIpcHandlers() {
     remoteServerPromptWindow?.close();
   });
 
-  ipcMain.handle("open-external", (_event, url) => {
-    try {
-      const parsedUrl = new URL(url);
-      if (["http:", "https:"].includes(parsedUrl.protocol)) {
-        shell.openExternal(url);
+  // E-2: every channel that acts on the machine, the app lifecycle or credentials is
+  // registered through withPrivilegedSender — a remote/LAN page loaded in Remote Server
+  // mode is denied before the handler runs. Informational channels stay open.
+  ipcMain.handle(
+    "open-external",
+    withPrivilegedSender("open-external", (_event, url) => {
+      try {
+        const parsedUrl = new URL(url);
+        if (["http:", "https:"].includes(parsedUrl.protocol)) {
+          shell.openExternal(url);
+        }
+      } catch {
+        console.error("[Electron] Blocked invalid URL:", url);
       }
-    } catch {
-      console.error("[Electron] Blocked invalid URL:", url);
-    }
-  });
+    })
+  );
 
-  ipcMain.handle("get-data-dir", () => app.getPath("userData"));
+  ipcMain.handle(
+    "get-data-dir",
+    withPrivilegedSender("get-data-dir", () => app.getPath("userData"))
+  );
 
   // Fix #2: Add timeout to restart
-  ipcMain.handle("restart-server", async () => {
-    const serverToStop = nextServer;
-    stopNextServer();
-    await waitForServerExit(serverToStop);
-    startNextServer();
-    await waitForServer(getServerReadinessUrl());
-    return { success: true };
-  });
+  ipcMain.handle(
+    "restart-server",
+    withPrivilegedSender("restart-server", async () => {
+      const serverToStop = nextServer;
+      stopNextServer();
+      await waitForServerExit(serverToStop);
+      startNextServer();
+      await waitForServer(getServerReadinessUrl());
+      return { success: true };
+    })
+  );
 
   // Window controls
   ipcMain.on("window-minimize", () => mainWindow?.minimize());
@@ -1028,32 +1061,41 @@ function setupIpcHandlers() {
   ipcMain.on("window-close", () => mainWindow?.close());
 
   // Auto-update IPC handlers
-  ipcMain.handle("check-for-updates", async () => {
-    try {
-      await checkForUpdates(false);
-      return { success: true };
-    } catch (error) {
-      console.error("[Electron] Check for updates failed:", error);
-      sendToRenderer("update-status", { status: "error", message: error.message });
-      return { success: false, error: error.message };
-    }
-  });
+  ipcMain.handle(
+    "check-for-updates",
+    withPrivilegedSender("check-for-updates", async () => {
+      try {
+        await checkForUpdates(false);
+        return { success: true };
+      } catch (error) {
+        console.error("[Electron] Check for updates failed:", error);
+        sendToRenderer("update-status", { status: "error", message: error.message });
+        return { success: false, error: error.message };
+      }
+    })
+  );
 
-  ipcMain.handle("download-update", async () => {
-    try {
-      await downloadUpdate();
-      return { success: true };
-    } catch (error) {
-      console.error("[Electron] Download update failed:", error);
-      sendToRenderer("update-status", { status: "error", message: error.message });
-      return { success: false, error: error.message };
-    }
-  });
+  ipcMain.handle(
+    "download-update",
+    withPrivilegedSender("download-update", async () => {
+      try {
+        await downloadUpdate();
+        return { success: true };
+      } catch (error) {
+        console.error("[Electron] Download update failed:", error);
+        sendToRenderer("update-status", { status: "error", message: error.message });
+        return { success: false, error: error.message };
+      }
+    })
+  );
 
-  ipcMain.handle("install-update", () => {
-    installUpdate();
-    // No return value — app will quit and restart
-  });
+  ipcMain.handle(
+    "install-update",
+    withPrivilegedSender("install-update", () => {
+      installUpdate();
+      // No return value — app will quit and restart
+    })
+  );
 
   ipcMain.handle("get-app-version", () => app.getVersion());
 
@@ -1065,52 +1107,58 @@ function setupIpcHandlers() {
     sendToRenderer("login:status", status);
   });
 
-  ipcMain.handle("login:start", async (event, providerId, options) => {
-    // #6: privileged IPC — only the LOCAL renderer may drive provider login. A remote/compromised
-    // page loaded in this window (Remote Server mode) is rejected outright and never reaches the
-    // credential-extraction flow below.
-    if (!isPrivilegedSenderAllowed(event?.senderFrame?.url)) {
-      return { success: false, error: "Login is not available from a remote context" };
-    }
-    // #6: validate the caller-supplied providerId before using it as a secret key / login target.
-    if (typeof providerId !== "string" || providerId.length === 0 || providerId.length > 128) {
-      return { success: false, error: "Invalid providerId" };
-    }
-
-    const result = await loginManager.startLogin(providerId, options);
-
-    // Persist extracted credentials IN THE MAIN PROCESS ONLY.
-    if (result.success && result.credentials) {
-      try {
-        // Store as JSON blob under the provider ID
-        const { persistSecret: ps } = require("../src/lib/db/secrets");
-        if (typeof ps === "function") {
-          ps(providerId, JSON.stringify(result.credentials));
-        }
-        sendToRenderer("login:status", {
-          providerId,
-          status: "persisted",
-          message: "Credentials saved",
-        });
-      } catch (err) {
-        console.error("[Electron] Failed to persist credentials:", err);
-        return { success: false, error: "Extracted but failed to save credentials" };
+  ipcMain.handle(
+    "login:start",
+    withPrivilegedSender("login:start", async (event, providerId, options) => {
+      // #6: privileged IPC — only the LOCAL renderer may drive provider login. A remote/compromised
+      // page loaded in this window (Remote Server mode) is rejected outright and never reaches the
+      // credential-extraction flow below. (Defence in depth: withPrivilegedSender already denied it.)
+      if (!isPrivilegedSenderAllowed(event?.senderFrame?.url)) {
+        return { success: false, error: "Login is not available from a remote context" };
       }
-    }
+      // #6: validate the caller-supplied providerId before using it as a secret key / login target.
+      if (typeof providerId !== "string" || providerId.length === 0 || providerId.length > 128) {
+        return { success: false, error: "Invalid providerId" };
+      }
 
-    // #6: NEVER return extracted credentials to the renderer — a remote/compromised page must not
-    // receive provider tokens/cookies. Strip them and return only non-sensitive status.
-    const { credentials: _omitCredentials, ...safeResult } = result || {};
-    return {
-      ...safeResult,
-      credentialsPersisted: Boolean(result && result.success && result.credentials),
-    };
-  });
+      const result = await loginManager.startLogin(providerId, options);
 
-  ipcMain.handle("login:cancel", async () => {
-    loginManager.cancel();
-    return { success: true };
-  });
+      // Persist extracted credentials IN THE MAIN PROCESS ONLY.
+      if (result.success && result.credentials) {
+        try {
+          // Store as JSON blob under the provider ID
+          const { persistSecret: ps } = require("../src/lib/db/secrets");
+          if (typeof ps === "function") {
+            ps(providerId, JSON.stringify(result.credentials));
+          }
+          sendToRenderer("login:status", {
+            providerId,
+            status: "persisted",
+            message: "Credentials saved",
+          });
+        } catch (err) {
+          console.error("[Electron] Failed to persist credentials:", err);
+          return { success: false, error: "Extracted but failed to save credentials" };
+        }
+      }
+
+      // #6: NEVER return extracted credentials to the renderer — a remote/compromised page must not
+      // receive provider tokens/cookies. Strip them and return only non-sensitive status.
+      const { credentials: _omitCredentials, ...safeResult } = result || {};
+      return {
+        ...safeResult,
+        credentialsPersisted: Boolean(result && result.success && result.credentials),
+      };
+    })
+  );
+
+  ipcMain.handle(
+    "login:cancel",
+    withPrivilegedSender("login:cancel", async () => {
+      loginManager.cancel();
+      return { success: true };
+    })
+  );
 
   ipcMain.handle("login:status", async () => {
     return { active: loginManager.getActiveProvider() !== null };
@@ -1124,36 +1172,42 @@ function setupIpcHandlers() {
     return app.getLoginItemSettings().openAtLogin;
   });
 
-  ipcMain.handle("enable-autostart", () => {
-    if (process.platform === "linux") {
-      return enableLinuxDesktopAutostart();
-    }
-    try {
-      app.setLoginItemSettings({
-        openAtLogin: true,
-        args: ["--hidden"],
-      });
-      return true;
-    } catch (err) {
-      console.error("[Electron] Enable autostart failed:", err);
-      return false;
-    }
-  });
+  ipcMain.handle(
+    "enable-autostart",
+    withPrivilegedSender("enable-autostart", () => {
+      if (process.platform === "linux") {
+        return enableLinuxDesktopAutostart();
+      }
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: true,
+          args: ["--hidden"],
+        });
+        return true;
+      } catch (err) {
+        console.error("[Electron] Enable autostart failed:", err);
+        return false;
+      }
+    })
+  );
 
-  ipcMain.handle("disable-autostart", () => {
-    if (process.platform === "linux") {
-      return disableLinuxDesktopAutostart();
-    }
-    try {
-      app.setLoginItemSettings({
-        openAtLogin: false,
-      });
-      return true;
-    } catch (err) {
-      console.error("[Electron] Disable autostart failed:", err);
-      return false;
-    }
-  });
+  ipcMain.handle(
+    "disable-autostart",
+    withPrivilegedSender("disable-autostart", () => {
+      if (process.platform === "linux") {
+        return disableLinuxDesktopAutostart();
+      }
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: false,
+        });
+        return true;
+      } catch (err) {
+        console.error("[Electron] Disable autostart failed:", err);
+        return false;
+      }
+    })
+  );
 }
 
 // ── App Lifecycle ──────────────────────────────────────────

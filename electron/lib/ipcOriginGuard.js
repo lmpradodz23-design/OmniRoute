@@ -81,4 +81,111 @@ function isCrossOriginNavigation(fromUrl, toUrl) {
   return from.origin !== to.origin;
 }
 
-module.exports = { isLoopbackHostname, isPrivilegedSenderAllowed, isCrossOriginNavigation };
+/**
+ * Whether a navigation of the privileged window must be blocked (E-1). Cross-origin moves are
+ * blocked — with one deliberate exception: loopback ↔ loopback (localhost / 127.0.0.1 / ::1 on
+ * any port), because the embedded server may answer on another loopback spelling or port after
+ * a restart. Main-process `loadURL` calls (mode switches, port changes) never emit
+ * `will-navigate`, so Remote Server mode is unaffected. Unparseable targets are blocked; an
+ * unknown current origin (initial load, about:blank) allows the navigation.
+ *
+ * @param {string|null|undefined} fromUrl - `webContents.getURL()`
+ * @param {string|null|undefined} toUrl - the navigation target
+ * @returns {boolean} true when the navigation must be prevented
+ */
+function shouldBlockNavigation(fromUrl, toUrl) {
+  let to;
+  try {
+    to = new URL(String(toUrl));
+  } catch {
+    return true;
+  }
+  let from;
+  try {
+    from = new URL(String(fromUrl));
+  } catch {
+    return false;
+  }
+  if (from.protocol !== "http:" && from.protocol !== "https:") return false; // about:blank, file:
+  if (from.origin === to.origin) return false;
+  const bothLoopback =
+    (to.protocol === "http:" || to.protocol === "https:") &&
+    isLoopbackHostname(from.hostname) &&
+    isLoopbackHostname(to.hostname);
+  return !bothLoopback;
+}
+
+/**
+ * IPC channels that act on the machine, the app lifecycle or credentials. Every one of them
+ * must be registered through `withPrivilegedSender` (E-2). Informational channels
+ * (`get-app-info`, `get-app-version`, `get-autostart-status`, `login:status`) and window
+ * controls stay reachable so the dashboard keeps working in Remote Server mode.
+ */
+const PRIVILEGED_IPC_CHANNELS = Object.freeze([
+  "restart-server",
+  "check-for-updates",
+  "download-update",
+  "install-update",
+  "enable-autostart",
+  "disable-autostart",
+  "get-data-dir",
+  "open-external",
+  "login:start",
+  "login:cancel",
+]);
+
+/**
+ * The URL of the frame that sent an IPC message. `senderFrame` can be null once the frame is
+ * gone; `sender.getURL()` (the WebContents) is the fallback. Unknown → "" (treated as local by
+ * `isPrivilegedSenderAllowed`, never as remote).
+ *
+ * @param {{ senderFrame?: { url?: string } | null, sender?: { getURL?: () => string } } | undefined} event
+ * @returns {string}
+ */
+function resolveSenderUrl(event) {
+  const frameUrl = event && event.senderFrame && event.senderFrame.url;
+  if (typeof frameUrl === "string" && frameUrl) return frameUrl;
+  const sender = event && event.sender;
+  if (sender && typeof sender.getURL === "function") {
+    try {
+      const url = sender.getURL();
+      if (typeof url === "string") return url;
+    } catch {
+      /* destroyed WebContents → unknown */
+    }
+  }
+  return "";
+}
+
+/**
+ * Wrap an `ipcMain.handle`/`ipcMain.on` handler so a non-local sender frame is denied BEFORE
+ * the handler runs (E-2). The denial value is URL-free (`{ success: false, error }` by
+ * default; `onDenied(channel)` for fire-and-forget channels).
+ *
+ * @template {(...args: any[]) => any} H
+ * @param {string} channel
+ * @param {H} handler
+ * @param {{ onDenied?: (channel: string) => unknown }} [options]
+ * @returns {(event: unknown, ...args: unknown[]) => ReturnType<H> | unknown}
+ */
+function withPrivilegedSender(channel, handler, options = {}) {
+  return (event, ...args) => {
+    if (!isPrivilegedSenderAllowed(resolveSenderUrl(event))) {
+      console.warn(`[Electron] Blocked privileged IPC "${channel}" from a remote sender`);
+      return options.onDenied
+        ? options.onDenied(channel)
+        : { success: false, error: `${channel} is not available from a remote context` };
+    }
+    return handler(event, ...args);
+  };
+}
+
+module.exports = {
+  isLoopbackHostname,
+  isPrivilegedSenderAllowed,
+  isCrossOriginNavigation,
+  shouldBlockNavigation,
+  PRIVILEGED_IPC_CHANNELS,
+  resolveSenderUrl,
+  withPrivilegedSender,
+};

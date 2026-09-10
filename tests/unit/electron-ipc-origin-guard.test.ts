@@ -13,9 +13,11 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 
 const require = createRequire(import.meta.url);
-const { isLoopbackHostname, isPrivilegedSenderAllowed, isCrossOriginNavigation } = require(
-  "../../electron/lib/ipcOriginGuard"
-);
+const {
+  isLoopbackHostname,
+  isPrivilegedSenderAllowed,
+  isCrossOriginNavigation,
+} = require("../../electron/lib/ipcOriginGuard");
 
 describe("ipcOriginGuard.isLoopbackHostname", () => {
   it("recognizes loopback hosts", () => {
@@ -61,10 +63,7 @@ describe("ipcOriginGuard.isCrossOriginNavigation", () => {
       isCrossOriginNavigation("http://localhost:20128/a", "http://localhost:20128/b"),
       false
     );
-    assert.equal(
-      isCrossOriginNavigation("http://localhost:20128/a", "https://evil.com/b"),
-      true
-    );
+    assert.equal(isCrossOriginNavigation("http://localhost:20128/a", "https://evil.com/b"), true);
     assert.equal(isCrossOriginNavigation("http://localhost:20128/a", "not a url"), true);
     assert.equal(isCrossOriginNavigation("", "http://localhost:20128/a"), false);
   });
@@ -72,7 +71,8 @@ describe("ipcOriginGuard.isCrossOriginNavigation", () => {
 
 describe("main.js login:start hardening (static)", () => {
   const source = readFileSync(join(process.cwd(), "electron/main.js"), "utf8");
-  const start = source.indexOf('ipcMain.handle("login:start"');
+  // The registration may be formatted across lines (ipcMain.handle(\n  "login:start", …).
+  const start = source.search(/ipcMain\.handle\(\s*"login:start"/);
   const handler = source.slice(start, start + 2400);
 
   it("guards the sender frame before proceeding", () => {
