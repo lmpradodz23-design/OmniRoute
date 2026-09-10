@@ -1,0 +1,98 @@
+# 04 — Lacunas de produto, UX e acessibilidade (Fase 0)
+
+HEAD auditado: `2a156c73812d45119d5a06a2f55d611280442860` · Método: leitura estática de `src/app/(dashboard)`, `src/app/login`, `src/shared`, `src/i18n/messages/{pt,en}.json`, `electron/`, `docs/`, `scripts/`, `.github/workflows` (auditor independente, read-only; nada editado, nenhum servidor iniciado). Itens que só se confirmam rodando o produto estão marcados **BLOQUEADO POR AMBIENTE** com o roteiro de teste no fim.
+
+Legenda de classificação: CONFIRMADO · NÃO REPRODUZIDO · CORRIGIDO NO CÓDIGO ATUAL · NOVO · BLOQUEADO POR AMBIENTE · FALSO POSITIVO. Severidade: HIGH = bloqueia a jornada do usuário final.
+
+## Já corrigido neste HEAD (confirmado pelo auditor)
+
+| Item | Evidência | Status |
+|---|---|---|
+| Botão "Configurar" em Agentes de Nuvem caía na lista geral de provedores (`?section=` ignorado) | `src/app/(dashboard)/dashboard/cloud-agents/page.tsx:820-824` usa `/dashboard/providers?cat=cloudagent` | CORRIGIDO NO CÓDIGO ATUAL |
+| Modal "Conectar Kimi Code CLI" vazio (relato do operador vinha de build antigo) | `providers/[id]/components/KimiCodeAuthMethodModal.tsx:24-56` — 2 opções (OAuth, API key); todas as chaves `t()` existem em `pt.json` | CORRIGIDO NO CÓDIGO ATUAL |
+
+## As 17 jornadas do usuário final
+
+| # | Jornada | Estado hoje | Gap | Evidência | Sev. | Classificação |
+|---|---|---|---|---|---|---|
+| 1 | Instalar | `npm -g omniroute`, Docker, instaladores Electron (NSIS com pasta/atalhos; DMG; AppImage). Guia rápido só em EN. | Downloads apontam para `github.com/diegosouzapw/OmniRoute/releases` (upstream). Sem QUICK-START pt-BR. Node ≥22 exigido; se incompatível, login mostra `nvm install 22 && nvm use 22` (jargão). | `electron/package.json:149-157`; `electron/README.md:111-139`; `docs/getting-started/QUICK-START.md:15-40`; `src/app/login/page.tsx:96-126` | MEDIUM | CONFIRMADO |
+| 2 | Abrir | Electron sobe servidor embutido, espera até 180 s por `/api/health/ping` e abre a janela "de qualquer forma". | Sem `did-fail-load` nem diálogo: se o servidor não sobe, usuário vê página de erro do Chromium; saída do servidor só emite IPC `server-status`. | `electron/lib/serverReadiness.js:6,54`; `electron/main.js:889-893` | MEDIUM | CONFIRMADO (tela final: BLOQUEADO POR AMBIENTE) |
+| 3 | Concluir onboarding | Wizard de 6 passos (boas-vindas, tiers, segurança, provedor, teste, pronto). Sem senha, passo provedor é bloqueado com aviso traduzido. | **Erros nunca aparecem**: `errorMessage` é preenchido em 7 pontos e não há JSX que o renderize → falha ao "Definir senha"/"Adicionar provedor" não dá feedback. "Caps Lock is on" hardcoded EN. Inputs só com placeholder. Teste de conexão sem timeout. | `onboarding/page.tsx:84` (única ocorrência além dos `set`), `:109,119,124,154,159`; `:351`; `:328-345,401-413`; `:163-189` | **HIGH** | CONFIRMADO / NOVO |
+| 3b | Senha padrão `CHANGEME` | Só vale quando `INITIAL_PASSWORD=CHANGEME` (copiar `.env.example:28`). Electron/npm sem `.env` → sem senha → onboarding com bootstrap restrito a loopback. Boot avisa só no console. | O **login sempre mostra** "Palavra-passe padrão: CHANGEME (a não ser que INITIAL_PASSWORD…)", mesmo após o usuário definir senha própria — confunde e sugere senha pública. | `src/lib/auth/managementPassword.ts:76-83`; `src/shared/utils/apiAuth.ts:335-357`; `src/app/login/page.tsx:284`; `pt.json:9845` | MEDIUM | CONFIRMADO |
+| 4 | Proteger o painel | `Settings → Security`: toggle "Exigir login", formulário de senha (só com toggle ligado), confirmação com senha atual via modal. | Ligar o toggle sem senha grava `requireLogin:true` sem feedback (erros só em `console.error`); saindo antes de definir senha com `setupComplete=true`, a API exige auth → login manda de volta ao **wizard de onboarding**. Recuperável, mas desorientador. | `settings/components/SecurityTab.tsx:41-61,231`; `apiAuth.ts:356`; `login/page.tsx:185-223`; `api/settings/route.ts:367-370` | MEDIUM | CONFIRMADO |
+| 5 | Cadastrar provedor | Página de provedores com cards, `providers/new`, modal OpenAI/Anthropic-compatível, import por arquivo; onboarding limita a 6 provedores com URLs padrão. | Modal de import por arquivo usa 3 chaves inexistentes em `pt.json` (cai no inglês). | `onboarding/page.tsx:13-20,133-140`; `providers/components/ImportProvidersFromFileModal.tsx:148,174,184` vs `en.json:5070-5072` | LOW | CONFIRMADO |
+| 6 | Testar conexão | Modal de edição tem "Testar" (`valid/diagnosis/message`); card com teste expansível; onboarding testa a 1ª conexão. | Mensagem exibida é o `data.error` cru da API. Onboarding testa `connections[0]`, não necessariamente o provedor recém-criado. | `EditConnectionModal.tsx:459-484`; `ProviderCard.tsx:307-311,651-652`; `onboarding/page.tsx:170-176` | LOW | CONFIRMADO |
+| 7 | Visualizar modelos | Home lista modelos com botão copiar + toast; `/dashboard/api-endpoints`; detalhe do provedor lista por linha. | Nenhum gap funcional. | `HomePageClient.tsx:1255-1316`; `api-endpoints/page.tsx`; `providers/[id]/components/ModelRow.tsx` | — | NÃO REPRODUZIDO |
+| 8 | Copiar URL e API key | Chave criada é exibida uma vez (`createdKey`); chaves existentes podem ser reveladas/copiadas via `/api/keys/{id}/reveal`. URL base no passo final do onboarding e na página Endpoint. | Falha ao revelar/copiar vai só para `console.log`. Passo final do onboarding mostra a URL sem botão copiar. `QUICK-START` diz que a chave "não aparecerá de novo", mas a UI permite revelar — doc e produto divergem (ver também `03-SECURITY-FINDINGS` #7: reveal deve ser único). | `api-manager/ApiManagerPageClient.tsx:738-760`; `onboarding/page.tsx:467-470`; `QUICK-START.md:82` | LOW | CONFIRMADO |
+| 9 | Configurar Codex | Card detecta CLI, guia de instalação, URL/chave/modelo/reasoning/wire API, aplicar/reset, perfis, backups; escreve `~/.codex/config.toml`. Guia completo em EN. | Denso/técnico ("wire_api", "[notice.model_migrations]"); sem guia pt-BR. | `cli-code/components/CodexToolCard.tsx:128-345,528-735`; `docs/guides/CODEX-CLI-CONFIGURATION.md` | LOW | CONFIRMADO |
+| 10 | Configurar Claude Code | Card grava `ANTHROPIC_BASE_URL` em `~/.claude/settings.json`; bloco copiável com placeholder de chave (não vaza a chave); guia EN explica `ANTHROPIC_BASE_URL` sem `/v1`. | Sem guia pt-BR. | `ClaudeToolCard.tsx:178-193`; `ClaudeGatewayOnboardingBlock.tsx`; `docs/guides/CLAUDE-CODE-CONFIGURATION.md:24-38` | LOW | CONFIRMADO |
+| 11 | Enviar solicitação | Playground Studio (chat/compare/api/build), `baseUrl` = origem atual, painel de config, métricas de tokens/custo. | Nenhum defeito por leitura; streaming/erros em tempo real só rodando. | `playground/PlaygroundStudio.tsx` | — | BLOQUEADO POR AMBIENTE |
+| 12 | Entender erros | `error.tsx` amigável (título, "Tentar de novo", links, `role=alert`); páginas 4xx/5xx com sugestões. | Erros de API vazam crus na UI ("currentPassword required for security-impacting setting changes", "No active credentials configured for cloud agent provider: X", "Invalid API key"). Muitos fallbacks genéricos "Ocorreu um erro". 29 `confirm()` nativos vs `ConfirmModal` em 9 arquivos. | `src/app/error.tsx`; `api/settings/route.ts:376`; `SecurityTab.tsx:84`; `pt.json:187,5217,7009` | MEDIUM | CONFIRMADO |
+| 13 | Reiniciar | Sidebar → `ConfirmModal` → `POST /api/restart` → overlay "Servidor desconectado" com recarregar; reload automático em 3 s. | 3 s fixos: se o servidor demora mais, o reload cai em erro de conexão do navegador. | `src/shared/components/Sidebar.tsx:417-428,787-815` | LOW | CONFIRMADO |
+| 14 | Fechar e reabrir | Fechar janela = esconder para a bandeja (salvo "Quit"); `before-quit` para o servidor com 5 s; dados em `%APPDATA%\omniroute` / `~/.omniroute`. | Menu da bandeja e notificações são strings EN hardcoded ("Open OmniRoute", "When Dashboard Closes", "OmniRoute Update Ready"). | `electron/main.js:451-460,512-580,288-297,1240-1256,202-210` | LOW | CONFIRMADO |
+| 15 | Atualizar | `electron-updater` (`autoDownload=false`), notificação ao baixar, "Check for Updates" na bandeja; painel mostra versão nova com links. | **Feed de update e checagem de versão apontam para o upstream** (`diegosouzapw/OmniRoute`, npm `omniroute`). Releases do fork nunca seriam oferecidas; releases do upstream sobrescreveriam o fork. Sem rollback (ver `02-ARCHITECTURE` E-5). | `electron/package.json:53-57`; `src/lib/system/versionCheck.ts:28,36`; `HomePageClient.tsx:159-179,1027`; `src/shared/utils/releaseNotes.ts:4` | **HIGH** (identidade do fork) | CONFIRMADO |
+| 16 | Backup e restauração | UI completa: backup manual, lista, restaurar (com `ConfirmModal`), exportar/importar `.sqlite` (com confirmação), export/import JSON legado, retenção, limpeza. Rotas `api/db-backups/*`, `settings/export-json|import-json`. | Fica dentro de `Settings → General` — leigo pode não encontrar (sem item "Backup" evidente no menu; não verificado). | `settings/components/SystemStorageTab.tsx:117,437,467,544,579,609,651`; `settings/general/page.tsx` | LOW | CONFIRMADO |
+| 17 | Desinstalar sem perder dados silenciosamente | `npm run uninstall` preserva dados; `uninstall:full` apaga `~/.omniroute`. NSIS não define `deleteAppDataOnUninstall` → dados ficam. Guia pt-BR existe. | `uninstall:full` executa `rmSync(recursive, force)` **sem confirmação**. Desinstalador Windows/macOS não informa que os dados ficaram nem oferece removê-los. | `scripts/build/uninstall.mjs:26-31`; `electron/package.json:149-157`; `docs/guides/UNINSTALL.md` | MEDIUM | CONFIRMADO |
+
+## Achados de UX, acessibilidade, i18n e mobile
+
+| id | Tipo | Sev. | Classificação | Evidência | Correção sugerida |
+|---|---|---|---|---|---|
+| U1 | Erro silencioso no onboarding | **HIGH** | CONFIRMADO / NOVO | `onboarding/page.tsx:84` — `errorMessage` nunca renderizado | Renderizar `{errorMessage && <p role="alert" …>}` nos passos segurança e provedor |
+| U2 | Dica de senha padrão enganosa | MEDIUM | CONFIRMADO | `login/page.tsx:284`; `pt.json:9845` | Mostrar só quando a senha ativa for a `INITIAL_PASSWORD` default (servidor já sabe: `managementPassword.ts:76`) |
+| U3 | Fluxo desorientador ao exigir login | MEDIUM | CONFIRMADO | `SecurityTab.tsx:41-61,231`; `login/page.tsx:185-223` | Exigir senha no mesmo passo em que se liga "Exigir login" (form inline obrigatório) e exibir erro do PATCH |
+| U4 | Erro técnico cru na UI | MEDIUM | CONFIRMADO | `api/settings/route.ts:376`; `SecurityTab.tsx:84`; `EditConnectionModal.tsx:477` | Mapear `code` → chave i18n amigável; detalhe técnico em "ver detalhes" |
+| U5 | Confirmação destrutiva inconsistente | LOW | CONFIRMADO | 29 `confirm()` nativos (ex. `ApiManagerPageClient.tsx:679`, `combos/page.tsx:962`, `plugins/page.tsx:80`) vs `ConfirmModal` | Migrar para `ConfirmModal` (traduzido/acessível) |
+| U6 | Sem feedback de falha ao copiar/revelar | LOW | CONFIRMADO | `ApiManagerPageClient.tsx:743-758` (`console.log`) | `notify.error(t("copyFailed"))` |
+| U7 | Reload fixo de 3 s no restart | LOW | CONFIRMADO | `Sidebar.tsx:427` | Poll em `/api/health/ping` antes de recarregar |
+| U8 | Timeout ausente no teste de conexão do onboarding | LOW | CONFIRMADO | `onboarding/page.tsx:163-189` | `AbortController` 15 s + mensagem "demorou demais" |
+| A1 | Botão só-ícone sem nome acessível | MEDIUM | CONFIRMADO | `src/shared/components/Header.tsx:216-220` (menu mobile); `providers/[id]/components/ConnectionRow.tsx:545,552`; `ApiManagerPageClient.tsx:966` — amostra: 52 com nome, 4 sem | `aria-label={t(...)}` |
+| A2 | Inputs só com placeholder | MEDIUM | CONFIRMADO | 57 `<input placeholder>` sem `id`/`aria-label` em 31 arquivos; onboarding `:328,337,401,408`; `combos/page.tsx:4018…`; `playground/components/ParamSliders.tsx:140,155` | Usar `<Input label=…>` do design system (já usado em `SecurityTab.tsx:199`) |
+| A3 | Label sem `htmlFor` | LOW | NÃO REPRODUZIDO | `login/page.tsx:268-277` — depende de `Input` gerar `id` | Verificar `src/shared/components/Input` |
+| M1 | Grid fixo em mobile | LOW | CONFIRMADO | `onboarding/page.tsx:283,380` (`grid-cols-3` sem breakpoint) | `grid-cols-2 sm:grid-cols-3` |
+| M2 | Navegação mobile | — | NÃO REPRODUZIDO (existe) | `Header.tsx:213-226` botão `lg:hidden` | — |
+| I1 | i18n faltando em pt | LOW | CONFIRMADO | `providers.importFromFileMoreErrors/SchemaHint/DownloadTemplate` ausentes em `pt.json` (presentes `en.json:5070-5072`); folhas en 13 027 / pt 13 016 | Adicionar as 3 chaves |
+| I2 | String hardcoded | LOW | CONFIRMADO | `onboarding/page.tsx:351` "Caps Lock is on" | `t("capsLockOn")` |
+| I3 | Electron sem i18n | LOW | CONFIRMADO | `electron/main.js:512-580,288-297,310` | Tabela mínima pt/en no main process |
+| I4 | Chaves "faltando" do script | — | FALSO POSITIVO | `playground/…/BuildWizard.tsx:32-34`, `tools/traffic-inspector/page.tsx:7-8` — existem sob namespaces aninhados (`en.json:11147,13929`) | — |
+| P1 | Placeholders / "coming soon" / botões sem ação | — | NÃO REPRODUZIDO | grep por `href="#"`, `onClick={() => {}}`, "coming soon", "not implemented", `TODO:` em `*.tsx`: só 1 badge intencional no wizard de webhook | — |
+| L1 | Loading infinito | — | NÃO REPRODUZIDO | Login aborta em 5 s (`login/page.tsx:26-60`); onboarding sempre zera `loading` | — |
+
+## Identidade do fork (Fase 8)
+
+Zero ocorrências de `LMPrado-DZ23` no repositório. `diegosouzapw` aparece em ~110 locais fora de `docs/i18n`/`CHANGELOG`.
+
+**Referências de publicação que quebram o fork — corrigir para `LMPrado-DZ23/OmniRoute`:**
+- `electron/package.json:53-57` — `publish.owner/repo` (gera `app-update.yml`; auto-updater consulta o upstream). **Crítico.**
+- `src/lib/system/versionCheck.ts:28,36` — npm `omniroute/latest` + GitHub `releases/latest` do upstream → banner "nova versão" falso.
+- `src/app/(dashboard)/dashboard/HomePageClient.tsx:159-179,1027` — URLs de download `.dmg/.exe/.AppImage` do upstream.
+- `src/shared/utils/releaseNotes.ts:4` — `news.json` do `main` upstream.
+- `src/shared/constants/agentSkills.ts:7`; `agent-skills/components/SkillPreviewPane.tsx:46,55` — skills baixadas do upstream.
+- Links "reportar bug/docs/releases": `src/lib/docsLinkResolver.ts:3`; `changelog/components/ChangelogViewer.tsx:18`; `src/app/docs/layout.tsx:48`; `src/shared/components/Footer.tsx:14-32,84,95,155`; `landing/components/{Footer,HeroSection,Navigation}.tsx`; `sidebarVisibility/sections.ts:794`; `providers/page.tsx:913`; `OAuthModalPanels.tsx:268`; `CompressionPanel.tsx:390`; `QuotaSharePageClient.tsx:459`.
+- `package.json:86-89` (`author`, `repository.url`); `electron/README.md:111-139`; `README.md` (≈40 linhas: badges, Docker Hub `diegosouzapw/omniroute`, sponsors).
+- `.github/workflows/docker-publish.yml:51,158-159,352-353,551` (`IMAGE_NAME`, GHCR); `npm-publish.yml:372,424` (`@diegosouzapw/omniroute`); `radar-export.yml:7`; `.github/CODEOWNERS:1`.
+- `scripts/docs/sync-wiki.mjs:43-44`; `scripts/release/{gen-contributors,rehome-open-prs}.mjs`; `scripts/vps/release-runner-*.sh`; `scripts/dev/system-info.mjs:169`; `scripts/check-permissions.sh:25`.
+
+**Upstream deliberado ou atribuição histórica — manter:** `.mailmap`; `CHANGELOG.md`; comentários "Fixes #NNNN" (`scripts/build/postinstall.mjs`, `src/instrumentation-node.ts:372`, `migrations/103…sql:7`, `cliTools.ts:874`); `THIRD_PARTY_NOTICES`; `VscodeCopilotBanner.tsx:12` (extensão OmniCopilot é produto do upstream); `electron-release.yml` (usa `GITHUB_TOKEN` relativo ao repo — já correto).
+
+## Documentação para pessoa não técnica
+
+**Existe:** `README.md` (EN, ~1 700 linhas, foco marketing; instalação só em "More install methods", L1023); `docs/getting-started/QUICK-START.md` (EN, bom: instalar → provedor grátis → criar chave → `curl`); `docs/guides/{SETUP_GUIDE,ELECTRON_GUIDE,USER_GUIDE,TROUBLESHOOTING,UNINSTALL,MANAGEMENT-AUTH}.md`; Codex (`CODEX-CLI-CONFIGURATION.md`: TOML pronto, `wire_api = "responses"`, chave via `OMNIROUTE_API_KEY`) e Claude Code (`CLAUDE-CODE-CONFIGURATION.md`: `ANTHROPIC_BASE_URL` sem `/v1`, `ANTHROPIC_AUTH_TOKEN`, `omniroute launch`/`setup-claude`); docs in-app em `/docs`. Em **pt-BR** só: README, USER_GUIDE, CLI-INTEGRATIONS, TROUBLESHOOTING, UNINSTALL, FEATURES, I18N.
+
+**Falta para leigo:** QUICK-START, SETUP_GUIDE, ELECTRON_GUIDE, Codex e Claude Code em pt-BR; "primeiro uso em 5 passos" com capturas (instalar → abrir → senha → provedor → colar URL/chave no Codex/Claude Code); explicação simples de "chave do OmniRoute ≠ chave do provedor"; tabela de erros comuns (401/429/5xx, "Invalid API key") em português; onde ficam os dados e o que `uninstall:full` apaga. Versão das traduções pt-BR existentes vs 3.8.51 não conferida.
+
+## Como testar o que ficou BLOQUEADO POR AMBIENTE (Fase 5/9)
+
+- **J2:** empacotar Electron, ocupar a porta 20128 com outro processo e abrir o app — observar se aparece a página de erro do Chromium após 180 s.
+- **J11:** no Playground, enviar prompt com provedor sem crédito e com chave inválida — verificar a mensagem exibida e se "enviar" volta ao estado normal.
+- **J3/U1:** no onboarding, desligar a rede e clicar "Definir senha" — hoje deve não acontecer nada visível (reproduz U1).
+
+## Priorização para as Fases 5 e 8
+
+1. **U1** (HIGH) — onboarding sem feedback de erro: bloqueia o primeiro uso.
+2. **J15 / identidade do fork** (HIGH) — updater e version-check apontando ao upstream; corrigir `electron/package.json`, `versionCheck.ts`, `HomePageClient`, `releaseNotes`, workflows de publish (Fase 8).
+3. **U2, U3, U4** (MEDIUM) — senha padrão, fluxo "exigir login", erros crus.
+4. **J17** (MEDIUM) — `uninstall:full` sem confirmação; informar retenção de dados no desinstalador.
+5. **A1, A2** (MEDIUM, WCAG AA) — nomes acessíveis e labels.
+6. **J2** (MEDIUM) — `did-fail-load` + diálogo quando o servidor não sobe.
+7. LOWs (U5–U8, M1, I1–I3) e documentação pt-BR.

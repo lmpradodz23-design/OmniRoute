@@ -1,0 +1,84 @@
+# 02 — Arquitetura real e riscos de confiabilidade (Fase 0)
+
+HEAD auditado: `2a156c73812d45119d5a06a2f55d611280442860` · Fontes: auditor de arquitetura + 3 sub-auditorias read-only (DB/migrations; MCP/roteamento/executores/jobs; Electron/updater/Docker/browser). Toda evidência cita `arquivo:linha`. "Não verificado" quando não foi comprovado.
+
+## 1. Mapa por área
+
+| Área | Como funciona hoje | Arquivos-chave |
+|---|---|---|
+| Frontend | Next.js App Router; painel em `src/app/(dashboard)`, login em `src/app/login`, onboarding de 6 passos; design system em `src/shared/components`; i18n `src/i18n/messages/*.json` (42 locales) | `HomePageClient.tsx`, `Sidebar.tsx`, `settings/*`, `providers/*` |
+| Backend/APIs | 697 `route.ts` em `src/app/api`; rewrites `/v1/:path* → /api/v1/:path*`; contrato OpenAI (`/v1/chat/completions`, `/v1/responses`, `/v1/models`) + Anthropic (`/v1/messages`) | `src/app/api/v1/*` |
+| Authz | `src/server/authz/routeGuard.ts:32-83` classifica `LOCAL_ONLY_API_PREFIXES` (loopback-gate **antes** do auth) para toda superfície de spawn/exec (plugins, middleware, system/version, db-backups/exportAll, acp, cli-tools, headroom, túneis, MITM); espelhado em `src/shared/constants/spawnCapablePrefixes.ts` (nota keep-in-sync `:64`). Política em `src/server/authz/policies/management.ts` | — |
+| Servidor/portas | `scripts/dev/run-next.mjs`: dashboard em `DASHBOARD_PORT`/`PORT` (default 20128); **API Bridge sempre escuta 20128** e encaminha para a dashboard; EmbedWsProxy 20131; LiveWS 20132 (`run-next.mjs:105,251`) | `scripts/build/runtime-env.mjs` (`resolveRuntimePorts`) |
+| Streaming | SSE via `open-sse/utils/stream.ts` e transformers; heartbeat `sseHeartbeat.ts`; sanitização pública `errorSanitization.ts` + `errorPathRedaction.ts` | `open-sse/` |
+| MCP | stdio (`omniroute --mcp`, `server.ts:2`); "SSE" (`api/mcp/sse`) que reutiliza `WebStandardStreamableHTTPServerTransport` como **singleton de processo** (`httpTransport.ts:15,92`); Streamable HTTP por sessão (`httpTransport.ts:203,30`). Auth de rota `requireManagementAuth(..., {acceptMcpConnectScope:true})` (`sse/route.ts:33,41`); identidade por chamada `resolveMcpCallerAuthInfo` (`httpAuthContext.ts:54`). `withScopeEnforcement` em todo handler (`server.ts:233-280`), default ON (`scopeEnforcement.ts:33,39-43`), tool sem escopo declarado é negada (`:129-137`). ~110-115 tools únicas (`toolCount.ts:26`). Tools fazem **self-call HTTP** ao gateway (`omniRouteFetch`, `server.ts:207-231`) | `open-sse/mcp-server/*` |
+| Roteamento de modelos | `getExecutor(provider)` (`open-sse/executors/index.ts:217`) → registry lazy (`registry.ts:48`) → `getDefaultExecutor` (`defaultResolver.ts:6`) com fallback `PROVIDERS.openai` (guards só p/ cloud-agent e search-only, `index.ts:204,215,223-236`). 17 estratégias de combo (`services/combo.ts:3`). Retry `maxAttempts = model-scope|codex ? 3 : 1` (`chatCore.ts:3082`); rotação de conta em 429 só p/ model-scope/codex (`:3269,3295-3310`); backoff/cooldown (`accountFallback.ts:1622,1636`); circuit breaker por provedor (`:1133-1164`) e lockouts por (provider,connection,model) com eviction (`:596,750`) | `open-sse/services/*` |
+| Executores | Timeout de **início** de resposta via `AbortController` por tentativa (`base.ts:930-955`, `resolveFetchStartTimeout`), não cobre stall de stream (`:908`); cancelamento do cliente mesclado com timeout (`mergeAbortSignals`, `base.ts:228-248`); credencial injetada em `buildHeaders` (`:513-528`); egress allowlist rechecada por tentativa (`:929`) | `open-sse/executors/base.ts` |
+| Banco | Cascata de driver `bun:sqlite → better-sqlite3 → node:sqlite → sql.js` (`adapters/driverFactory.ts:207-297`), probe em child-process no Windows (`:44-77`); **conexão única global** (`singleton.ts:3-19`, `globalThis.__omnirouteDb`), sem pool; pragmas `busy_timeout=2000`, WAL, `synchronous=NORMAL`, `temp_store=MEMORY` (`core.ts:1292-1296`), `mmap_size` (`:1322-1331`); health check + WAL `checkpoint(TRUNCATE)` 6h (`core.ts:950,968-1010`) | `src/lib/db/core.ts` |
+| Migrations | 170 arquivos `NNN_nome.sql` (gaps 026/043/044), ordenação lexicográfica (`migrationRunner.ts:220-238`), colisão de versão detectada (`:241-260`); **transação por arquivo** (`:1051-1081`); ledger `_omniroute_migrations` (`core.ts:1306-1314`); **backup pré-migração obrigatório** com SHA-256 verificado (`:830,869,969-974,1042-1046`; `preMigrationBackup.ts`); abort por excesso de pendentes (`:913-964`). **Sem down/rollback.** Idempotência parcial por `switch` de versão (`:429…`) | `src/lib/db/migrationRunner.ts` |
+| Backups | On-demand com throttle 60 min (`backup.ts:31,283`, ~40 sites `backupDbFile("pre-write")`); `db.backup()` nativo (`:264`); kill switch `DISABLE_SQLITE_AUTO_BACKUP` (`:225-230`); retenção 20 arquivos / 0 dias (`backupRetention.ts:15-16`); restore com validação de traversal, integridade, backup pré-restore, reset de instância e verificação (`backup.ts:388-505`) | `src/lib/db/backup.ts` |
+| Electron | `main.js:834-856` spawna o servidor Node (`shell:false`, `HOSTNAME=127.0.0.1`, `DATA_DIR`, heap calculado `:809-824`); secrets bootstrap em `<dataDir>/server.env` (`:750-799`); kill tree `processTree.js:21-60` (Windows `taskkill /T`); preload único com allowlist de canais (`preload.js:93-119`); `contextIsolation:true`, `nodeIntegration:false`, `webviewTag:false` (`main.js:403-409`); login em janela sem preload e partition efêmera (`loginManager.js:115-126`); credenciais persistidas só no main (`main.js:1086-1088`) | `electron/*` |
+| Updater | `electron-updater ^6.8.9`, `autoDownload=false`, `autoInstallOnAppQuit=true` (`main.js:227-229`); feed = `build.publish` → GitHub `diegosouzapw/OmniRoute` (`electron/package.json:53-57`). CLI `omniroute update` (`bin/cli/commands/update.mjs`). In-container `src/lib/system/autoUpdate.ts` (branch git pré-update) | — |
+| Browser automation | `packages/browser-pool` (Chromium único, contexto por chave, TTLs `:76-78`, timers `unref`); `open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/browser-worker.ts` (4397 linhas; CDP sidecar ou launch; cap 5 tabs; timeouts por estágio com refund de sleep `:1737-1760`) | — |
+| Plugins | Scan `OMNIROUTE_PLUGINS_DIR → ~/.omniroute/plugins → /tmp/...` (`plugins/scanner.ts:46-57`); manifesto zod (`manifest.ts`); execução em **child process Node** com IPC (`loader.ts:216,224`), env filtrado por permissões (`:210,419-436`), timeouts 10 s + SIGKILL 3 s (`:23-24`); marketplace `marketplace.ts` (fetch via `safeOutboundFetch` public-only, `:227`) | `src/lib/plugins/*` |
+| Jobs | Registry central `src/lib/jobRegistry/registry.ts` (intervalos `unref`, cron DST-safe, guard de reentrância `:262`); + **~55 `setInterval` ad-hoc**: de carga de módulo (`httpTransport.ts:34`, `accountFallback.ts:184`, `sessionManager.ts:46`, `quotaMonitor.ts:87`, `ipFilter.ts:71`, ~15 `*QuotaFetcher.ts`) e iniciados em `src/instrumentation-node.ts:429-670` (spend writer, quota refresh, limits sync, batch, hot-reload, credential health, vacuum, cleanup 6h + VACUUM, auto-refresh, recovery, arena, radar, proxy health, free-proxy, backup, warmup, pricing, models.dev, log rotation, proxy-log flush 1 s, rate-limit watchdog) | — |
+| Caches | `cacheLayer.ts` LRU 50/2 MB/300 s (`:23-25`); `semanticCache.ts:113-115`; `reasoningCache.ts:152,165,607`; `searchCache.ts:12,62-72`; quota-fetcher `Map`s sem cap (`agentrouterQuotaFetcher.ts:54`); com cap: `quotaMonitor.ts:86` (500), `sessionManager.ts:42` (200) | — |
+| Logs | `proxy_logs` em SQLite, batch 1 s/100 (`proxyLogger.ts:212-231`), ring 200; `call_logs` 1 INSERT síncrono por request (`callLogs.ts:447-608`) com rotação inline (`:607`, `callLogRotation.ts:281-302,338-339`); cleanup 6h (`cleanup.ts:767-828`); rotação de arquivo 50 MB/7 d/20 (`logRotation.ts:10-16`); redação `logPayloads.ts:8-40,418-435,465,476` | — |
+| Docker | `Dockerfile` (`node:26-trixie-slim`, estágios builder/runner-base/runner-web/runner-cli, `USER node`, `HEALTHCHECK`, `ENTRYPOINT check-permissions.sh`, `CMD dev/run-standalone.mjs`); `Dockerfile.bun`; compose dev (`x-common`, `./data:/app/data`, perfil `cli` monta `/var/run/docker.sock`) e prod (volume nomeado, sidecar Chromium) | `docker/`, `docker-compose*.yml` |
+| CI/CD | 26 workflows; gates em `quality.yml` (scanners pinados `:224-233`), `ci.yml`, `api-route-typecheck.yml` (baseline `config/quality/api-typecheck-baseline.json`), `docker-publish.yml`, `electron-release.yml`, `npm-publish.yml`, `deploy-vps.yml` | `.github/workflows/` |
+
+## 2. Cobertura de typecheck e build
+
+| Escopo | Estado | Evidência |
+|---|---|---|
+| `next.config.mjs` | **`ignoreBuildErrors: true`** desde o commit inicial v1.0.0 (`71d14209a`) — erros TS não bloqueiam o build | `next.config.mjs:383` |
+| ESLint | **5.146 warnings suprimidos em 1.050 arquivos** | auditor de arquitetura (contagem) |
+| `open-sse/tsconfig.json` | **0 erros** (`strict:false`, `checkJs:true`) — baseline vazio é real | `tsc -p open-sse/tsconfig.json` |
+| `tsconfig.typecheck-api.json` | 289 erros pré-existentes congelados em baseline; gate = 0 regressões | `scripts/check/check-api-typecheck.mjs` |
+| `typecheck:core` / dashboard | allowlist curada / só `src/app/(dashboard)` contra baseline | `package.json` scripts |
+| `electron/*.js` | **sem `@ts-check`**, sem typecheck | — |
+| `bin/` | **sem tsconfig** | — |
+| `packages/` | typecheck próprio não verificado | — |
+| Build | webpack OK (`OMNIROUTE_USE_TURBOPACK=0`); Turbopack falha neste host por junction do `node_modules` (ambiente) | evidência da missão anterior |
+
+## 3. Riscos de confiabilidade e arquitetura
+
+Classificação: CONFIRMADO · NOVO · NÃO REPRODUZIDO · BLOQUEADO POR AMBIENTE · FALSO POSITIVO.
+
+| id | Área | Sev. | Class. | Evidência | Impacto | Correção |
+|---|---|---|---|---|---|---|
+| R-1 | Migrations | HIGH | CONFIRMADO | nenhum `.down.sql`/revert em `migrations/` ou `migrationRunner*` | Gate "rollback = PASS" da missão não é atingível; recuperação só por restaurar o backup pré-migração | Definir e testar rollback = restore do snapshot pré-migração (`preMigrationBackup.ts`) com verificação; documentar em `ROLLBACK.md`; para novas migrations, exigir plano de reversão |
+| R-2 | DB integridade | MEDIUM | CONFIRMADO | `apiKeys.ts:713-733` (insert + `setNoLog`), `:1189-1208` (4 writes), `providers/deletion.ts:200-211` (`reorderConnections` N updates), `registeredKeys.ts:262-306`, `callLogs.ts:556-604` (arquivo + linha) | Estado parcial após crash (chave sem no-log, orçamentos órfãos, prioridades misturadas, artefato órfão) | Envolver em `db.transaction()`; `updateApiKeyPermissions` (`apiKeys.ts:1064-1094`) usa `BEGIN IMMEDIATE` cru e ignora o tracking de savepoint dos adapters (`nodeSqliteShared.ts:66,126-132`) |
+| R-3 | DB concorrência | MEDIUM | CONFIRMADO | `core.ts:1292` `busy_timeout=2000`; único retry em `probeUtils.ts:91-113` (startup) | Escrita ocupada >2 s lança; múltiplos processos abrem o mesmo DB (Electron `sqlite-inspection.js:9,14`, backups, `VACUUM INTO`) | Retry limitado de `SQLITE_BUSY` no caminho normal de escrita |
+| R-4 | Migrations | MEDIUM | CONFIRMADO | `migrationRunner.ts:1088-1104` — `duplicate column name` engolido e rebaixado a insert só do marcador | Esconde migração genuinamente parcial | Só tolerar quando o probe de idempotência confirmar o estado final |
+| R-5 | Roteamento | MEDIUM | NÃO REPRODUZIDO (só leitura) | grep `streamStarted|hasStreamed|bytesSent` → só comentários (`chatCore.ts:3627,5574`); `idempotencyLayer.ts:15,42-46` é janela de 5 s por header | Fallback após stream parcialmente consumido pode reenviar o mesmo prompt a outra conta (custo/duplicidade) | Guard "bytes já emitidos ao cliente ⇒ não refazer"; validar com teste |
+| R-6 | Jobs | MEDIUM | CONFIRMADO | `src/instrumentation-node.ts` sem `SIGTERM`/`SIGINT` (grep vazio); só `rateLimitManager.ts:301` registra lazily; ~55 `setInterval` ad-hoc, maioria com guard `let timer` local (dupla-armada em HMR); só `logRotation.ts:49-56`, `proxyHealth/scheduler.ts:68`, `freeProxyProviders/scheduler.ts:34`, `connectionRecovery.ts:336` usam `globalThis` | Sem desligamento gracioso; **sem eleição de líder** — toda réplica roda backup/VACUUM/pricing/cleanup | Handler único de shutdown que para o registry + timers; guard `globalThis`; documentar single-replica ou lock |
+| R-7 | Executores | LOW-MED | CONFIRMADO | `base.ts:228-248` `mergeAbortSignals` adiciona listeners sem remover | Acúmulo de listeners em signal de longa vida (memória) | Remover listeners no settle |
+| R-8 | Executores | LOW | CONFIRMADO | `base.ts:908,930-955` timeout só de início de resposta | Stall de stream não é abortado | Timeout de inatividade entre chunks (já há heartbeat SSE) |
+| R-9 | MCP | MEDIUM | CONFIRMADO | `httpTransport.ts:15,92,298-309` — transporte "SSE" singleton; `initialize` de qualquer cliente derruba o compartilhado | Negação de serviço acidental entre clientes MCP | Transporte por sessão como no Streamable HTTP |
+| R-10 | MCP | MEDIUM | CONFIRMADO | `audit.ts:374` `api_key_id` = `process.env.OMNIROUTE_API_KEY_ID` (estático) | Auditoria atribui toda chamada a uma chave; o `callerId` real já existe no enforcement | Gravar o `callerId` resolvido |
+| R-11 | MCP | LOW | CONFIRMADO | `fetchTimeout.ts:17,24` (10 s/60 s) mas `server.ts:685` hardcoded 120 s | Inconsistência | Usar o helper |
+| R-12 | Electron | MEDIUM | CONFIRMADO | `main.js:834` spawn sem `detached`; `processTree.js:56` SIGTERM só no filho direto (contradiz comentário `:54-55`); Windows OK via `taskkill /T` | Netos (MITM, túneis) órfãos em macOS/Linux; sem watchdog/PID file se o main morrer | `detached:true` + `process.kill(-pid)` ou grupo de processo; PID file |
+| R-13 | Electron | MEDIUM | CONFIRMADO | `main.js:794` grava `server.env` (JWT/API_KEY/STORAGE_ENCRYPTION) sem restringir modo do arquivo | Segredos legíveis por outros usuários do host | `mode: 0o600` |
+| R-14 | Browser | MEDIUM | CONFIRMADO | `browserPool.ts:169-181` `--no-sandbox` em ambos os launches; sem cap de contextos (`:250-347`); sem hook de saída | Renderizar páginas de terceiros sem sandbox; crescimento sem limite | Remover `--no-sandbox` onde possível; cap + LRU; cleanup em exit |
+| R-15 | Caches | LOW-MED | CONFIRMADO | `*QuotaFetcher.ts` `Map`s sem cap (ex. `agentrouterQuotaFetcher.ts:54`), só sweep de 5 min | Crescimento por burst de chaves distintas | Cap + eviction |
+| R-16 | Logs | LOW | CONFIRMADO | `callLogs.ts:447-608` 1 INSERT síncrono por request | Contenção sob carga (mitigado por rotação/cleanup) | Batching como em `proxyLogger` |
+| R-17 | Roteamento | LOW | CONFIRMADO | `defaultResolver.ts:6` fallback `PROVIDERS.openai` para provedor não mapeado (guards só p/ cloud-agent/search) | Chave de outro provedor enviada ao executor OpenAI por engano | Falhar explicitamente para provedor desconhecido |
+| R-18 | Migrations | INFO | CONFIRMADO | `098_clear_semantic_cache_for_key_isolation.sql:4` `DELETE FROM semantic_cache` sem WHERE (cache); `023:31` `DROP TABLE IF EXISTS memory_fts` (rebuild); `117:35` drop após cópia | Aceitável (cache/rebuild), documentado | — |
+| R-19 | Backups | LOW | CONFIRMADO | `migrationRunner.ts:1112-1115` retenção não roda durante migrations | Snapshots acumulam | Podar após migração concluída |
+| R-20 | Tipagem | HIGH | CONFIRMADO | `next.config.mjs:383`; 5.146 warnings ESLint suprimidos; `electron/`, `bin/` sem typecheck | Erros reais invisíveis no build | Fase 2: remover `ignoreBuildErrors` de forma progressiva por pacote; incluir `open-sse` (já 0), `electron`, `bin`, `packages` em typechecks próprios |
+
+Itens de segurança (SSRF, plugins, IPC, supply chain, MCP `_meta.scopes`) estão em `03-SECURITY-FINDINGS.md`; lacunas de produto em `04-PRODUCT-GAPS.md`.
+
+## 4. Arquivos gigantes
+
+Consolidação final da tabela (15 maiores por linhas + responsabilidades misturadas) pendente do auditor de arquitetura — adendo será anexado. Já confirmado: `open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/browser-worker.ts` **4.397 linhas**; `src/app/(dashboard)/dashboard/combos/page.tsx` >4.000 linhas (referências `:4018`); `open-sse/services/combo.ts` >3.000 linhas; `open-sse/services/chatCore.ts` >5.500 linhas; `open-sse/utils/stream.ts` ~3.000 linhas; `electron/main.js` >1.250 linhas.
+
+## 5. Pontos fortes (para preservar)
+
+- Loopback-gate central antes do auth para toda superfície de spawn/exec (`routeGuard.ts:32-83`) espelhado em constante única.
+- Migrations transacionais por arquivo com backup pré-migração obrigatório e verificado por hash.
+- Restore de backup robusto (traversal, integridade, pré-restore, reset de instância, verificação).
+- Registry de jobs com cron DST-safe e reentrância; timers `unref`.
+- Sanitização de erros públicos e redação de payloads em logs.
+- Plugins: host script com `wx`+`0o600`+UUID (TOCTOU fechado); login Electron em janela isolada sem preload.
