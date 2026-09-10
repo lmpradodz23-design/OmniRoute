@@ -41,6 +41,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # SC-1: a release path never publishes on a silent "scanner absent" green.
+      - name: Secret scan (strict release gate)
+        uses: ./.github/actions/secret-scan
+
       - name: Validate version format
         id: validate
         env:

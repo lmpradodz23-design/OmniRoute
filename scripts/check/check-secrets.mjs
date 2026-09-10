@@ -17,11 +17,19 @@
 // dir de fonte) SAI 0 mesmo com --ratchet — falta de infraestrutura nunca bloqueia,
 // só uma regressão medida bloqueia.
 //
+// Modo ESTRITO (SC-1 da auditoria de readiness): em um gate de RELEASE a falta do
+// scanner não pode virar um verde silencioso. Com `--strict` (ou
+// OMNIROUTE_STRICT_GATES=1) o binário ausente e o baseline ausente SAEM 1 —
+// "NOT_RUN" nunca é "PASS" quando o que está sendo decidido é uma publicação.
+// O CI advisory continua com o SKIP gracioso; os workflows de release usam
+// `.github/actions/secret-scan` (gitleaks pinado + checksum) + `--ratchet --strict`.
+//
 // Uso:
 //   node scripts/check/check-secrets.mjs
 //   node scripts/check/check-secrets.mjs --json     # imprime JSON bruto do gitleaks
 //   node scripts/check/check-secrets.mjs --quiet    # suprime logs de diagnóstico
 //   node scripts/check/check-secrets.mjs --ratchet   # falha (exit 1) numa regressão
+//   node scripts/check/check-secrets.mjs --ratchet --strict  # release: scanner ausente = falha
 
 import fs from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -32,6 +40,42 @@ const ROOT = process.cwd();
 const QUIET = process.argv.includes("--quiet");
 const PRINT_JSON = process.argv.includes("--json");
 const RATCHET = process.argv.includes("--ratchet");
+const STRICT = process.argv.includes("--strict") || process.env.OMNIROUTE_STRICT_GATES === "1";
+
+/**
+ * Decide o que fazer quando o gitleaks não está no PATH.
+ * Advisory: SKIP gracioso (exit 0). Estrito: FAIL (exit 1) — um gate de release sem
+ * scanner não mediu nada e não pode aprovar.
+ *
+ * @param {boolean} strict
+ * @returns {{ exitCode: number, line: string, reason: string }}
+ */
+export function decideMissingScanner(strict) {
+  return strict
+    ? {
+        exitCode: 1,
+        line: "secretFindings=FAIL reason=binary-absent",
+        reason: "gitleaks ausente em modo estrito — o gate de release não pode aprovar sem medir",
+      }
+    : {
+        exitCode: 0,
+        line: "secretFindings=SKIP reason=binary-absent",
+        reason: "gitleaks ausente — SKIP gracioso (advisory)",
+      };
+}
+
+/**
+ * Decide o que fazer quando `--ratchet` não encontra metrics.secretFindings no baseline.
+ * Advisory: SKIP (exit 0). Estrito: FAIL (exit 1) — sem baseline não há ratchet.
+ *
+ * @param {boolean} strict
+ * @returns {{ exitCode: number, reason: string }}
+ */
+export function decideMissingBaseline(strict) {
+  return strict
+    ? { exitCode: 1, reason: "baseline ausente (metrics.secretFindings) em modo estrito" }
+    : { exitCode: 0, reason: "baseline ausente (metrics.secretFindings) — SKIP gracioso" };
+}
 const GITLEAKS_CONFIG = path.join(ROOT, ".gitleaks.toml");
 const BASELINE_PATH = path.join(ROOT, "config/quality/quality-baseline.json");
 
@@ -198,15 +242,18 @@ function main() {
   const gitleaksBin = findGitleaks();
 
   if (!gitleaksBin) {
-    console.log("secretFindings=SKIP reason=binary-absent");
+    const decision = decideMissingScanner(STRICT);
+    console.log(decision.line);
     if (!QUIET) {
       process.stderr.write(
-        "[check-secrets] SKIP — gitleaks não encontrado no PATH.\n" +
+        `[check-secrets] ${decision.reason}.\n` +
           "[check-secrets] Instale via: https://github.com/gitleaks/gitleaks\n" +
-          "[check-secrets] SKIP gracioso — sai 0 mesmo com --ratchet (binário ausente nunca bloqueia).\n"
+          (STRICT
+            ? "[check-secrets] FAIL — modo estrito: instale o scanner pinado (.github/actions/secret-scan) antes de publicar.\n"
+            : "[check-secrets] SKIP gracioso — sai 0 mesmo com --ratchet (passe --strict num gate de release).\n")
       );
     }
-    process.exitCode = 0;
+    process.exitCode = decision.exitCode;
     return;
   }
 
@@ -344,12 +391,11 @@ function applyRatchet(findingCount) {
 
   const baselineValue = readBaselineSecretsValue(BASELINE_PATH);
   if (baselineValue === null) {
+    const decision = decideMissingBaseline(STRICT);
     if (!QUIET) {
-      process.stderr.write(
-        "[check-secrets] baseline ausente (metrics.secretFindings) — SKIP gracioso, sai 0.\n"
-      );
+      process.stderr.write(`[check-secrets] ${decision.reason}, sai ${decision.exitCode}.\n`);
     }
-    process.exitCode = 0;
+    process.exitCode = decision.exitCode;
     return;
   }
 

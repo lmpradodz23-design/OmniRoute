@@ -1,0 +1,36 @@
+name: Secret scan (gitleaks, strict)
+description: >-
+  Install a version-pinned, checksum-verified gitleaks and run the repository secret gate
+  in strict mode. SC-1 of the readiness audit: on a RELEASE path a missing scanner must
+  fail the job — "NOT_RUN" is never "PASS" when the decision is a publication. The
+  advisory CI job keeps its graceful SKIP; only release workflows call this action.
+inputs:
+  gitleaks-version:
+    description: gitleaks release to install (bare semver, no "v"). Bump deliberately and re-measure the baseline in the same PR.
+    required: false
+    default: "8.30.1"
+runs:
+  using: composite
+  steps:
+    - name: Install pinned gitleaks (checksum verified)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GITLEAKS_VERSION: ${{ inputs.gitleaks-version }}
+      run: |
+        set -euo pipefail
+        dir="$(mktemp -d)"
+        # Both assets come from the SAME pinned release; the checksum file is what makes the
+        # tarball trustworthy (release assets are mutable, a checksum mismatch stops here).
+        gh release download "v${GITLEAKS_VERSION}" --repo gitleaks/gitleaks --dir "$dir" \
+          --pattern "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          --pattern "gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+        (cd "$dir" && sha256sum --check --ignore-missing "gitleaks_${GITLEAKS_VERSION}_checksums.txt")
+        mkdir -p "$HOME/.local/bin"
+        tar -xzf "$dir/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -C "$HOME/.local/bin" gitleaks
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        "$HOME/.local/bin/gitleaks" version
+
+    - name: Secret scan (ratchet, strict — blocking)
+      shell: bash
+      run: node scripts/check/check-secrets.mjs --ratchet --strict

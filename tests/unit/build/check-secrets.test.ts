@@ -9,16 +9,68 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import {
   parseGitleaksJson,
   evaluateSecretsRatchet,
   readBaselineSecretsValue,
+  decideMissingScanner,
+  decideMissingBaseline,
   // @ts-expect-error — .mjs helper has no type declarations; runtime shape is known.
 } from "../../../scripts/check/check-secrets.mjs";
 
 type RatchetVerdict = { regressed: boolean; improved: boolean };
 const evaluate = evaluateSecretsRatchet as (current: number, baseline: number) => RatchetVerdict;
 const readBaseline = readBaselineSecretsValue as (p?: string) => number | null;
+const missingScanner = decideMissingScanner as (strict: boolean) => {
+  exitCode: number;
+  line: string;
+  reason: string;
+};
+const missingBaseline = decideMissingBaseline as (strict: boolean) => {
+  exitCode: number;
+  reason: string;
+};
+
+// ---------------------------------------------------------------------------
+// SC-1 (readiness audit): a RELEASE gate must not turn a missing scanner into a
+// silent green. Advisory keeps the graceful SKIP; --strict fails closed.
+// ---------------------------------------------------------------------------
+
+test("decideMissingScanner: advisory keeps the graceful SKIP (exit 0)", () => {
+  const d = missingScanner(false);
+  assert.equal(d.exitCode, 0);
+  assert.equal(d.line, "secretFindings=SKIP reason=binary-absent");
+});
+
+test("decideMissingScanner: strict fails closed — NOT_RUN is never PASS on a release gate", () => {
+  const d = missingScanner(true);
+  assert.equal(d.exitCode, 1);
+  assert.equal(d.line, "secretFindings=FAIL reason=binary-absent");
+  assert.match(d.reason, /estrito/);
+});
+
+test("decideMissingBaseline: strict fails when the ratchet has no baseline to compare against", () => {
+  assert.equal(missingBaseline(false).exitCode, 0);
+  assert.equal(missingBaseline(true).exitCode, 1);
+});
+
+test("check-secrets.mjs --strict exits 1 when gitleaks is absent from PATH (end-to-end)", () => {
+  const script = path.resolve(import.meta.dirname, "../../../scripts/check/check-secrets.mjs");
+  const run = (args: string[]) =>
+    spawnSync(process.execPath, [script, ...args], {
+      encoding: "utf8",
+      // An empty PATH guarantees `gitleaks` cannot be found, whatever the host has installed.
+      env: { ...process.env, PATH: "", Path: "" },
+      cwd: path.resolve(import.meta.dirname, "../../.."),
+    });
+  const advisory = run(["--quiet"]);
+  assert.equal(advisory.status, 0, advisory.stderr);
+  assert.match(advisory.stdout, /secretFindings=SKIP reason=binary-absent/);
+  const strict = run(["--quiet", "--ratchet", "--strict"]);
+  assert.equal(strict.status, 1, "strict mode must fail without the scanner");
+  assert.match(strict.stdout, /secretFindings=FAIL reason=binary-absent/);
+});
 
 // ---------------------------------------------------------------------------
 // Fixtures — synthetic gitleaks --report-format json output

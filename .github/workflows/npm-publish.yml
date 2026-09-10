@@ -82,6 +82,10 @@ jobs:
           # deciding whether this release should claim dist-tag `latest`.
           fetch-depth: 0
 
+      # SC-1: a release path never publishes on a silent "scanner absent" green.
+      - name: Secret scan (strict release gate)
+        uses: ./.github/actions/secret-scan
+
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
