@@ -257,32 +257,36 @@ export function issueRegisteredKey(
   const keyHash = hashKey(rawKey);
   const keyPrefix = rawKey.slice(0, 12); // "ork_" + 8 chars
 
-  db.prepare(
-    `
+  // R-2: the key and its issuance counters are one logical write. Committing the key
+  // before the counters let a failure in between persist a key that the provider/account
+  // quota never counted.
+  const created = db.transaction(() => {
+    db.prepare(
+      `
     INSERT INTO registered_keys
       (id, key, key_prefix, name, provider, account_id, idempotency_key, expires_at, daily_budget, hourly_budget, last_reset_day, last_reset_hour)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
-  ).run(
-    id,
-    keyHash,
-    keyPrefix,
-    name,
-    provider,
-    accountId,
-    idempotencyKey ?? null,
-    expiresAt ?? null,
-    dailyBudget ?? null,
-    hourlyBudget ?? null,
-    nowDay(),
-    nowHour()
-  );
+    ).run(
+      id,
+      keyHash,
+      keyPrefix,
+      name,
+      provider,
+      accountId,
+      idempotencyKey ?? null,
+      expiresAt ?? null,
+      dailyBudget ?? null,
+      hourlyBudget ?? null,
+      nowDay(),
+      nowHour()
+    );
 
-  // Increment provider/account issuance counters
-  if (provider) {
-    maybeResetWindow(db, "provider_key_limits", "provider", provider);
-    db.prepare(
-      `
+    // Increment provider/account issuance counters
+    if (provider) {
+      maybeResetWindow(db, "provider_key_limits", "provider", provider);
+      db.prepare(
+        `
       INSERT INTO provider_key_limits (provider, daily_issued, hourly_issued, last_reset_day, last_reset_hour)
       VALUES (?, 1, 1, ?, ?)
       ON CONFLICT(provider) DO UPDATE SET
@@ -290,12 +294,12 @@ export function issueRegisteredKey(
         hourly_issued = hourly_issued + 1,
         updated_at = datetime('now')
     `
-    ).run(provider, nowDay(), nowHour());
-  }
-  if (accountId) {
-    maybeResetWindow(db, "account_key_limits", "account_id", accountId);
-    db.prepare(
-      `
+      ).run(provider, nowDay(), nowHour());
+    }
+    if (accountId) {
+      maybeResetWindow(db, "account_key_limits", "account_id", accountId);
+      db.prepare(
+        `
       INSERT INTO account_key_limits (account_id, daily_issued, hourly_issued, last_reset_day, last_reset_hour)
       VALUES (?, 1, 1, ?, ?)
       ON CONFLICT(account_id) DO UPDATE SET
@@ -303,12 +307,11 @@ export function issueRegisteredKey(
         hourly_issued = hourly_issued + 1,
         updated_at = datetime('now')
     `
-    ).run(accountId, nowDay(), nowHour());
-  }
+      ).run(accountId, nowDay(), nowHour());
+    }
 
-  const created = db
-    .prepare("SELECT * FROM registered_keys WHERE id = ?")
-    .get(id) as RegisteredKeyRow;
+    return db.prepare("SELECT * FROM registered_keys WHERE id = ?").get(id) as RegisteredKeyRow;
+  })();
   return { ...(rowToCamel(created) as unknown as RegisteredKey), rawKey };
 }
 

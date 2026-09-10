@@ -182,6 +182,10 @@ interface StatementLike<TRow = unknown> {
 interface ApiKeysDbLike {
   prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
   exec: (sql: string) => void;
+  /** Adapter DEFERRED transaction (nests as a SAVEPOINT when a transaction is open). */
+  transaction: <T>(fn: () => T) => () => T;
+  /** Adapter IMMEDIATE transaction — same nesting guarantee as `transaction`. */
+  immediate: (fn: () => void) => void;
 }
 
 interface ApiKeysStatements {
@@ -1063,22 +1067,23 @@ export async function updateApiKeyPermissions(
     updates.push("scopes = @scopes");
     params.scopes = JSON.stringify(nextScopes);
 
-    // SELECT-then-UPDATE wrapped in an explicit transaction so a concurrent
-    // writer can't slip between the read and the write and make the audit
-    // log lie about what changed. `exec("BEGIN"/"COMMIT")` works across all
-    // driver backends (better-sqlite3 / node:sqlite / sql.js) wired by the
-    // v3.8.1 db driver cascade — none of them expose `db.transaction()` via
-    // ApiKeysDbLike, which is intentionally minimal.
-    db.exec("BEGIN IMMEDIATE");
-    try {
+    // SELECT-then-UPDATE under the adapter's IMMEDIATE transaction so a concurrent
+    // writer can't slip between the read and the write and make the audit log lie
+    // about what changed. The adapter (better-sqlite3 / node:sqlite / sql.js) nests
+    // this as a SAVEPOINT when a caller already holds a transaction — a raw
+    // `exec("BEGIN IMMEDIATE")` here used to bypass that tracking and fail with
+    // "cannot start a transaction within a transaction" (R-2). A throw inside the
+    // callback (policy assertion, driver error) rolls the whole block back.
+    let missing = false;
+    db.immediate(() => {
       const prevRow = db
         .prepare<{ scopes: string | null; allowed_connections: string | null }>(
           "SELECT scopes, allowed_connections FROM api_keys WHERE id = ?"
         )
         .get(id);
       if (!prevRow) {
-        db.exec("ROLLBACK");
-        return false;
+        missing = true;
+        return;
       }
       previousScopes = parseStringList(prevRow.scopes);
       const nextAllowedConnections =
@@ -1090,42 +1095,26 @@ export async function updateApiKeyPermissions(
         .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)
         .run(params);
       changedRows = upd.changes ?? 0;
-      db.exec("COMMIT");
-    } catch (err) {
-      // Guard the ROLLBACK: if it throws (e.g. transaction already ended
-      // due to an implicit commit, or backend in a bad state), the original
-      // error from the try block is the actionable one — don't shadow it.
-      try {
-        db.exec("ROLLBACK");
-      } catch {
-        // swallow: original error is more important
-      }
-      throw err;
-    }
+    });
+    if (missing) return false;
   } else if (normalized.allowedConnections !== undefined) {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+    const nextAllowedConnections = normalized.allowedConnections;
+    let missing = false;
+    db.immediate(() => {
       const row = db
         .prepare<{ scopes: string | null }>("SELECT scopes FROM api_keys WHERE id = ?")
         .get(id);
       if (!row) {
-        db.exec("ROLLBACK");
-        return false;
+        missing = true;
+        return;
       }
-      assertExclusiveLeaseKeyPolicy(parseStringList(row.scopes), normalized.allowedConnections);
+      assertExclusiveLeaseKeyPolicy(parseStringList(row.scopes), nextAllowedConnections);
       const upd = db
         .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)
         .run(params);
       changedRows = upd.changes ?? 0;
-      db.exec("COMMIT");
-    } catch (err) {
-      try {
-        db.exec("ROLLBACK");
-      } catch {
-        // Preserve the mutation failure if rollback also fails.
-      }
-      throw err;
-    }
+    });
+    if (missing) return false;
   } else {
     const upd = db.prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`).run(params);
     changedRows = upd.changes ?? 0;
@@ -1199,12 +1188,17 @@ export async function deleteApiKey(id: string) {
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
   const row = stmt.getKeyById.get(id) as ApiKeyRow | undefined;
-  const result = stmt.deleteKey.run(id);
 
-  if (result.changes === 0) return false;
-
-  db.prepare("DELETE FROM domain_budgets WHERE api_key_id = ?").run(id);
-  db.prepare("DELETE FROM domain_cost_history WHERE api_key_id = ?").run(id);
+  // R-2: the key row, its budget and its cost history go together or not at all — a
+  // failure after the first DELETE used to leave orphaned budgets behind a vanished key.
+  const removed = db.transaction(() => {
+    const result = stmt.deleteKey.run(id);
+    if ((result.changes ?? 0) === 0) return false;
+    db.prepare("DELETE FROM domain_budgets WHERE api_key_id = ?").run(id);
+    db.prepare("DELETE FROM domain_cost_history WHERE api_key_id = ?").run(id);
+    return true;
+  })();
+  if (!removed) return false;
   setNoLog(id, false);
 
   // Invalidate caches since a key was removed
