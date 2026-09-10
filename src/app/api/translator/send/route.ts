@@ -11,6 +11,12 @@ import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { logTranslationEvent } from "@/lib/translatorEvents";
 import { translatorSendSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
+
+/** Bound on the time to response headers for the forwarded provider request. */
+const PROVIDER_SEND_TIMEOUT_MS = 120_000;
 
 function getProviderBaseUrl(providerSpecificData: unknown): string | undefined {
   if (!providerSpecificData || typeof providerSpecificData !== "object") return undefined;
@@ -95,12 +101,38 @@ export async function POST(request) {
     });
     const headers = buildProviderHeaders(provider, credentials, true, body);
 
-    // Send request to provider
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    // Send request to provider. SSRF S-6: for OpenAI-compatible connections the base URL is
+    // operator data (providerSpecificData.baseUrl) — resolved address validated (cloud
+    // metadata never; private/LAN under the local-first provider policy), connection pinned,
+    // redirects never followed. A guard decision is a configuration error, reported URL-free.
+    let response: Response;
+    try {
+      response = await guardedFetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        timeoutMs: PROVIDER_SEND_TIMEOUT_MS,
+        allowPrivate: areIntegrationPrivateUrlsAllowed(),
+      });
+    } catch (error) {
+      if (error instanceof OutboundUrlGuardError) {
+        logTranslationEvent({
+          provider,
+          model: body.model || "test-model",
+          sourceFormat,
+          targetFormat,
+          status: "error",
+          statusCode: 400,
+          latency: Date.now() - startedAt,
+          endpoint: "/api/translator/send",
+        });
+        return NextResponse.json(
+          { success: false, error: "Provider base URL blocked by the outbound guard" },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
