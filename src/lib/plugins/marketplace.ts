@@ -4,9 +4,10 @@ import { isPrivateHost } from "@/shared/network/outboundUrlGuard";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
 import { pluginManager } from "./manager";
 import { createHash } from "node:crypto";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { DEFAULT_PLUGIN_ARCHIVE_LIMITS, extractPluginArchive } from "./archive";
 /**
  * Plugin Marketplace — browse, search, install plugins from a registry.
  *
@@ -148,7 +149,8 @@ const SEED_REGISTRY: MarketplaceEntry[] = [
 export async function listMarketplacePlugins(): Promise<MarketplaceEntry[]> {
   try {
     const settings = await getSettings();
-    const url = typeof settings.pluginMarketplaceUrl === "string" ? settings.pluginMarketplaceUrl : null;
+    const url =
+      typeof settings.pluginMarketplaceUrl === "string" ? settings.pluginMarketplaceUrl : null;
     if (url) {
       if (!(await isSafeMarketplaceUrl(url))) {
         console.warn("Custom marketplace URL rejected (SSRF guard):", url);
@@ -161,13 +163,23 @@ export async function listMarketplacePlugins(): Promise<MarketplaceEntry[]> {
       }
       const data = await res.json();
       if (Array.isArray(data)) {
-        return data.filter((entry: unknown) =>
-          entry && typeof entry === "object" && typeof (entry as Record<string, unknown>).name === "string"
+        return data.filter(
+          (entry: unknown) =>
+            entry &&
+            typeof entry === "object" &&
+            typeof (entry as Record<string, unknown>).name === "string"
         ) as MarketplaceEntry[];
       }
-      if (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).plugins)) {
-        return ((data as Record<string, unknown>).plugins as unknown[]).filter((entry: unknown) =>
-          entry && typeof entry === "object" && typeof (entry as Record<string, unknown>).name === "string"
+      if (
+        data &&
+        typeof data === "object" &&
+        Array.isArray((data as Record<string, unknown>).plugins)
+      ) {
+        return ((data as Record<string, unknown>).plugins as unknown[]).filter(
+          (entry: unknown) =>
+            entry &&
+            typeof entry === "object" &&
+            typeof (entry as Record<string, unknown>).name === "string"
         ) as MarketplaceEntry[];
       }
       console.warn("Custom marketplace returned unrecognized format");
@@ -207,47 +219,85 @@ export function isMarketplaceAvailable(): boolean {
   return true; // Always available (falls back to seed)
 }
 
+const SHA256_HEX = /^[0-9a-f]{64}$/i;
+
+export interface MarketplaceInstallDeps {
+  /** Fetch the archive bytes (default: `safeOutboundFetch`, public-only guard). */
+  download?: (entry: MarketplaceEntry) => Promise<Buffer>;
+  /** Install an extracted plugin directory (default: `pluginManager.install`). */
+  install?: (pluginDir: string) => Promise<{ name: string; version: string }>;
+}
+
+async function defaultDownload(entry: MarketplaceEntry): Promise<Buffer> {
+  const response = await safeOutboundFetch(entry.downloadUrl, { guard: "public-only" });
+  if (!response.ok) {
+    throw new Error(`Failed to download plugin '${entry.name}': ${response.status}`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length > DEFAULT_PLUGIN_ARCHIVE_LIMITS.maxTotalBytes) {
+    throw new Error(`Plugin '${entry.name}' archive is too large (${buffer.length} bytes)`);
+  }
+  return buffer;
+}
+
+async function defaultInstall(pluginDir: string): Promise<{ name: string; version: string }> {
+  const result = await pluginManager.install(pluginDir);
+  return { name: result.name, version: result.version };
+}
+
+/**
+ * Install one marketplace entry: require + verify the registry's SHA-256 (P-1 — an
+ * unverifiable archive is never installed), download, extract under the fail-closed
+ * policy of `extractPluginArchive` (P-4), hand the plugin directory to the manager, and
+ * always remove the temporary files. `deps` are injectable for tests.
+ */
+export async function installMarketplaceEntry(
+  entry: MarketplaceEntry,
+  deps: MarketplaceInstallDeps = {}
+): Promise<{ name: string; version: string }> {
+  const { name } = entry;
+  if (typeof entry.downloadUrl !== "string" || !/^https?:\/\//i.test(entry.downloadUrl)) {
+    throw new Error(`Plugin '${name}' has no downloadable archive in the registry`);
+  }
+  const expected = typeof entry.checksum === "string" ? entry.checksum.trim().toLowerCase() : "";
+  if (!SHA256_HEX.test(expected)) {
+    throw new Error(
+      `Plugin '${name}' cannot be installed: the registry publishes no SHA-256 checksum for its archive, so the download cannot be verified`
+    );
+  }
+
+  const download = deps.download ?? defaultDownload;
+  const install = deps.install ?? defaultInstall;
+
+  const buffer = await download(entry);
+  const actual = createHash("sha256").update(buffer).digest("hex");
+  if (actual !== expected) {
+    throw new Error(`Checksum mismatch for plugin '${name}': expected ${expected}, got ${actual}`);
+  }
+
+  const tmpDir = await mkdtemp(join(tmpdir(), "plugin-mp-"));
+  try {
+    const archivePath = join(tmpDir, "plugin.tar.gz");
+    await writeFile(archivePath, buffer);
+    const extractDir = join(tmpDir, "extract");
+    await mkdir(extractDir);
+    const { pluginDir } = await extractPluginArchive(archivePath, extractDir);
+    return await install(pluginDir);
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 /**
  * Install a plugin from the marketplace by name.
- * Downloads the plugin archive, verifies checksum if present, and installs via PluginManager.
  */
-export async function installMarketplacePlugin(name: string): Promise<{ name: string; version: string }> {
+export async function installMarketplacePlugin(
+  name: string
+): Promise<{ name: string; version: string }> {
   const plugins = await listMarketplacePlugins();
   const entry = plugins.find((p) => p.name === name);
   if (!entry) {
     throw new Error(`Plugin '${name}' not found in marketplace`);
   }
-
-  // Create temp dir for download
-  const tmpDir = await mkdtemp(join(tmpdir(), "plugin-mp-"));
-  const tmpFile = join(tmpDir, "plugin.tar.gz");
-
-  try {
-    // Download the plugin archive
-    const response = await safeOutboundFetch(entry.downloadUrl, { guard: "public-only" });
-    if (!response.ok) {
-      throw new Error(`Failed to download plugin '${name}': ${response.status}`);
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    // Verify SHA-256 checksum if provided
-    if (entry.checksum) {
-      const actual = createHash("sha256").update(buffer).digest("hex");
-      if (actual !== entry.checksum) {
-        throw new Error(
-          `Checksum mismatch for plugin '${name}': expected ${entry.checksum}, got ${actual}`
-        );
-      }
-    }
-
-    // Write to temp file
-    await writeFile(tmpFile, buffer);
-
-    // Delegate to pluginManager.install
-    const result = await pluginManager.install(tmpDir);
-    return { name: result.name, version: result.version };
-  } finally {
-    // Cleanup temp dir
-    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
-  }
+  return installMarketplaceEntry(entry);
 }
