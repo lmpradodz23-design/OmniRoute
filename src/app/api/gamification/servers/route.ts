@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
-import { connectServer, disconnectServer, listServers } from "@/lib/gamification/servers";
+import {
+  FederationUrlError,
+  connectServer,
+  disconnectServer,
+  listServers,
+} from "@/lib/gamification/servers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { z } from "zod";
 
@@ -41,8 +46,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const server = await connectServer(parsed.data.name, parsed.data.url, parsed.data.apiKey);
-  return NextResponse.json({ server }, { status: 201, headers: CORS_HEADERS });
+  try {
+    const server = await connectServer(parsed.data.name, parsed.data.url, parsed.data.apiKey);
+    return NextResponse.json({ server }, { status: 201, headers: CORS_HEADERS });
+  } catch (error) {
+    // SSRF S-3: a server URL that fails the outbound guard is a client error, never persisted.
+    if (error instanceof FederationUrlError) {
+      return NextResponse.json({ error: error.message }, { status: 400, headers: CORS_HEADERS });
+    }
+    throw error;
+  }
 }
 
 /**
