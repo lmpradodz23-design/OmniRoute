@@ -80,6 +80,19 @@ Política adotada para integrações configuradas pelo operador (Obsidian, Qdran
 | P-7 | LOW | CONFIRMADO | `src/lib/acp/registry.ts:322-334` `shell:true` no win32 (neutralizado por denylist `:201` + `requireBinaryMatch:302-310` + allowlist `:209,:314`) | Remover `shell:true` |
 | P-8 | INFO | CONFIRMADO | `skills/install/route.ts:19` `handlerCode` nunca avaliado (`executor.ts:245-259`) | Renomear/remover campo enganoso |
 
+**Status após a execução da Fase 3 (branch `fix/final-user-readiness`):**
+
+| id | Estado | Commits | Evidência |
+|---|---|---|---|
+| P-4 | **CORRIGIDO (bug real)** | `d28d9066b` | `src/lib/plugins/archive.ts` — extração tar.gz fail-closed (só arquivos/diretórios; sem absoluto/`..`/`\`/NUL; limites 2 000 entradas / 16 MiB / 64 MiB; sem owner/mode; manifesto na raiz ou em uma única pasta); `installMarketplaceEntry` extrai e instala o diretório do plugin; `tests/unit/plugins-marketplace-archive.test.ts` (11, RED-first) |
+| P-1 | **CORRIGIDO** | `d28d9066b` | checksum SHA-256 **obrigatório** e verificado antes de qualquer extração; sem checksum → recusa antes do download; assinatura de publisher continua **não implementada** (registro não a publica) — registrado como melhoria futura |
+| P-2 / P-3 | **DISCLOSURE (decisão)** | `9e4a8cb0a` | `PLUGIN_SDK.md` afirmava "sandboxed VM context" — falso; agora declara: processo filho com privilégios do servidor, só `env` é aplicado; aviso `role="note"` na página Plugins (en/pt-BR); `tests/unit/plugins-trust-disclosure.test.ts` trava o texto e detecta adoção futura de `--permission`. Enforcement via permission model = follow-up, não afirmado |
+| P-8 | **CORRIGIDO** | `b40ad2242` | `handlerCode` → `handler` (alias deprecado mantido), validado contra `builtinSkills` → 400 `UNKNOWN_SKILL_HANDLER` com a lista; `tests/unit/skills-install-handler.test.ts` (4) |
+| P-6 | **CORRIGIDO** | `4c710fd9f`, `18951837e` | `contentDispositionAttachment` (RFC 6266/5987; controle/CRLF removidos, `filename*`); `tests/unit/content-disposition.test.ts` (6) |
+| P-7 | **ACEITO (LOW, documentado)** | — | No win32 o Node exige shell para `.cmd/.bat` (CVE-2024-27980); a superfície já é fechada por denylist de metacaracteres, `requireBinaryMatch` e allowlist de um único flag de versão (`SAFE_VERSION_PROBE_ARG`). Remover `shell:true` quebraria a detecção de agentes instalados via npm no Windows |
+| P-5 | **ACEITO (operador-only, documentado)** | — | hooks `vm.Script` in-process são código do operador, rota loopback-gated; worker isolado = melhoria futura |
+| SC-3 | **ACEITO (MEDIUM, rastreado)** | `1aa4df0db` (hono) | `adm-zip` só via `onnxruntime-node` em tempo de instalação (unpack do runtime), fora de qualquer caminho de request; fix exige downgrade major de `onnxruntime-node`; `hono` corrigido (3 advisories) |
+
 ### 2.4 Electron (Fase 1 #6 / Fase 5)
 E-1 (HIGH) nav block inerte; E-2 (HIGH) guard só em `login:start`; E-3 (MEDIUM) sem sandbox/preload único; E-4 (HIGH, release) sem code-signing (`electron/package.json`); E-5 (HIGH) sem rollback/backup pré-update; E-6 (MEDIUM) órfãos POSIX; E-7 (MEDIUM) `server.env` sem `0o600`; E-8 (MEDIUM) `--no-sandbox` no browser pool; E-9 (Fase 8) updater aponta ao upstream. Detalhes em `02-ARCHITECTURE.md` e checkpoint. Positivos: `contextIsolation`, sem `nodeIntegration`, sem `webviewTag`, login em janela isolada, credenciais nunca ao renderer.
 
@@ -112,6 +125,20 @@ E-1 (HIGH) nav block inerte; E-2 (HIGH) guard só em `login:start`; E-3 (MEDIUM)
 | SC-11 | — | **FALSO POSITIVO** | Tags `checkout@v7`, `setup-node@v7`, `upload-artifact@v7`, `download-artifact@v8`, `cache@v6`, `github-script@v9` **existem** (verificado `gh api`; `ci.yml:38` já usa o SHA de `checkout@v7`) | Na Fase 7, converter os `uses:` restantes por tag para SHA |
 | SC-3 | MEDIUM | CONFIRMADO | `adm-zip` symlink via `onnxruntime-node` (não participa de plugins) | Avaliar downgrade/isolamento da cadeia ONNX |
 | — | — | POSITIVO | `codeql.yml`/`semgrep.yml` actions SHA-pinadas; Trivy SHA-pinado; `npm-publish.yml` npm@11.15.0 + `--ignore-scripts`; nenhum `pull_request_target`; inputs via `env:` | Preservar |
+
+**Status após a execução da Fase 7 (branch `fix/final-user-readiness`):**
+
+| id | Estado | Commits | Evidência |
+|---|---|---|---|
+| SC-1 | **CORRIGIDO** | `58bfa9be8` | `check-secrets.mjs --strict` (binário/baseline ausente → exit 1, `secretFindings=FAIL reason=binary-absent`); composite `.github/actions/secret-scan` (gitleaks 8.30.1 + checksum) chamado em `docker-publish`, `electron-release`, `npm-publish`; `tests/unit/build/check-secrets.test.ts` +4 (inclui spawn e2e com PATH vazio). Gate local continua `NOT_RUN` (binário não instalado neste host) |
+| SC-4 | **CORRIGIDO** | `9c1284d7a` | ci.yml: gitleaks/osv/actionlint/oasdiff pinados + `sha256sum --check` contra o checksum da mesma release; sem `curl | bash` de `main`; bun `1.4.0` nos dois SOs |
+| SC-5 | **CORRIGIDO (sem deploy)** | `8e6946d1e` | deploy-vps: versão exata (`inputs.version` ou tag do publish), `npm view omniroute@X repository.url` deve apontar para `LMPrado-DZ23/OmniRoute` senão `NOT_DEPLOYED`; pós-install confere versão; ssh-action SHA-pinada. Nenhum deploy executado |
+| SC-2/6 | **CORRIGIDO** | `8a32fce7f`, `19544b0b1` | 192 `uses:` → SHA (vale-action branch e sbom-action@v0 incluídos); `semgrep/semgrep:1.176.1@sha256:34ab61…`; `schemathesis==4.26.1`, `garak==0.17.0` |
+| SC-7 | **CORRIGIDO** | `a4464d112` | `persist-credentials: false` em `wiki-sync` e `nightly-release-green` |
+| SC-8 | **CORRIGIDO** | `ae59709be` | `FROM node:26-trixie-slim@sha256:…`, `oven/bun:1.4.0-slim@sha256:…`, `npm@11.15.0`; compose: redis/qdrant/bifrost/cli-proxy-api por digest |
+| SC-11 | FALSO POSITIVO (confirmado) | — | tags existem; agora todas convertidas para SHA de qualquer forma |
+| SC-3 / SC-9 / SC-10 | pendentes | — | `adm-zip` via `onnxruntime-node` (downgrade major a avaliar); `postinstall` download em install-time; `autoUpdate.ts` `latest` sem quote — Fase 2/9 |
+| **Trava** | — | `8e6946d1e` | `tests/unit/workflows-supply-chain-pins.test.ts` (6): ações SHA, scanners com checksum, pip pinado, imagens por digest, deploy sem `@latest`, checkouts write sem token |
 
 ### 2.6 Superfícies verificadas sem achado
 Command injection (argv-array em todos os spawns); path traversal por request; `new Function`/`eval`; injeção em workflows (inputs via `env:`); `pull_request_target`; `openapi/try` same-origin + denylist; OAuth login Electron (janela isolada, credenciais nunca ao renderer); secret-pattern no repositório (auditoria anterior: "no issue found"; revalidação local bloqueada — SC-1).

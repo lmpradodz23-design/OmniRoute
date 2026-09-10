@@ -96,3 +96,16 @@ Zero ocorrências de `LMPrado-DZ23` no repositório. `diegosouzapw` aparece em ~
 5. **A1, A2** (MEDIUM, WCAG AA) — nomes acessíveis e labels.
 6. **J2** (MEDIUM) — `did-fail-load` + diálogo quando o servidor não sobe.
 7. LOWs (U5–U8, M1, I1–I3) e documentação pt-BR.
+
+## Status após a execução (branch `fix/final-user-readiness`)
+
+| id | Estado | Commits | Evidência |
+|---|---|---|---|
+| U1 | **CORRIGIDO** | `3f524cbdb` | `errorMessage` renderizado (`role="alert"`) nos passos segurança/provedor e limpo ao trocar de passo; `tests/unit/ui/onboarding-error-visible.test.tsx` (3, RED-first) |
+| U2 | **CORRIGIDO** | `ec4939423` | dica "senha padrão" só quando `usingDefaultPassword` (servidor compara o hash ativo com `CHANGEME`); texto vira aviso para trocar; `login-bootstrap-route` +2, `tests/unit/ui/login-default-password-hint.test.tsx` (3) |
+| U3 | **CORRIGIDO (causa raiz no servidor)** | `c3dbff45a` | `requireLogin:true` sem senha era auto-lockout → 400 `PASSWORD_REQUIRED_TO_ENABLE_LOGIN` (PATCH e POST require-login); Security tab pede a senha inline e envia `{requireLogin,newPassword}` num único PATCH; `#8950` re-pinado; `tests/unit/settings/require-login-needs-password.test.ts` (5), `tests/unit/ui/security-tab-enable-login.test.tsx` (2) |
+| U4 | **CORRIGIDO** | `73e188465` | `presentApiError` (`code` → `common.apiErrors.*`, detalhe técnico em "Ver detalhes", nunca objeto no React — o crash "Objects are not valid as a React child" foi reproduzido no RED); Security tab + onboarding; `tests/unit/api-error-presentation.test.ts` (7), `tests/unit/ui/security-tab-errors.test.tsx` (3) |
+| U8 | **CORRIGIDO** | `d2fd682e9` | `AbortController` 15 s no teste de conexão + mensagem própria + Retry; `tests/unit/ui/onboarding-test-timeout.test.tsx` |
+| (i18n) | **CORRIGIDO** | `b3b4ce963` | "Caps Lock is on" hardcoded → `common.capsLockOn` |
+| J15 / identidade | **CORRIGIDO** | `e32178574`, `8c1679002`, `2c2826c93` | `distribution.ts` (fonte única), updater/downloads/feeds/skills/footers → `LMPrado-DZ23/OmniRoute`; gate npm por `repository.url`; README/docs/skills/llm.txt (41 espelhos ressincronizados) com canais reais do fork (Releases, GHCR, fonte) e crédito ao autor original |
+| U5, U6, U7, J2, J13, J17, A1, A2, M1, I1–I3 | pendentes (Fase 5 restante) | — | ver `05-EXECUTION-PLAN.md` ordem 15 |
