@@ -46,6 +46,13 @@ export interface GuardedFetchOptions {
   lookup?: WebhookLookupFn;
 }
 
+/**
+ * The subset an integration client accepts from its caller: only knobs that tune the guard
+ * (never bypass it). `lookup` makes DNS-rebinding classification unit-testable; `allowPrivate`
+ * pins the policy instead of consulting the operator's flags.
+ */
+export type GuardedNetworkOptions = Pick<GuardedFetchOptions, "lookup" | "allowPrivate">;
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** Closes a pinned dispatcher whose response body the caller never consumed. */
 const DISPATCHER_BACKSTOP_MS = 60_000;
@@ -141,17 +148,30 @@ export async function guardedFetch(
     backstop = setTimeout(settle, DISPATCHER_BACKSTOP_MS);
     backstop.unref?.();
 
-    // Keep the pinned dispatcher alive until the body settles, then release it.
-    const guardedBody = res.body.pipeThrough(
-      new TransformStream<Uint8Array, Uint8Array>({
-        flush() {
+    // Keep the pinned dispatcher alive until the body settles (end, error or cancel), then
+    // release it. A pull-based wrapper rather than a TransformStream: the DOM lib this project
+    // typechecks against has no `cancel` hook on Transformer.
+    const reader = res.body.getReader();
+    const guardedBody = new ReadableStream<Uint8Array<ArrayBuffer>>({
+      async pull(streamController) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            streamController.close();
+            settle();
+            return;
+          }
+          streamController.enqueue(value as Uint8Array<ArrayBuffer>);
+        } catch (error) {
           settle();
-        },
-        cancel() {
-          settle();
-        },
-      })
-    );
+          streamController.error(error);
+        }
+      },
+      cancel(reason) {
+        settle();
+        return reader.cancel(reason);
+      },
+    });
 
     return new Response(guardedBody, {
       status: res.status,
