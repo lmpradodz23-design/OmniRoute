@@ -21,6 +21,22 @@ export const MANAGE_SCOPE = "manage";
 export const MANAGEMENT_API_KEY_SCOPES = new Set<string>(["manage", "admin"]);
 
 /**
+ * Scopes whose issuance is a privileged act and must always leave an audit trail
+ * (`apiKey.create` with `privileged: true`, `apiKey.scopes.grant` / `.revoke`):
+ *   - `manage` / `admin` — management API surface (`admin` ⊇ `manage`);
+ *   - `*` — every MCP tool scope (`open-sse/mcp-server/scopeEnforcement.ts` treats a
+ *     bare `*` as matching any required scope). This is deliberate: `*` is the
+ *     operator's super-user grant, only mintable by a management principal
+ *     (POST /api/keys is MANAGEMENT-class), never by a client's own request payload.
+ */
+export const PRIVILEGED_API_KEY_SCOPES = new Set<string>(["manage", "admin", "*"]);
+
+/** Whether any of the given scopes is a privileged grant (see `PRIVILEGED_API_KEY_SCOPES`). */
+export function hasPrivilegedScope(scopes: readonly string[] = []): boolean {
+  return scopes.some((scope) => PRIVILEGED_API_KEY_SCOPES.has(scope));
+}
+
+/**
  * Narrow, additive scope (#7895) that grants a non-loopback caller ONLY the
  * `/api/mcp/` LOCAL_ONLY carve-out (see `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES`
  * in `src/server/authz/routeGuard.ts`) — it does NOT grant broader management

@@ -317,6 +317,15 @@ MCP tools are authenticated through API key scopes. Scope enforcement is central
 
 Wildcard scopes are supported: `read:*` grants all read-scopes, `*` grants full access.
 
+`*` is intentional and treated as a **privileged** grant, exactly like `manage`/`admin`
+(`PRIVILEGED_API_KEY_SCOPES` in `src/shared/constants/managementScopes.ts`): it can only be
+minted by a management principal (`POST /api/keys` is a MANAGEMENT-class route), never from a
+client's own request payload, and every issuance or removal is written to the compliance audit
+log (`apiKey.create` with `privileged: true`, `apiKey.scopes.grant` / `apiKey.scopes.revoke`).
+A family wildcard never crosses families — `read:*` does not reach `write:*` or `execute:*` —
+and no tool requires an `admin:*` scope, so `*` widens nothing beyond the documented tool set.
+Prefer the narrowest family scopes for automation keys; reserve `*` for operator tooling.
+
 ### `mcp:connect` — narrow route capability (#7895)
 
 Reaching the HTTP/SSE MCP transport (`/api/mcp/*`) from non-loopback requires the
@@ -356,19 +365,19 @@ the call; `OMNIROUTE_API_KEY_ID` is used only as the stdio fallback, and a sessi
 
 ## Environment Variables
 
-| Variable                                | Default                            | Purpose                                                                                                                  |
-| :-------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-| `OMNIROUTE_BASE_URL`                    | `http://localhost:20128`           | Base URL the MCP server uses when calling OmniRoute internal APIs                                                        |
-| `OMNIROUTE_API_KEY`                     | (empty)                            | API key forwarded as `Authorization: Bearer` to internal API calls                                                       |
-| `OMNIROUTE_MCP_ENFORCE_SCOPES`          | `true` (default on; `false/0/no/off` opts out) | Enforced by default (fail-closed): missing scopes deny tool calls and log `scope_denied:<reason>` in audit log |
-| `OMNIROUTE_MCP_SCOPES`                  | (empty)                            | Comma-separated operator fallback scopes for callers with no per-key scopes (stdio, cookie sessions, keys with `scopes: []`); the client's `_meta` is never consulted |
-| `OMNIROUTE_MCP_COMPRESS_DESCRIPTIONS`   | (unset = on)                       | When set to `0/false/off/no`, disables MCP description compression at registration time                                  |
-| `OMNIROUTE_MCP_DESCRIPTION_COMPRESSION` | (unset = on)                       | Alternate alias for the same toggle as above                                                                             |
-| `OMNIROUTE_MCP_FETCH_TIMEOUT_MS`        | `10000`                            | Abort budget for internal management reads (health, resilience, combos, quota, usage)                                    |
-| `OMNIROUTE_MCP_UPSTREAM_TIMEOUT_MS`     | `60000`                            | Abort budget for hops that wait on a provider (`route_request`, `web_search`, `web_fetch`)                               |
-| `MCP_TOOL_DENY`                         | (unset = no filter)                | Comma-separated tool names to drop from `tools/list` (tool-cardinality reduction — see below)                            |
-| `MCP_TOOL_ALLOW`                        | (unset = no filter)                | Comma-separated tool names to keep exclusively (allow-list mode — see below)                                             |
-| `DATA_DIR`                              | `~/.omniroute`                     | Heartbeat file is written to `${DATA_DIR}/runtime/mcp-heartbeat.json`                                                    |
+| Variable                                | Default                                        | Purpose                                                                                                                                                               |
+| :-------------------------------------- | :--------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OMNIROUTE_BASE_URL`                    | `http://localhost:20128`                       | Base URL the MCP server uses when calling OmniRoute internal APIs                                                                                                     |
+| `OMNIROUTE_API_KEY`                     | (empty)                                        | API key forwarded as `Authorization: Bearer` to internal API calls                                                                                                    |
+| `OMNIROUTE_MCP_ENFORCE_SCOPES`          | `true` (default on; `false/0/no/off` opts out) | Enforced by default (fail-closed): missing scopes deny tool calls and log `scope_denied:<reason>` in audit log                                                        |
+| `OMNIROUTE_MCP_SCOPES`                  | (empty)                                        | Comma-separated operator fallback scopes for callers with no per-key scopes (stdio, cookie sessions, keys with `scopes: []`); the client's `_meta` is never consulted |
+| `OMNIROUTE_MCP_COMPRESS_DESCRIPTIONS`   | (unset = on)                                   | When set to `0/false/off/no`, disables MCP description compression at registration time                                                                               |
+| `OMNIROUTE_MCP_DESCRIPTION_COMPRESSION` | (unset = on)                                   | Alternate alias for the same toggle as above                                                                                                                          |
+| `OMNIROUTE_MCP_FETCH_TIMEOUT_MS`        | `10000`                                        | Abort budget for internal management reads (health, resilience, combos, quota, usage)                                                                                 |
+| `OMNIROUTE_MCP_UPSTREAM_TIMEOUT_MS`     | `60000`                                        | Abort budget for hops that wait on a provider (`route_request`, `web_search`, `web_fetch`)                                                                            |
+| `MCP_TOOL_DENY`                         | (unset = no filter)                            | Comma-separated tool names to drop from `tools/list` (tool-cardinality reduction — see below)                                                                         |
+| `MCP_TOOL_ALLOW`                        | (unset = no filter)                            | Comma-separated tool names to keep exclusively (allow-list mode — see below)                                                                                          |
+| `DATA_DIR`                              | `~/.omniroute`                                 | Heartbeat file is written to `${DATA_DIR}/runtime/mcp-heartbeat.json`                                                                                                 |
 
 ---
 

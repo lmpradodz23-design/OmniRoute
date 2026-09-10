@@ -1520,6 +1520,7 @@
       "apiKey.activate": "API Key Ativada",
       "apiKey.ban": "API Key Banida",
       "apiKey.deactivate": "API Key Desativada",
+      "apiKey.create": "API Key Criada",
       "apiKey.regenerate": "API Key Regenerada",
       "apiKey.scopes.grant": "Escopos de API Key Concedidos",
       "apiKey.scopes.revoke": "Escopos de API Key Revogados",

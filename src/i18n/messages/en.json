@@ -1518,6 +1518,7 @@
     "eventTypes": {
       "apiKey.activate": "API Key Activated",
       "apiKey.ban": "API Key Banned",
+      "apiKey.create": "API Key Created",
       "apiKey.deactivate": "API Key Deactivated",
       "apiKey.regenerate": "API Key Regenerated",
       "apiKey.scopes.grant": "API Key Scopes Granted",

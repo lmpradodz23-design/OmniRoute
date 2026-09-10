@@ -8,7 +8,7 @@ import { getDbInstance, rowToCamel } from "./core";
 import { backupDbFile } from "./backup";
 import { registerDbStateResetter } from "./stateReset";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
-import { getKeyGroupsForApiKey, checkKeyModelAccess } from "./apiKeyGroups";
+import { checkKeyModelAccess } from "./apiKeyGroups";
 import { API_KEY_COLUMN_FALLBACKS } from "./apiKeyColumnFallbacks";
 import { decrypt, encrypt, encryptSensitive, isEncryptionEnabled } from "./encryption";
 import {
@@ -29,9 +29,9 @@ import {
   addProviderAliasScopedCandidates,
   modelPatternMatches,
   hasClaudeCodeWildcardPermission,
-  matchesWildcardPattern,
 } from "./apiKeys/modelPermissions";
 import { ALL_COMBOS_ACCESS_RULE } from "@/shared/constants/comboAccess";
+import { hasPrivilegedScope } from "@/shared/constants/managementScopes";
 import {
   parseAllowedModels,
   parseAllowedCombos,
@@ -567,7 +567,7 @@ export async function getExclusiveLeaseConnectionIds(): Promise<Set<string>> {
  * inactive, banned, or hard-lease key, and it never widens a key's allowedModels.
  */
 export async function pickApiKeyForInternalUse(
-  purpose: "combo-health-check" | "cloud-sync-verify" | "internal-probe" = "internal-probe"
+  _purpose: "combo-health-check" | "cloud-sync-verify" | "internal-probe" = "internal-probe"
 ): Promise<string | null> {
   try {
     const keys = (await getApiKeys()) as Array<{
@@ -730,6 +730,15 @@ export async function createApiKey(
     JSON.stringify(scopes)
   );
   setNoLog(apiKey.id, false);
+
+  // M-2: creation is the other way a privileged scope gets issued — audit it like a grant.
+  // Never the key material: name, scopes and whether the grant is privileged.
+  const { logAuditEvent } = await import("@/lib/compliance");
+  logAuditEvent({
+    action: "apiKey.create",
+    target: apiKey.id,
+    details: { name, scopes, privileged: hasPrivilegedScope(scopes) },
+  });
 
   backupDbFile("pre-write");
   return apiKey;
@@ -1141,12 +1150,12 @@ export async function updateApiKeyPermissions(
   }
 
   if (scopesUpdate !== undefined) {
-    // Compare prev vs next scope sets and emit a dedicated audit event when
-    // the privileged "manage" scope is granted or revoked. Other scope
-    // mutations also emit a generic "apiKey.scopes.update" so the audit log
-    // captures the full change history (action + details).
-    const hadManage = previousScopes.includes("manage");
-    const hasManage = nextScopes.includes("manage");
+    // Compare prev vs next scope sets and emit a dedicated audit event when a
+    // privileged scope (`manage`, `admin`, or the MCP super-user `*` — M-2) is
+    // granted or revoked. Other scope mutations also emit a generic
+    // "apiKey.scopes.update" so the audit log captures the full change history.
+    const hadManage = hasPrivilegedScope(previousScopes);
+    const hasManage = hasPrivilegedScope(nextScopes);
     if (!hadManage && hasManage) {
       logAuditEvent({
         action: "apiKey.scopes.grant",
