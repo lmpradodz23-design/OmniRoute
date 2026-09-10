@@ -384,7 +384,7 @@ export default function OnboardingWizard() {
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                           keyboard_capslock
                         </span>
-                        Caps Lock is on
+                        {tc("capsLockOn")}
                       </p>
                     )}
                     {password && confirmPassword && password !== confirmPassword && (
