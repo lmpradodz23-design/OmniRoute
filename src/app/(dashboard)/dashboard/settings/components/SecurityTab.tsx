@@ -52,6 +52,9 @@ export default function SecurityTab() {
   const [requireLoginError, setRequireLoginError] = useState<PresentedApiError | null>(null);
   const [requireLoginLoading, setRequireLoginLoading] = useState(false);
   const [toggleError, setToggleError] = useState<PresentedApiError | null>(null);
+  // U3: "Require login" with no password yet — the password is asked for inline and sent
+  // together with `requireLogin: true`; nothing is persisted before it exists.
+  const [enablingLogin, setEnablingLogin] = useState(false);
   const [newBannedKeyword, setNewBannedKeyword] = useState("");
 
   const t = useTranslations("settings");
@@ -89,6 +92,17 @@ export default function SecurityTab() {
       setRequireLoginError(null);
       setRequireLoginModalOpen(true);
       return;
+    }
+
+    if (requireLogin) {
+      setEnablingLogin(true);
+      setPassStatus({ type: "", message: "" });
+      return;
+    }
+    if (enablingLogin) {
+      setEnablingLogin(false);
+      setPasswords({ current: "", new: "", confirm: "" });
+      if (settings.requireLogin !== true) return; // only cancelling the inline prompt
     }
 
     try {
@@ -190,7 +204,8 @@ export default function SecurityTab() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentPassword: passwords.current,
+          ...(enablingLogin ? { requireLogin: true } : {}),
+          ...(settings.hasPassword ? { currentPassword: passwords.current } : {}),
           newPassword: passwords.new,
         }),
       });
@@ -198,7 +213,12 @@ export default function SecurityTab() {
       if (res.ok) {
         setPassStatus({ type: "success", message: t("passwordUpdated") });
         setPasswords({ current: "", new: "", confirm: "" });
-        setSettings((prev: any) => ({ ...prev, hasPassword: true }));
+        setSettings((prev: any) => ({
+          ...prev,
+          hasPassword: true,
+          requireLogin: enablingLogin ? true : prev.requireLogin,
+        }));
+        setEnablingLogin(false);
       } else {
         const presented = describeError(data, t("failedUpdatePassword"), res.status);
         setPassStatus({ type: "error", message: presented.message, detail: presented.detail });
@@ -230,8 +250,10 @@ export default function SecurityTab() {
               <p className="text-sm text-text-muted">{t("requireLoginDesc")}</p>
             </div>
             <Toggle
-              checked={settings.requireLogin === true}
-              onChange={() => updateRequireLogin(!settings.requireLogin)}
+              checked={settings.requireLogin === true || enablingLogin}
+              onChange={() =>
+                updateRequireLogin(!(settings.requireLogin === true || enablingLogin))
+              }
               disabled={loading}
             />
           </div>
@@ -279,11 +301,16 @@ export default function SecurityTab() {
             </div>
           </Modal>
 
-          {settings.requireLogin === true && (
+          {(settings.requireLogin === true || enablingLogin) && (
             <form
               onSubmit={handlePasswordChange}
               className="flex flex-col gap-4 pt-4 border-t border-border/50"
             >
+              {enablingLogin && (
+                <p role="status" className="text-sm text-amber-600 dark:text-amber-400">
+                  {t("requireLoginNeedsPassword")}
+                </p>
+              )}
               {settings.hasPassword && (
                 <Input
                   label={t("currentPassword")}
@@ -321,10 +348,24 @@ export default function SecurityTab() {
                 />
               )}
 
-              <div className="pt-2">
+              <div className="pt-2 flex items-center gap-2">
                 <Button type="submit" variant="primary" loading={passLoading}>
-                  {settings.hasPassword ? t("updatePassword") : t("setPassword")}
+                  {enablingLogin
+                    ? t("enableLogin")
+                    : settings.hasPassword
+                      ? t("updatePassword")
+                      : t("setPassword")}
                 </Button>
+                {enablingLogin && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => updateRequireLogin(false)}
+                    disabled={passLoading}
+                  >
+                    {tc("cancel")}
+                  </Button>
+                )}
               </div>
             </form>
           )}

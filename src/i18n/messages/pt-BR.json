@@ -10,6 +10,7 @@
     "apiErrors": {
       "passwordRequired": "Informe sua senha atual para alterar uma configuração de segurança.",
       "passwordMismatch": "A senha atual está incorreta.",
+      "passwordRequiredToEnableLogin": "Escolha uma senha antes de ativar o login — senão ninguém conseguiria entrar.",
       "invalidJson": "Não foi possível ler a requisição. Recarregue a página e tente de novo.",
       "validation": "Alguns campos são inválidos. Confira os valores destacados.",
       "settingsRevisionConflict": "As configurações mudaram em outra janela. Recarregue e tente de novo.",
@@ -7012,6 +7013,8 @@
     "adaptiveHint": "O modo adaptativo escala a partir deste nível base com base na quantidade de mensagens, uso de ferramentas e tamanho do prompt. Não descriptografa blobs de reasoning criptografados do provedor.",
     "requireLogin": "Exigir login",
     "requireLoginDesc": "Quando ATIVADO, dashboard exige senha. Quando DESATIVADO, acesso sem login.",
+    "requireLoginNeedsPassword": "Escolha a senha que você usará para entrar. O login é ativado assim que ela for salva.",
+    "enableLogin": "Salvar senha e ativar login",
     "currentPassword": "Senha Atual",
     "enterCurrentPassword": "Digite a senha atual",
     "newPassword": "Nova Senha",

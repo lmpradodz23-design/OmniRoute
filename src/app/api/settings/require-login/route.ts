@@ -124,6 +124,25 @@ export async function POST(request: Request) {
     const body = validation.data;
     const { requireLogin, password } = body;
 
+    // U3: requiring login with no way to sign in is a self-lockout; refuse unless a password
+    // is configured, arrives in this same body, or SSO is enabled.
+    if (
+      requireLogin === true &&
+      !password &&
+      !hasConfiguredPassword(settings) &&
+      settings.oidcEnabled !== true
+    ) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "PASSWORD_REQUIRED_TO_ENABLE_LOGIN",
+            message: "Set a password in the same request before requiring login",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     const updates: Record<string, any> = {};
 
     if (typeof requireLogin === "boolean") {

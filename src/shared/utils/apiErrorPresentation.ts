@@ -17,6 +17,7 @@ import { getErrorMessage } from "./api";
 export const API_ERROR_CODE_MESSAGE_KEYS: Readonly<Record<string, string>> = {
   PASSWORD_REQUIRED: "apiErrors.passwordRequired",
   PASSWORD_MISMATCH: "apiErrors.passwordMismatch",
+  PASSWORD_REQUIRED_TO_ENABLE_LOGIN: "apiErrors.passwordRequiredToEnableLogin",
   INVALID_JSON: "apiErrors.invalidJson",
   VALIDATION_ERROR: "apiErrors.validation",
   SETTINGS_REVISION_CONFLICT: "apiErrors.settingsRevisionConflict",

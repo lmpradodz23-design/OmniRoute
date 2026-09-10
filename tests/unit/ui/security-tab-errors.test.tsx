@@ -209,8 +209,10 @@ it("never hands an error object to React when changing the password fails", asyn
 });
 
 it("a failed requireLogin toggle without a password is reported, not swallowed", async () => {
+  // Legacy lockout state (login required, no password): turning it OFF is the escape hatch and
+  // is the one toggle that still PATCHes directly without a password.
   patchResponse = { ok: false, status: 500, body: { error: "Database is locked" } };
-  await render({ requireLogin: false, hasPassword: false });
+  await render({ requireLogin: true, hasPassword: false });
   await act(async () => {
     container.querySelector<HTMLButtonElement>('[data-testid="require-login-toggle"]')!.click();
   });
@@ -218,6 +220,6 @@ it("a failed requireLogin toggle without a password is reported, not swallowed",
     () => container.textContent?.includes("Database is locked") ?? false,
     "toggle error"
   );
-  expect(patchBodies).toEqual([{ requireLogin: true }]);
+  expect(patchBodies).toEqual([{ requireLogin: false }]);
   expect(container.querySelector('[role="alert"]')).not.toBeNull();
 });

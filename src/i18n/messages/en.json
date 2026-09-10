@@ -10,6 +10,7 @@
     "apiErrors": {
       "passwordRequired": "Enter your current password to change a security setting.",
       "passwordMismatch": "The current password is incorrect.",
+      "passwordRequiredToEnableLogin": "Choose a password before turning on login — otherwise nobody could sign in.",
       "invalidJson": "The request could not be read. Reload the page and try again.",
       "validation": "Some fields are invalid. Check the highlighted values.",
       "settingsRevisionConflict": "Settings changed in another window. Reload and try again.",
@@ -7011,6 +7012,8 @@
     "adaptiveHint": "Adaptive mode scales from this base level based on message count, tool usage, and prompt length. Does not decrypt provider encrypted reasoning blobs.",
     "requireLogin": "Require login",
     "requireLoginDesc": "When ON, dashboard requires password. When OFF, access without login.",
+    "requireLoginNeedsPassword": "Choose the password you will use to sign in. Login is turned on as soon as it is saved.",
+    "enableLogin": "Save password and turn on login",
     "currentPassword": "Current Password",
     "enterCurrentPassword": "Enter current password",
     "newPassword": "New Password",
