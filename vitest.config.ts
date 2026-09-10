@@ -84,7 +84,6 @@ export default defineConfig({
       "tests/unit/ui/model-select-modal-deselect.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/engine-pages.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-config-pane.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "tests/unit/ui/agent-card.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/agent-bridge-page.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/model-select-modal-connection-filter.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-structured-output-editor.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
