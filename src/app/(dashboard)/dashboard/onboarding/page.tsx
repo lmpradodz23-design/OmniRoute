@@ -73,15 +73,28 @@ export default function OnboardingWizard() {
   const currentStep = STEPS[step];
   const isLastStep = step === STEPS.length - 1;
 
+  // U1: API failures land here and are rendered (role="alert") inside the step that
+  // produced them; changing step clears it so a stale message never follows the user.
+  const [errorMessage, setErrorMessage] = useState("");
+
   const handleNext = () => {
+    setErrorMessage("");
     if (step < STEPS.length - 1) setStep(step + 1);
   };
 
   const handleBack = () => {
+    setErrorMessage("");
     if (step > 0) setStep(step - 1);
   };
 
-  const [errorMessage, setErrorMessage] = useState("");
+  const stepError = errorMessage ? (
+    <p
+      role="alert"
+      className="text-sm text-red-400 text-center rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 animate-in fade-in duration-200"
+    >
+      {errorMessage}
+    </p>
+  ) : null;
 
   const handleSetPassword = async () => {
     if (skipSecurity) {
@@ -356,6 +369,7 @@ export default function OnboardingWizard() {
                     )}
                   </div>
                 )}
+                {stepError}
               </div>
             )}
 
@@ -414,6 +428,7 @@ export default function OnboardingWizard() {
                     />
                   </div>
                 )}
+                {stepError}
               </div>
             )}
 
