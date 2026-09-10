@@ -17,7 +17,6 @@ import {
   routeRequestInput,
   costReportInput,
   listModelsCatalogInput,
-  webSearchInput,
   buildWebSearchInputSchema,
   xSearchInput,
   webFetchInput,
@@ -43,6 +42,7 @@ import { startMcpHeartbeat } from "./runtimeHeartbeat.ts";
 import { countUniqueMcpTools } from "./toolCount.ts";
 import { z } from "zod";
 import { closeAuditDb, logToolCall } from "./audit.ts";
+import { runWithMcpCaller } from "./callerContext.ts";
 import {
   evaluateToolScopes,
   isMcpScopeEnforcementEnabled,
@@ -94,6 +94,7 @@ import {
 import { getDbInstance, ensureDbInitialized } from "../../src/lib/db/core.ts";
 import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
+import { toNumber } from "../../src/shared/utils/numeric.ts";
 import { toSafeMcpErrorMessage } from "./errorMessage.ts";
 import { mcpFetchTimeoutSignal } from "./fetchTimeout.ts";
 import { getMcpModelsCatalog } from "./catalog.ts";
@@ -166,19 +167,10 @@ function toString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
 // Mirrors the runtime's env convention for lane flags ("1" | "true" are on) so a
 // future string serialization can never silently invert a boolean lane report.
 function isLaneFlagOn(value: unknown): boolean {
   return value === true || value === "1" || value === "true";
-}
-
-function toStringArray(value: unknown, fallback: string[] = []): string[] {
-  const values = toArray(value).filter((entry): entry is string => typeof entry === "string");
-  return values.length > 0 ? values : fallback;
 }
 
 function normalizeComboModels(
@@ -235,48 +227,61 @@ function withScopeEnforcement(
   handler: (args: unknown, extra?: McpToolExtraLike) => Promise<TextToolResult>,
   toolScopes?: readonly string[]
 ) {
-  return async (args: unknown, extra?: McpToolExtraLike): Promise<TextToolResult> => {
-    const scopeContext = resolveCallerScopeContext(extra, Array.from(MCP_ALLOWED_SCOPES));
-    const scopeCheck = evaluateToolScopes(
-      toolName,
-      scopeContext.scopes,
-      MCP_ENFORCE_SCOPES,
-      toolScopes
+  // R-10: the whole call (denial audit row included) runs with the resolved caller as the
+  // ambient identity, so every audit row written underneath is attributed to it.
+  return async (args: unknown, extra?: McpToolExtraLike): Promise<TextToolResult> =>
+    runWithMcpCaller(resolveCallerScopeContext(extra, Array.from(MCP_ALLOWED_SCOPES)), () =>
+      enforceAndRun(toolName, handler, toolScopes, args, extra)
     );
-    if (!scopeCheck.allowed) {
-      const missingScopes =
-        scopeCheck.missing.length > 0 ? scopeCheck.missing.join(", ") : "unavailable";
-      const reason = scopeCheck.reason || "scope_check_failed";
-      const msg =
-        `Insufficient MCP scopes for ${toolName}. ` +
-        `Missing: ${missingScopes}. ` +
-        `Caller=${scopeContext.callerId}, source=${scopeContext.source}.`;
-      const safeArgs = args && typeof args === "object" ? toRecord(args) : { rawArgs: args };
-      await logToolCall(
-        toolName,
-        {
-          ...safeArgs,
-          _scopeCheck: {
-            callerId: scopeContext.callerId,
-            source: scopeContext.source,
-            required: scopeCheck.required,
-            provided: scopeCheck.provided,
-            missing: scopeCheck.missing,
-          },
-        },
-        null,
-        0,
-        false,
-        `scope_denied:${reason}`
-      );
-      return {
-        content: [{ type: "text" as const, text: `Error: ${msg}` }],
-        isError: true,
-      };
-    }
+}
 
-    return handler(args, extra);
-  };
+async function enforceAndRun(
+  toolName: string,
+  handler: (args: unknown, extra?: McpToolExtraLike) => Promise<TextToolResult>,
+  toolScopes: readonly string[] | undefined,
+  args: unknown,
+  extra: McpToolExtraLike | undefined
+): Promise<TextToolResult> {
+  const scopeContext = resolveCallerScopeContext(extra, Array.from(MCP_ALLOWED_SCOPES));
+  const scopeCheck = evaluateToolScopes(
+    toolName,
+    scopeContext.scopes,
+    MCP_ENFORCE_SCOPES,
+    toolScopes
+  );
+  if (!scopeCheck.allowed) {
+    const missingScopes =
+      scopeCheck.missing.length > 0 ? scopeCheck.missing.join(", ") : "unavailable";
+    const reason = scopeCheck.reason || "scope_check_failed";
+    const msg =
+      `Insufficient MCP scopes for ${toolName}. ` +
+      `Missing: ${missingScopes}. ` +
+      `Caller=${scopeContext.callerId}, source=${scopeContext.source}.`;
+    const safeArgs = args && typeof args === "object" ? toRecord(args) : { rawArgs: args };
+    await logToolCall(
+      toolName,
+      {
+        ...safeArgs,
+        _scopeCheck: {
+          callerId: scopeContext.callerId,
+          source: scopeContext.source,
+          required: scopeCheck.required,
+          provided: scopeCheck.provided,
+          missing: scopeCheck.missing,
+        },
+      },
+      null,
+      0,
+      false,
+      `scope_denied:${reason}`
+    );
+    return {
+      content: [{ type: "text" as const, text: `Error: ${msg}` }],
+      isError: true,
+    };
+  }
+
+  return handler(args, extra);
 }
 
 // process.uptime() (the source of health.uptime) returns a number, not a string;
@@ -1166,7 +1171,7 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
   registerToolSearchTool(server, withScopeEnforcement);
 
   // ── Memory Tools ──────────────────────────────
-  Object.values(memoryTools).forEach((toolDef: any) => {
+  Object.values(memoryTools).forEach((toolDef) => {
     server.registerTool(
       toolDef.name,
       {
@@ -1193,7 +1198,7 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
   });
 
   // ── Skill Tools ──────────────────────────────
-  Object.values(skillTools).forEach((toolDef: any) => {
+  Object.values(skillTools).forEach((toolDef) => {
     server.registerTool(
       toolDef.name,
       {
@@ -1297,7 +1302,7 @@ export function createMcpServer(options?: CreateMcpServerOptions): McpServer {
   });
 
   // ── Compression Tools ─────────────────────────
-  Object.values(compressionTools).forEach((toolDef: any) => {
+  Object.values(compressionTools).forEach((toolDef) => {
     server.registerTool(
       toolDef.name,
       {
