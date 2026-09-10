@@ -9854,7 +9854,7 @@
     "backToLogin": "Voltar para o Login",
     "forgotPassword": "Esqueceu a senha?",
     "continueWithOidc": "Continuar com OIDC",
-    "defaultPasswordHint": "Default password: CHANGEME (unless INITIAL_PASSWORD was set)",
+    "defaultPasswordHint": "Esta instância ainda usa a senha padrão (CHANGEME). Entre e troque a senha agora.",
     "Authorization": "Autorização",
     "Content-Disposition": "Disposição de conteúdo",
     "waitingForAuthorization": "Aguardando autorização...",

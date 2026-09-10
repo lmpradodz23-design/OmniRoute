@@ -9853,7 +9853,7 @@
     "backToLogin": "Back to Login",
     "forgotPassword": "Forgot password?",
     "continueWithOidc": "Continue with OIDC",
-    "defaultPasswordHint": "Default password: CHANGEME (unless INITIAL_PASSWORD was set)",
+    "defaultPasswordHint": "This instance still uses the default password (CHANGEME). Sign in and change it now.",
     "Authorization": "Authorization",
     "Content-Disposition": "Content-Disposition",
     "waitingForAuthorization": "Waiting for authorization...",

@@ -6,6 +6,7 @@ import { getSettings, updateSettings } from "@/lib/db/settings";
 import {
   hasManagementPasswordConfigured,
   hashManagementPassword,
+  isManagementPasswordInsecureDefault,
 } from "@/lib/auth/managementPassword";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { getNodeRuntimeSupport } from "@/shared/utils/nodeRuntimeSupport.ts";
@@ -51,6 +52,9 @@ export async function GET() {
     const requireLogin = settings.requireLogin !== false;
     const authenticated = await checkSessionAuthenticated();
     const hasPassword = hasManagementPasswordConfigured(settings);
+    // U2: the login page shows the "default password" hint only while this is true.
+    const usingDefaultPassword =
+      hasPassword && (await isManagementPasswordInsecureDefault(settings));
     const setupComplete = !!settings.setupComplete;
     const oidcEnabled = !!settings.oidcEnabled;
     const oidcDisablePasswordLogin =
@@ -66,6 +70,7 @@ export async function GET() {
       setupComplete,
       oidcEnabled,
       oidcDisablePasswordLogin,
+      usingDefaultPassword,
       ...nodeInfo,
     });
   } catch (error) {
@@ -78,6 +83,7 @@ export async function GET() {
         setupComplete: true,
         oidcEnabled: false,
         oidcDisablePasswordLogin: false,
+        usingDefaultPassword: false,
         ...nodeInfo,
       },
       { status: 200 }

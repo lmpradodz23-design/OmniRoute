@@ -17,6 +17,8 @@ type BootstrapResponse = {
   nodeCompatible: boolean;
   oidcEnabled: boolean;
   oidcDisablePasswordLogin: boolean;
+  hasPassword?: boolean;
+  usingDefaultPassword?: boolean;
   error?: { message: string; details?: { field: string; message: string }[] };
 };
 
@@ -61,6 +63,7 @@ test("public login bootstrap route exposes metadata login page consumes", async 
     setupComplete: true,
     oidcEnabled: false,
     oidcDisablePasswordLogin: false,
+    usingDefaultPassword: false,
     nodeVersion: body.nodeVersion,
     nodeCompatible: body.nodeCompatible,
   });
@@ -86,6 +89,7 @@ test("public login bootstrap route reports env-provided bootstrap password metad
     setupComplete: true,
     oidcEnabled: false,
     oidcDisablePasswordLogin: false,
+    usingDefaultPassword: false,
     nodeVersion: body.nodeVersion,
     nodeCompatible: body.nodeCompatible,
   });
@@ -110,9 +114,35 @@ test("public login bootstrap route reports stored password metadata in disabled 
     setupComplete: true,
     oidcEnabled: false,
     oidcDisablePasswordLogin: false,
+    usingDefaultPassword: false,
     nodeVersion: body.nodeVersion,
     nodeCompatible: body.nodeCompatible,
   });
+});
+
+// U2 (audit/04): the login page's "Default password: CHANGEME" hint must only appear while the
+// well-known default is actually the active password — never as an unconditional caption.
+test("usingDefaultPassword is true while INITIAL_PASSWORD is the shipped CHANGEME placeholder", async () => {
+  process.env.INITIAL_PASSWORD = "CHANGEME";
+  await settingsDb.updateSettings({ requireLogin: true, setupComplete: true });
+
+  const body = (await (await route.GET()).json()) as BootstrapResponse;
+  assert.equal(body.hasPassword, true);
+  assert.equal(body.usingDefaultPassword, true);
+});
+
+test("usingDefaultPassword is true while the stored hash is still CHANGEME, false once changed", async () => {
+  await settingsDb.updateSettings({
+    requireLogin: true,
+    setupComplete: true,
+    password: await bcrypt.hash("CHANGEME", 4),
+  });
+  let body = (await (await route.GET()).json()) as BootstrapResponse;
+  assert.equal(body.usingDefaultPassword, true);
+
+  await settingsDb.updateSettings({ password: await bcrypt.hash("a-real-password", 4) });
+  body = (await (await route.GET()).json()) as BootstrapResponse;
+  assert.equal(body.usingDefaultPassword, false);
 });
 
 test("public login bootstrap route reports oidcDisablePasswordLogin when oidc is enabled and flag is set", async () => {
