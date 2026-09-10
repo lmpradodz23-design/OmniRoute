@@ -1,3 +1,6 @@
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
+
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_VERSION = "2026-03-11";
 const MAX_RETRIES = 3;
@@ -54,7 +57,7 @@ type NotionErrorBody = {
   message: string;
 };
 
-function classifyNotionError(status: number, code: string, message: string): Error {
+function classifyNotionError(status: number, _code: string, message: string): Error {
   switch (status) {
     case 401:
       return new NotionAuthError(message);
@@ -78,14 +81,17 @@ function classifyNotionError(status: number, code: string, message: string): Err
   }
 }
 
-function sanitize(msg: string): string {
-  return msg.replace(/\s+at\s+\S+/g, "").replace(/\/[\w/.-]+\.[a-z]+\:\d+/g, "").slice(0, 4096);
+interface NotionRequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  signal?: AbortSignal;
 }
 
 async function notionFetch(
   path: string,
   apiKey: string,
-  options: RequestInit = {}
+  options: NotionRequestInit = {}
 ): Promise<unknown> {
   const url = `${NOTION_API_BASE}${path}`;
   const controller = new AbortController();
@@ -98,15 +104,21 @@ async function notionFetch(
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url, {
-        ...options,
+      // SSRF S-6: api.notion.com is a fixed public host, but the request still goes through
+      // the pinned guarded client so a rebound DNS answer or a redirect can never steer the
+      // Bearer token anywhere else (public targets only).
+      const response = await guardedFetch(url, {
+        method: options.method ?? "GET",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Notion-Version": NOTION_VERSION,
           "Content-Type": "application/json",
-          ...(options.headers as Record<string, string>),
+          ...(options.headers ?? {}),
         },
+        body: options.body,
         signal: mergedSignal,
+        timeoutMs: TIMEOUT_MS,
+        allowPrivate: false,
       });
 
       if (!response.ok) {
@@ -134,6 +146,11 @@ async function notionFetch(
 
       return response.json();
     } catch (err) {
+      // Guard decision (blocked target / redirect): terminal, never retried.
+      if (err instanceof OutboundUrlGuardError) {
+        clearTimeout(timeout);
+        throw err;
+      }
       if (err instanceof Error && err.name === "AbortError") {
         clearTimeout(timeout);
         throw new NotionTimeoutError("Notion API request timed out after 55s");
