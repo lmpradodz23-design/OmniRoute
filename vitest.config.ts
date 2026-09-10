@@ -37,8 +37,16 @@ export default defineConfig({
       // in this jsdom job. They have their own runners + vitest.e2e-live.config.ts.
       "tests/e2e/ecosystem.test.ts",
       "tests/e2e/protocol-clients.test.ts",
+      // Node-environment suites owned by vitest.mcp.config.ts (`npm run test:vitest`,
+      // environment: "node", per-tool scope enforcement off). The broad
+      // `open-sse/**/__tests__/**/*.test.ts` include above would otherwise ALSO collect
+      // them into this jsdom job, where the MCP dispatch/fetch mocks fail (22 tests in
+      // open-sse/mcp-server alone) — the same file must not run under two environments.
+      // Guarded by tests/unit/build/vitest-config-environments.test.ts.
+      "open-sse/mcp-server/__tests__/**",
+      "open-sse/services/autoCombo/__tests__/**",
+      "open-sse/services/combo/__tests__/**",
       // ── Pre-existing failures tracked by #8618 ───────────────────────────────
-      "open-sse/services/autoCombo/__tests__/providerDiversity.test.ts", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/compareView.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/model-select-modal-keep-open.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/model-select-field-6540.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
@@ -60,7 +68,6 @@ export default defineConfig({
       "tests/unit/ui/CliCodePage.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/runtime-page-client.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/engineConfigPage.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "open-sse/services/autoCombo/__tests__/autoCombo.test.ts", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/agent-card-risk-modal.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/request-logger-autorefresh-visibility-3972.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/search-tools-compare-tab.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
@@ -98,7 +105,6 @@ export default defineConfig({
       "src/app/(dashboard)/dashboard/cache/__tests__/CachePerformance.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "src/app/(dashboard)/dashboard/cache/__tests__/MemoryCards.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "src/app/(dashboard)/dashboard/discovery/__tests__/DiscoveryPageClient.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "open-sse/services/autoCombo/__tests__/chaosVirtualCombo.test.ts", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/combos-page-smoke.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/evals-tab-smoke.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
     ],
