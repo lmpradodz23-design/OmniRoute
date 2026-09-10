@@ -67,8 +67,7 @@ function t(key: string): string {
 function getButton(text: string): HTMLButtonElement | null {
   return (
     (Array.from(document.querySelectorAll("button")).find((b) => b.textContent?.includes(text)) as
-      | HTMLButtonElement
-      | undefined) ?? null
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -232,6 +231,12 @@ describe("AddWebhookWizard — step 2→3 creates webhook with correct kind", ()
     vi.stubGlobal("fetch", mockFetch);
 
     renderIntoBody(<AddWebhookWizard isOpen={true} onClose={vi.fn()} onCreated={vi.fn()} t={t} />);
+    // The wizard resets to step 1 in a deferred microtask when it opens (its open-effect
+    // awaits a resolved promise before setState, keeping the effect body free of
+    // synchronous setState). A user can never click inside that microtask, but this test
+    // can — let the open-effect settle before advancing, or its reset lands after the
+    // click and silently rewinds the wizard to step 1.
+    await act(async () => {});
 
     // Step 1: default is "slack", click Next
     const nextBtn1 = getButton("Next");

@@ -73,7 +73,6 @@ export default defineConfig({
       "tests/unit/ui/playground-build-tab.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-studio.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-compare-tab.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "src/app/(dashboard)/dashboard/webhooks/__tests__/webhook-wizard.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/search-tools-scrape-result.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/CliToolCard.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/comboLiveStudio.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
