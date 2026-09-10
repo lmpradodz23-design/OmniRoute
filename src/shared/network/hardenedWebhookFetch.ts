@@ -132,12 +132,23 @@ export interface HardenedWebhookFetchOptions {
   /** Injectable resolver for tests. */
   lookup?: WebhookLookupFn;
   maxBodyBytes?: number;
+  /**
+   * Withhold the response body of a private/LAN target (default `true`: connectivity
+   * diagnostics only, never an internal service's content — the webhook-test contract).
+   * Callers whose payload IS the body of an operator-configured private peer (an OIDC issuer
+   * or a federation server on the LAN, admitted through `allowPrivate`) pass `false`.
+   * Cloud-metadata targets stay blocked regardless of either flag.
+   */
+  withholdPrivateBody?: boolean;
 }
 
 export interface HardenedWebhookFetchResult {
   status: number;
   ok: boolean;
-  /** Empty for a private target (never exfiltrated) or when there is no body. */
+  /**
+   * Empty for a private target when `withholdPrivateBody` is on (the default), or when there is
+   * no body; otherwise the body, truncated to `maxBodyBytes`.
+   */
   bodyText: string;
   isPrivateTarget: boolean;
 }
@@ -159,6 +170,7 @@ export async function hardenedWebhookFetch(
     allowPrivate = false,
     lookup,
     maxBodyBytes = 2048,
+    withholdPrivateBody = true,
   } = options;
 
   const target = await resolveAndAssertWebhookTarget(input, { lookup, allowPrivate });
@@ -211,7 +223,7 @@ export async function hardenedWebhookFetch(
     }
 
     let bodyText = "";
-    if (target.isPrivateTarget) {
+    if (target.isPrivateTarget && withholdPrivateBody) {
       // Connectivity diagnostics only — never the body of an internal service.
       try {
         await res.body?.cancel();

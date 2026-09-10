@@ -129,4 +129,59 @@ describe("hardenedWebhookFetch — redirect + private body withholding (live loc
       (e: unknown) => e instanceof OutboundUrlGuardError
     );
   });
+
+  // `withholdPrivateBody` (Fase 1, S-3/S-4): clients whose payload IS the body of an
+  // operator-configured private peer (OIDC issuer / federation server on the LAN) may read it,
+  // but only under the private opt-in — the default contract above is unchanged.
+  it("returns the body of an admitted private target when withholdPrivateBody is false", async () => {
+    mode = "ok";
+    const r = await hardenedWebhookFetch(`${base}/ping`, {
+      allowPrivate: true,
+      withholdPrivateBody: false,
+      timeoutMs: 3000,
+    });
+    assert.equal(r.status, 200);
+    assert.equal(r.isPrivateTarget, true);
+    assert.equal(r.bodyText, "SECRET-INTERNAL-BODY");
+  });
+
+  it("withholdPrivateBody:false does NOT loosen the opt-in gate (private target still blocked)", async () => {
+    mode = "ok";
+    await assert.rejects(
+      hardenedWebhookFetch(`${base}/ping`, {
+        allowPrivate: false,
+        withholdPrivateBody: false,
+        timeoutMs: 3000,
+      }),
+      (e: unknown) => e instanceof OutboundUrlGuardError
+    );
+  });
+
+  it("withholdPrivateBody:false still never follows a redirect", async () => {
+    mode = "redirect";
+    requestCount = 0;
+    await assert.rejects(
+      hardenedWebhookFetch(`${base}/start`, {
+        allowPrivate: true,
+        withholdPrivateBody: false,
+        timeoutMs: 3000,
+      }),
+      (e: unknown) => e instanceof OutboundUrlGuardError && /redirect blocked/i.test((e as Error).message)
+    );
+    assert.equal(requestCount, 1);
+  });
+});
+
+describe("resolveAndAssertWebhookTarget — metadata stays blocked regardless of body policy", () => {
+  it("metadata is rejected even with allowPrivate:true (withholdPrivateBody is irrelevant)", async () => {
+    await assert.rejects(
+      hardenedWebhookFetch("https://hook.example.test/x", {
+        lookup: lookupTo("169.254.169.254"),
+        allowPrivate: true,
+        withholdPrivateBody: false,
+        timeoutMs: 3000,
+      }),
+      (e: unknown) => e instanceof OutboundUrlGuardError && /metadata/i.test((e as Error).message)
+    );
+  });
 });
