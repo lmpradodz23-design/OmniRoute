@@ -39,6 +39,11 @@ import type { ReactNode } from "react";
 import { vi } from "vitest";
 import { createTranslator } from "use-intl/core";
 import en from "../../src/i18n/messages/en.json";
+// Registers the DOM matchers (`toBeInTheDocument`, `toHaveTextContent`, ...) on vitest's
+// `expect` for every jsdom suite. Several dashboard suites (cache/, discovery/) use them
+// without importing the package themselves and failed with "Invalid Chai property:
+// toBeInTheDocument" — matcher registration is an environment concern, not a per-file one.
+import "@testing-library/jest-dom/vitest";
 
 type Messages = Record<string, unknown>;
 

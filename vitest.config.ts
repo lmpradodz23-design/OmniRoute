@@ -104,7 +104,6 @@ export default defineConfig({
       "src/app/(dashboard)/dashboard/cache/__tests__/IdempotencyLayer.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "src/app/(dashboard)/dashboard/cache/__tests__/CachePerformance.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "src/app/(dashboard)/dashboard/cache/__tests__/MemoryCards.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "src/app/(dashboard)/dashboard/discovery/__tests__/DiscoveryPageClient.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/combos-page-smoke.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/evals-tab-smoke.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
     ],
