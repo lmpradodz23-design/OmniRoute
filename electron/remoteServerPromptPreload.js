@@ -10,6 +10,6 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("remoteServerPrompt", {
   getInitialUrl: () => ipcRenderer.invoke("remote-server-prompt:get-initial-url"),
-  submit: (url) => ipcRenderer.send("remote-server-prompt:submit", url),
+  submit: (url) => ipcRenderer.invoke("remote-server-prompt:submit", url),
   cancel: () => ipcRenderer.send("remote-server-prompt:cancel"),
 });

@@ -60,13 +60,60 @@ function readCandidate({ env, prefsPath, existsSync, readFileSync }) {
 }
 
 /**
+ * Hosts on which plain http:// is acceptable for the Remote Server URL: the
+ * shell sends the operator's dashboard session and provider credentials to
+ * this origin, so clear-text transport is only tolerated where the traffic
+ * never leaves a private network — loopback, RFC1918 / CGNAT / link-local
+ * ranges, `.local` / `.localhost` / `.internal` names and single-label host
+ * names (Docker/OrbStack container names, a LAN box). Everything else must
+ * be https://.
+ *
+ * @param {string} hostname - URL hostname (IPv6 literals without brackets)
+ * @returns {boolean}
+ */
+function isPrivateNetworkHost(hostname) {
+  const host = String(hostname || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
+  if (!host) return false;
+  if (host === "localhost" || host === "::1" || host === "::") return true;
+  if (host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) {
+    return true;
+  }
+  if (host.startsWith("::ffff:")) return isPrivateNetworkHost(host.slice("::ffff:".length));
+
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    if (a === 127 || a === 10 || a === 0) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT (Tailscale & co.)
+    if (a === 169 && b === 254) return true; // link-local
+    return false;
+  }
+  if (host.includes(":")) {
+    // IPv6: unique-local (fc00::/7) and link-local (fe80::/10) only.
+    return /^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host);
+  }
+  // Single-label name (no dot): only resolvable on the local network.
+  return !host.includes(".");
+}
+
+/**
+ * http(s) URL check for the Remote Server URL, with the transport policy of
+ * finding E-4: https:// anywhere, http:// only on a private network.
+ *
  * @param {string} candidate
  * @returns {boolean}
  */
 function isValidHttpUrl(candidate) {
   try {
     const parsed = new URL(candidate);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    if (parsed.protocol === "https:") return true;
+    if (parsed.protocol !== "http:") return false;
+    return isPrivateNetworkHost(parsed.hostname);
   } catch {
     return false;
   }
@@ -76,4 +123,4 @@ function stripTrailingSlash(url) {
   return url.replace(/\/+$/, "");
 }
 
-module.exports = { resolveRemoteServerUrl, isValidHttpUrl };
+module.exports = { resolveRemoteServerUrl, isValidHttpUrl, isPrivateNetworkHost };

@@ -176,8 +176,13 @@ lives on your platform).
 environment that launches the packaged app). The env var always wins over the persisted
 preference and is session-scoped — it doesn't get written to the prefs file.
 
-Only `http://` and `https://` URLs are accepted; anything else is rejected before the
-window loads.
+**Transport policy.** The shell sends your dashboard session and provider credentials to
+this server, so `https://` is accepted anywhere, while plain `http://` is accepted only on a
+private network: `localhost`, RFC 1918 / CGNAT / link-local addresses (`10.x`, `172.16–31.x`,
+`192.168.x`, `100.64–127.x`, `169.254.x`), `.local` / `.localhost` / `.internal` names and
+single-label host names (e.g. a container name). `http://` to a public host name or address
+is rejected, as is any other scheme — the prompt shows the reason, and a rejected
+`OMNIROUTE_REMOTE_URL` falls back to the local server with a warning in the log.
 
 ## Configuration
 

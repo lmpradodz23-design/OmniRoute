@@ -673,9 +673,13 @@ async function setRemoteServerUrl(nextUrl) {
   const normalized = (nextUrl || "").trim() || null;
   if (normalized === remoteServerUrl) return;
 
-  // Reject invalid URLs — only http:// and https:// are accepted.
+  // Reject invalid URLs — https:// anywhere, http:// only on a private network
+  // (the shell sends the dashboard session and provider credentials there).
   if (normalized !== null && !isValidHttpUrl(normalized)) {
-    console.warn("[Electron] Rejected invalid remote server URL:", normalized);
+    console.warn(
+      "[Electron] Rejected remote server URL (must be https://, or http:// on loopback / a private network):",
+      normalized
+    );
     return;
   }
 
@@ -1005,9 +1009,20 @@ function setupIpcHandlers() {
   // boundary — this window never loads remote/untrusted content) ──
   ipcMain.handle("remote-server-prompt:get-initial-url", () => remoteServerUrl || "");
 
-  ipcMain.on("remote-server-prompt:submit", (_event, url) => {
+  // The main process is the authority on the URL (E-4 transport policy); the renderer only
+  // gets a yes/no so it can keep the window open and show why.
+  ipcMain.handle("remote-server-prompt:submit", (_event, url) => {
+    const normalized = (typeof url === "string" ? url : "").trim();
+    if (normalized && !isValidHttpUrl(normalized)) {
+      return {
+        ok: false,
+        error:
+          "Use https://, or http:// only for localhost / a private-network address (e.g. 192.168.x.x, a container name).",
+      };
+    }
     remoteServerPromptWindow?.close();
-    void setRemoteServerUrl(url);
+    void setRemoteServerUrl(normalized);
+    return { ok: true };
   });
 
   ipcMain.on("remote-server-prompt:cancel", () => {
