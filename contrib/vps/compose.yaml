@@ -2,7 +2,7 @@ name: omniroute-vps
 
 services:
   redis:
-    image: docker.io/library/redis:8.6.5-alpine
+    image: docker.io/library/redis:8.6.5-alpine@sha256:cd218f4b106a332c5c992e38a9480bfb9d7e9f8f7b0ec9a0023bfa36d9a408f9
     restart: unless-stopped
     command: ["redis-server", "--save", "60", "1", "--appendonly", "yes", "--loglevel", "warning"]
     volumes:
