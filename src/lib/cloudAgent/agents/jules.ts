@@ -213,7 +213,7 @@ export class JulesAgent extends CloudAgentBase {
       body.requirePlanApproval = true;
     }
 
-    const response = await fetch(buildJulesApiUrl("/sessions"), {
+    const response = await this.agentFetch(buildJulesApiUrl("/sessions"), {
       method: "POST",
       headers: julesHeaders(credentials.apiKey, true),
       body: JSON.stringify(body),
@@ -248,10 +248,10 @@ export class JulesAgent extends CloudAgentBase {
     const sessionId = normalizeJulesSessionId(externalId);
 
     const [sessionRes, activitiesRes] = await Promise.all([
-      fetch(buildJulesApiUrl(`/sessions/${sessionId}`), {
+      this.agentFetch(buildJulesApiUrl(`/sessions/${sessionId}`), {
         headers: julesHeaders(credentials.apiKey),
       }),
-      fetch(buildJulesApiUrl(`/sessions/${sessionId}/activities?pageSize=30`), {
+      this.agentFetch(buildJulesApiUrl(`/sessions/${sessionId}/activities?pageSize=30`), {
         headers: julesHeaders(credentials.apiKey),
       }),
     ]);
@@ -286,7 +286,7 @@ export class JulesAgent extends CloudAgentBase {
 
   async approvePlan(externalId: string, credentials: AgentCredentials): Promise<void> {
     const sessionId = normalizeJulesSessionId(externalId);
-    const response = await fetch(buildJulesApiUrl(`/sessions/${sessionId}:approvePlan`), {
+    const response = await this.agentFetch(buildJulesApiUrl(`/sessions/${sessionId}:approvePlan`), {
       method: "POST",
       headers: julesHeaders(credentials.apiKey, true),
       body: "{}",
@@ -304,7 +304,7 @@ export class JulesAgent extends CloudAgentBase {
     credentials: AgentCredentials
   ): Promise<CloudAgentActivity> {
     const sessionId = normalizeJulesSessionId(externalId);
-    const response = await fetch(buildJulesApiUrl(`/sessions/${sessionId}:sendMessage`), {
+    const response = await this.agentFetch(buildJulesApiUrl(`/sessions/${sessionId}:sendMessage`), {
       method: "POST",
       headers: julesHeaders(credentials.apiKey, true),
       body: JSON.stringify({ prompt: message }),
@@ -326,7 +326,7 @@ export class JulesAgent extends CloudAgentBase {
   async listSources(
     credentials: AgentCredentials
   ): Promise<{ name: string; url: string; branch?: string }[]> {
-    const response = await fetch(buildJulesApiUrl("/sources"), {
+    const response = await this.agentFetch(buildJulesApiUrl("/sources"), {
       headers: julesHeaders(credentials.apiKey),
     });
 

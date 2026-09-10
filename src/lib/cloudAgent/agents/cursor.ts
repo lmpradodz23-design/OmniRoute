@@ -77,7 +77,7 @@ export class CursorCloudAgent extends CloudAgentBase {
     };
     if (params.options.autoCreatePr) body.autoCreatePr = true;
 
-    const response = await fetch(`${this.resolveBaseUrl(credentials)}/agents`, {
+    const response = await this.agentFetch(`${this.resolveBaseUrl(credentials)}/agents`, {
       method: "POST",
       headers: this.authHeaders(credentials, true),
       body: JSON.stringify(body),
@@ -105,7 +105,7 @@ export class CursorCloudAgent extends CloudAgentBase {
   }
 
   async getStatus(externalId: string, credentials: AgentCredentials): Promise<GetStatusResult> {
-    const response = await fetch(
+    const response = await this.agentFetch(
       `${this.resolveBaseUrl(credentials)}/agents/${encodeURIComponent(externalId)}`,
       { headers: this.authHeaders(credentials) }
     );
@@ -153,7 +153,7 @@ export class CursorCloudAgent extends CloudAgentBase {
     message: string,
     credentials: AgentCredentials
   ): Promise<CloudAgentActivity> {
-    const response = await fetch(
+    const response = await this.agentFetch(
       `${this.resolveBaseUrl(credentials)}/agents/${encodeURIComponent(externalId)}/followup`,
       {
         method: "POST",
@@ -178,7 +178,7 @@ export class CursorCloudAgent extends CloudAgentBase {
   async listSources(
     credentials: AgentCredentials
   ): Promise<{ name: string; url: string; branch?: string }[]> {
-    const response = await fetch(`${this.resolveBaseUrl(credentials)}/repositories`, {
+    const response = await this.agentFetch(`${this.resolveBaseUrl(credentials)}/repositories`, {
       headers: this.authHeaders(credentials),
     });
 

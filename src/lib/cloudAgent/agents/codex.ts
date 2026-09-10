@@ -32,7 +32,7 @@ export class CodexCloudAgent extends CloudAgentBase {
       };
     }
 
-    const response = await fetch(`${this.baseUrl}/codex/cloud/tasks`, {
+    const response = await this.agentFetch(`${this.baseUrl}/codex/cloud/tasks`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -63,7 +63,7 @@ export class CodexCloudAgent extends CloudAgentBase {
   }
 
   async getStatus(externalId: string, credentials: AgentCredentials): Promise<GetStatusResult> {
-    const response = await fetch(`${this.baseUrl}/codex/cloud/tasks/${externalId}`, {
+    const response = await this.agentFetch(`${this.baseUrl}/codex/cloud/tasks/${externalId}`, {
       headers: {
         Authorization: `Bearer ${credentials.apiKey}`,
       },
@@ -118,7 +118,7 @@ export class CodexCloudAgent extends CloudAgentBase {
     message: string,
     credentials: AgentCredentials
   ): Promise<CloudAgentActivity> {
-    const response = await fetch(`${this.baseUrl}/codex/cloud/tasks/${externalId}/followup`, {
+    const response = await this.agentFetch(`${this.baseUrl}/codex/cloud/tasks/${externalId}/followup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

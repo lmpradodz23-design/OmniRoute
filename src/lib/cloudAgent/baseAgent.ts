@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
 import type {
   CloudAgentTask,
   CloudAgentStatus,
@@ -30,9 +32,35 @@ export interface GetStatusResult {
   error?: string;
 }
 
+/** Bound on the time to response headers for any cloud-agent REST call. */
+const CLOUD_AGENT_TIMEOUT_MS = 60_000;
+
+export interface AgentRequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
 export abstract class CloudAgentBase {
   abstract readonly providerId: string;
   abstract readonly baseUrl: string;
+
+  /**
+   * SSRF S-6: the single egress for every adapter. `credentials.baseUrl` is operator data
+   * (cloud_agent_credentials.base_url), so the target is validated by its RESOLVED address
+   * (cloud metadata never; private/LAN under the local-first integration policy), the
+   * connection is pinned to it and redirects are never followed. Adapters keep consuming a
+   * real `Response`; a guard decision surfaces as `OutboundUrlGuardError`.
+   */
+  protected agentFetch(url: string, init: AgentRequestInit = {}): Promise<Response> {
+    return guardedFetch(url, {
+      method: init.method ?? "GET",
+      headers: init.headers,
+      body: init.body,
+      timeoutMs: CLOUD_AGENT_TIMEOUT_MS,
+      allowPrivate: areIntegrationPrivateUrlsAllowed(),
+    });
+  }
 
   abstract createTask(
     params: CreateTaskParams,
