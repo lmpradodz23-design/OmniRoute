@@ -38,7 +38,8 @@ test("#8497 Podman guide separates local engines from Podman Machine", () => {
   assert.match(localGuidance, /podman unshare chown 1000:1000 \.\/data/);
   assert.doesNotMatch(machineGuidance, /podman unshare chown/);
   assert.match(machineGuidance, /remote client/);
-  assert.match(machineGuidance, /docker\.io\/diegosouzapw\/omniroute:latest/);
+  // Fase 8: this fork ships its image on GHCR under its own owner.
+  assert.match(machineGuidance, /ghcr\.io\/lmprado-dz23\/omniroute:latest/);
 });
 
 test("#8497 Quadlet is Linux/systemd-only and generated units are not enabled", () => {
@@ -94,8 +95,8 @@ test("#8497 pull example and environment hints stay topology-safe", () => {
   const envExample = read(".env.example");
   const envReference = read("docs/reference/ENVIRONMENT.md");
 
-  assert.match(quadlet, /Image=docker\.io\/diegosouzapw\/omniroute:latest/);
-  assert.doesNotMatch(quadlet, /diegosouzapw\/omniroute:base/);
+  assert.match(quadlet, /Image=ghcr\.io\/lmprado-dz23\/omniroute:latest/);
+  assert.doesNotMatch(quadlet, /lmprado-dz23\/omniroute:base/);
 
   for (const source of [envExample, envReference]) {
     assert.match(source, /any Podman topology/);

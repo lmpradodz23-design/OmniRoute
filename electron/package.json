@@ -52,7 +52,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "diegosouzapw",
+      "owner": "LMPrado-DZ23",
       "repo": "OmniRoute"
     },
     "files": [

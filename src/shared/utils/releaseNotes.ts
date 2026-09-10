@@ -1,11 +1,13 @@
 import { z } from "zod";
+import {
+  DEFAULT_BRANCH,
+  GITHUB_RAW_BASE_URL,
+  GITHUB_REPO_URL,
+} from "@/shared/constants/distribution";
 
-export const NEWS_JSON_URL =
-  "https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/news.json";
-export const CHANGELOG_RAW_URL =
-  "https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/CHANGELOG.md";
-export const CHANGELOG_GITHUB_URL =
-  "https://github.com/diegosouzapw/OmniRoute/blob/main/CHANGELOG.md";
+export const NEWS_JSON_URL = `${GITHUB_RAW_BASE_URL}/${DEFAULT_BRANCH}/news.json`;
+export const CHANGELOG_RAW_URL = `${GITHUB_RAW_BASE_URL}/${DEFAULT_BRANCH}/CHANGELOG.md`;
+export const CHANGELOG_GITHUB_URL = `${GITHUB_REPO_URL}/blob/${DEFAULT_BRANCH}/CHANGELOG.md`;
 export const NEWS_DISMISS_STORAGE_NAME = "omniroute-news-dismissed-v2";
 export const NEWS_DISMISS_EVENT = "omniroute:news-dismissed";
 

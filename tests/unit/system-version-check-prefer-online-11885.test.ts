@@ -12,7 +12,15 @@ test("getLatestVersionFromNpmCli passes --prefer-online to bypass the stale npm 
   let capturedArgs: string[] | null = null;
   const fakeExec = async (_cmd: string, args: string[]) => {
     capturedArgs = args;
-    return { stdout: JSON.stringify("3.8.49"), stderr: "" };
+    // Fase 8: `version` + `repository.url` are requested together, so npm answers with an
+    // object; the version is only trusted when the repository is this fork's.
+    return {
+      stdout: JSON.stringify({
+        version: "3.8.49",
+        "repository.url": "git+https://github.com/LMPrado-DZ23/OmniRoute.git",
+      }),
+      stderr: "",
+    };
   };
   const latest = await getLatestVersionFromNpmCli(fakeExec as never);
   assert.equal(latest, "3.8.49");

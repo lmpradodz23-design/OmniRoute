@@ -83,10 +83,13 @@
     "auto-fallback"
   ],
   "license": "MIT",
-  "author": "diegosouzapw",
+  "author": "LMPrado-DZ23",
+  "contributors": [
+    "diegosouzapw (original author, https://github.com/diegosouzapw/OmniRoute)"
+  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/diegosouzapw/OmniRoute"
+    "url": "https://github.com/LMPrado-DZ23/OmniRoute"
   },
   "homepage": "https://omniroute.online",
   "scripts": {

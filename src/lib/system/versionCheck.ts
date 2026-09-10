@@ -20,20 +20,42 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { createLogger } from "@/shared/utils/logger";
 import { buildNpmExecOptions } from "@/lib/services/installers/utils";
+import {
+  GITHUB_RELEASES_LATEST_API_URL,
+  NPM_PACKAGE_NAME,
+  isOurRepositoryUrl,
+} from "@/shared/constants/distribution";
 
 const execFileAsync = promisify(execFile);
 const log = createLogger("system/versionCheck");
 
 /** npm-binary-free latest-version source: the registry JSON API. */
-const NPM_REGISTRY_LATEST_URL = "https://registry.npmjs.org/omniroute/latest";
+const NPM_REGISTRY_LATEST_URL = `https://registry.npmjs.org/${NPM_PACKAGE_NAME}/latest`;
 
 /**
- * Second npm-binary-free source: the GitHub releases API. Works on networks that allow
- * GitHub (where `getNews()` already succeeds) but block the npm registry — the most likely
- * surviving cause of "#4100 still not fixed" after the registry fallback shipped in v3.8.28.
+ * Second npm-binary-free source: the GitHub releases API of THIS repository. Works on
+ * networks that allow GitHub (where `getNews()` already succeeds) but block the npm
+ * registry — the most likely surviving cause of "#4100 still not fixed" after the registry
+ * fallback shipped in v3.8.28.
  */
-const GITHUB_RELEASES_LATEST_URL =
-  "https://api.github.com/repos/diegosouzapw/OmniRoute/releases/latest";
+const GITHUB_RELEASES_LATEST_URL = GITHUB_RELEASES_LATEST_API_URL;
+
+/**
+ * Fase 8: the npm package name is shared with upstream, so an npm answer is only trusted
+ * when the registry manifest's `repository.url` points at this repository. A foreign
+ * package must not drive the "Update Available" banner (it would advertise another fork's
+ * build); the lookup then falls through to this repository's GitHub releases.
+ */
+function acceptNpmVersion(version: unknown, repositoryUrl: unknown): string | null {
+  if (typeof version !== "string" || !version) return null;
+  if (!isOurRepositoryUrl(repositoryUrl)) {
+    log.info(
+      `npm package "${NPM_PACKAGE_NAME}" is not published from this repository — ignoring its version and using GitHub releases instead`
+    );
+    return null;
+  }
+  return version;
+}
 
 const LOOKUP_TIMEOUT_MS = 10_000;
 const MAX_VERSION_RESPONSE_BYTES = 16 * 1024;
@@ -70,13 +92,17 @@ export async function getLatestVersionFromNpmCli(
     // bug class already fixed in the CLI's own copy for #4376 (see that fix's comment in
     // bin/cli/commands/update.mjs::getLatestVersion()) but never mirrored here — this is
     // the function backing the dashboard's "Update Available" banner.
+    // `repository.url` is requested alongside `version` so the answer can be verified as
+    // coming from this repository (Fase 8) — npm returns an object when >1 field is asked.
     const { stdout } = await execFn(
       "npm",
-      ["info", "omniroute", "version", "--json", "--prefer-online"],
+      ["info", NPM_PACKAGE_NAME, "version", "repository.url", "--json", "--prefer-online"],
       buildNpmExecOptions(process.platform, { timeoutMs: LOOKUP_TIMEOUT_MS })
     );
-    const parsed = JSON.parse(String(stdout).trim());
-    return typeof parsed === "string" && parsed ? parsed : null;
+    const parsed = JSON.parse(String(stdout).trim()) as unknown;
+    if (!parsed || typeof parsed !== "object") return null; // a bare version cannot be verified
+    const rec = parsed as Record<string, unknown>;
+    return acceptNpmVersion(rec.version, rec["repository.url"]);
   } catch {
     return null;
   }
@@ -163,8 +189,13 @@ export async function getLatestVersionFromRegistry(
       signal: controller.signal,
     });
     if (!res.ok) return null;
-    const data = (await readBoundedJson(res, controller.signal)) as { version?: unknown };
-    return typeof data?.version === "string" && data.version ? data.version : null;
+    const data = (await readBoundedJson(res, controller.signal)) as {
+      version?: unknown;
+      repository?: { url?: unknown } | string;
+    };
+    const repositoryUrl =
+      typeof data?.repository === "string" ? data.repository : data?.repository?.url;
+    return acceptNpmVersion(data?.version, repositoryUrl);
   } catch {
     return null;
   } finally {

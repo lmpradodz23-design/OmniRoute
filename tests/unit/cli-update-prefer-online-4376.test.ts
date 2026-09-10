@@ -12,7 +12,14 @@ test("getLatestVersion passes --prefer-online to bypass the stale npm cache (#43
   let capturedArgs = null;
   const fakeExec = async (cmd: string, args: string[]) => {
     capturedArgs = { cmd, args };
-    return { stdout: "3.8.31\n" };
+    // Fase 8: `version` + `repository.url` are requested together (`--json` → object) so
+    // the CLI can verify the package is published from this repository.
+    return {
+      stdout: `${JSON.stringify({
+        version: "3.8.31",
+        "repository.url": "https://github.com/LMPrado-DZ23/OmniRoute",
+      })}\n`,
+    };
   };
   const latest = await update.getLatestVersion(fakeExec);
   assert.equal(latest, "3.8.31");

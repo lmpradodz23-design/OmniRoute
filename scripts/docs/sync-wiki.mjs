@@ -40,8 +40,8 @@ const ROOT = path.resolve(__dirname, "..", "..");
 // U+2010 HYPHEN separates the locale prefix in localized wiki page names.
 const LOCALE_SEP = "‐";
 export const WIKI_BANNER = "> 🌍 [View in other languages](Languages)\n\n\n";
-export const GITHUB_REPO_URL = "https://github.com/diegosouzapw/OmniRoute";
-export const GITHUB_RAW_URL = "https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main";
+export const GITHUB_REPO_URL = "https://github.com/LMPrado-DZ23/OmniRoute";
+export const GITHUB_RAW_URL = "https://raw.githubusercontent.com/LMPrado-DZ23/OmniRoute/main";
 
 // Docs that must never become public wiki pages (internal reports/plans/index).
 export const NEW_PAGE_EXCLUDE = new Set([

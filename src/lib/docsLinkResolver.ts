@@ -1,6 +1,7 @@
 import path from "node:path";
+import { DEFAULT_BRANCH, GITHUB_REPO_URL } from "@/shared/constants/distribution";
 
-export const GITHUB_REPO_BLOB_URL = "https://github.com/diegosouzapw/OmniRoute/blob/main";
+export const GITHUB_REPO_BLOB_URL = `${GITHUB_REPO_URL}/blob/${DEFAULT_BRANCH}`;
 
 /**
  * Resolves a doc link (e.g. `../routing/AUTO-COMBO.md#14-factors`, `./RESILIENCE_GUIDE.md`,
