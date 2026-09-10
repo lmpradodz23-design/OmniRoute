@@ -70,9 +70,32 @@ Classificação: CONFIRMADO · NOVO · NÃO REPRODUZIDO · BLOQUEADO POR AMBIENT
 
 Itens de segurança (SSRF, plugins, IPC, supply chain, MCP `_meta.scopes`) estão em `03-SECURITY-FINDINGS.md`; lacunas de produto em `04-PRODUCT-GAPS.md`.
 
-## 4. Arquivos gigantes
+## 4. Arquivos gigantes (adendo — auditor de qualidade)
 
-Consolidação final da tabela (15 maiores por linhas + responsabilidades misturadas) pendente do auditor de arquitetura — adendo será anexado. Já confirmado: `open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/browser-worker.ts` **4.397 linhas**; `src/app/(dashboard)/dashboard/combos/page.tsx` >4.000 linhas (referências `:4018`); `open-sse/services/combo.ts` >3.000 linhas; `open-sse/services/chatCore.ts` >5.500 linhas; `open-sse/utils/stream.ts` ~3.000 linhas; `electron/main.js` >1.250 linhas.
+**174 arquivos não-teste com >800 linhas.** Maiores: `open-sse/handlers/chatCore.ts` **5.983**; `src/app/(dashboard)/dashboard/combos/page.tsx` **5.065**; `open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/browser-worker.ts` **4.397**; `open-sse/services/combo.ts` **4.079**; `src/sse/services/auth.ts` **3.368**; `imageGeneration.ts` 3.258; `open-sse/utils/stream.ts` 3.064; `providers/[id]/models/route.ts` 2.431; `electron/main.js` >1.250. Testes: `combo-routing-engine.test.ts` 3.624, `chatcore-translation-paths.test.ts` 3.440. O gate `check-file-size.mjs` **falha localmente** (3 acima do congelado: `src/lib/db/apiKeys.ts` 1666>1625, `src/lib/db/core.ts` 1774>1745, `open-sse/mcp-server/server.ts` 1574>1572) e o baseline acumula **>400 chaves `_rebaseline_*`** — a cadência de rebaseline neutraliza o gate. Em PR o modo base-aware mascara; nightly fica vermelho.
+
+## 4b. Qualidade de código e gates (adendo — auditor de qualidade, exit codes reais)
+
+| Gate | Resultado | Nota |
+|---|---|---|
+| `tsc` open-sse / core / api / dashboard | 0 / 0 (só 27 arquivos) / 289 (0 regressões) / **207 vs baseline 324** | dashboard pode apertar 117 (F20) |
+| `check:cycles` | **FAIL local** — 1 SCC de **33 arquivos** em `src/lib/db/**` (`core.ts`, `apiKeys.ts`, `providers.ts`, `models.ts`, `proxies.ts`, `repositories/*`) + `src/lib/compliance/noLog.ts`. É um `run:` **bloqueante** em `ci.yml:129` (sem `continue-on-error`), porém a CI Linux da `release/v3.8.51` neste mesmo HEAD estava **verde** → o FAIL é muito provavelmente **diferença de ambiente Windows** no detector (separadores/case). Classificação: **BLOQUEADO POR AMBIENTE / verificar em Linux** (F1). O acoplamento circular em si é real e fica como IMPROVEMENT de arquitetura. |
+| `check:file-size` | **FAIL local** (3 overages) — bloqueante em `ci.yml:137`, mas em PR o modo base-aware mascara; só nightly/non-PR fica vermelho (F2) | ver §4 |
+| `type-coverage` | gate crasha no Windows (`.bin` ENOENT); direto = **95,27 %** (baseline 76,81) | F7 |
+| `knip` (dead code) | 345 símbolos mortos (baseline 377); 0 arquivos mortos; **27/251 scripts** sem referência | F12 |
+| `check:complexity-ratchets` | OK (2763/1244 vs 3218/1437) | — |
+| `prettier --check` (`--end-of-line auto`) | **361 arquivos** com drift real; sem script/gate `format:check` em CI | F6 |
+| eslint (amostra 2.804 arquivos, `--max-warnings=0`) | 0/0 — mas `config/quality/eslint-suppressions.json` congela **5.146 violações em 1.050 arquivos** (`no-explicit-any` 3.744, `no-unused-vars` 1.338) | "0 warnings" é nominal (F5) |
+| `docs-counts` | 2 drifts *soft* ("executors 109" ausente em `docs/architecture/ARCHITECTURE.md` e `CODEBASE_DOCUMENTATION.md`) | F22 |
+| `any-budget`, `test-masking`, `test-discovery`, `test-runner-api`, `changelog`, `env-doc` | PASS | discovery: 5.544 arquivos, 9 órfãos congelados |
+
+**TypeScript (F4/F5):** `strict:false` em todos os tsconfigs; `ignoreBuildErrors:true`. Sem typecheck algum: `electron/`, `packages/browser-pool`, `scripts/`, `tests/`, `bin/`; `src/lib|shared|sse|server` só transitivamente. **25 arquivos `@ts-nocheck` (~7.000 linhas)** incluindo caminhos sensíveis: `open-sse/utils/proxyFetch.ts:1` (proxy/SSRF), `open-sse/services/tokenRefresh.ts:1` + **14 providers** em `tokenRefresh/providers/*` (OAuth refresh), `casGuard.ts`, `circuitBreaker.ts`, `src/lib/tokenHealthCheck*.ts` (3), `src/lib/usage/migrations.ts`, `open-sse/executors/bedrock.ts`, `wildcardRouter.ts`. Escapes: `: any` 1.179 · `as any` 299 · `as unknown as` 316 · `@ts-ignore` 24 (19 em `open-sse/mcp-server/server.ts:1174-1462`) · `@ts-expect-error` 5.
+
+**Testes (F3/F16/F19/F21):** `vitest.config.ts` `exclude` tem **64 entradas "#8618 pre-existing failure"** — **63 arquivos de teste existem e nunca executam** (`tests/unit/ui/*.test.tsx`, `open-sse/services/autoCombo/__tests__/*`, `src/app/(dashboard)/**/__tests__/*`); `check-test-discovery.mjs:26` não modela `exclude`. `npm test` **não usa `--test-force-exit`** (só `test:unit`); 2 portas fixas em `tests/unit/services/portProbePid.test.ts:118,164`; 18 `.skip` (3 de resiliência em `tests/integration/resilience-http-e2e.test.ts:631,667,706`); `vitest.config.ts:23` inclui `tests/unit/encryption.test.ts` inexistente. Cobertura (baseline): statements/lines **67,33 %**, functions 72,02, branches 65,08; gate c8 60 %; mutation baixo em `chatCore/comboContextCache.ts` 11,35, `memorySkillsInjection.ts` 11,24, `upstreamTimeouts.ts` 27,5, `src/sse/services/auth.ts` 43,81.
+
+**Erros e rede (F13/F14/F15):** **205 `catch {}` vazios** (+~301 só com comentário) — críticos: `src/lib/db/encryption.ts:111` (falha ao ler `STORAGE_ENCRYPTION_KEY` do `.env` vira `undefined` silencioso), `open-sse/mcp-server/httpTransport.ts:40,309`, `open-sse/utils/proxyDispatcher.ts:225`, `proxyDispatcherCache.ts:104`, `streamFailureFinalization.ts:136`, `textualToolCall.ts:100`. 1.599 `fetch(` não-teste, só 47 com `signal` na linha; `open-sse/handlers/audioTranscription.ts` (20) e `audioSpeech.ts` (17), `src/lib/oauth/services/kiro.ts` (9) sem `signal`; `proxyFetch.ts:29` documenta "bare originalFetch — NO timeout". 271 `.then(` sem `.catch`; `no-floating-promises` ausente dos eslint configs.
+
+**Duplicidade (F11):** 17 `open-sse/services/*QuotaFetcher.ts` = 5.350 linhas; **16 repetem** o mesmo boilerplate de cache+sweep → extrair `createTtlQuotaCache()`.
 
 ## 5. Pontos fortes (para preservar)
 

@@ -44,6 +44,20 @@ HEAD auditado: `2a156c73812d45119d5a06a2f55d611280442860` · Fontes: auditor de 
 | S-6 | MEDIUM | CONFIRMADO | `memory/genericBackend.ts:269` (`:62-73` só IP literal); `api/translator/send/route.ts:99`; `api/v1/rerank/route.ts:183,:202`; `agentSkills/catalog.ts:207` (`schemas.ts:16`); `versionManager/healthMonitor.ts:17`; `notion/api.ts:101`; `telegram/botApi.ts:56`; `cloudAgent/agents/{cursor:80,codex:35,devin:29}` | Cliente outbound seguro único |
 | — | — | LIMPO | `openapi/try:126`, `traffic-inspector replay:43`, `skills/marketplace:44`, `localHealthCheck:118`, `playground/improve-prompt:85`; `safeOutboundFetch.ts` e `providers/validation/transport.ts:111` sólidos (herdam só S-2) | — |
 
+**Status após a execução da Fase 1 §4 (branch `fix/final-user-readiness`):**
+
+| id | Estado | Commits | Evidência |
+|---|---|---|---|
+| S-2 | **CORRIGIDO** | `33b7f20ee` | `tests/unit/private-host-guard-gaps.test.ts` (59) — FQDN root dot, formas numéricas não canônicas, `::/96`, paridade com `isPrivateRelayHostname` |
+| S-1 | **CORRIGIDO** | `4d1d5bff3`, `6afbb8692` | `tests/unit/webhook-dispatcher-ssrf.test.ts` (10), `webhook-abort-timer-cleanup` reescrito, `webhook-test-ssrf-rebinding` (13) |
+| S-4 | **CORRIGIDO** | `4a151fb94` | `src/lib/auth/oidcDiscovery.ts` + `tests/unit/oidc-discovery.test.ts` (26); residual LOW: `jose.createRemoteJWKSet` (JWKS) usa fetch próprio, não pinado |
+| S-3 | **CORRIGIDO** | `e690a5bfa` | `tests/unit/gamification-servers-ssrf.test.ts` (13); validação na escrita + `FederationUrlError` → 400 |
+| S-5 | **CORRIGIDO** | `d4efe67c4`, `81e8da215`, `9012ea229`, `3b1cf11ba` | `guardedFetch` (11), `obsidian-ssrf` (14), `qdrant-routes` (stand-in loopback + metadata + redirect), `generic-backend` vitest (38) |
+| S-6 | **CORRIGIDO** | `71cc9b5d1`, `9138b87ea`, `da3d0892e`, `b3c604c97`, + rerank/translator/agentSkills (ver log) | `healthMonitor` (13), `cloud-agent-outbound-guard` (3) + `cursor-4227` stand-in, `telegram-botapi-outbound-guard` (4, token nunca vaza), `local-rerank-logging` (5), `translator-send-outbound-guard` (4); trava estrutural `tests/unit/outbound-sinks-no-bare-fetch.test.ts` (17 sinks + 2 clientes) |
+| **NOVO (S-7)** | **CORRIGIDO** | `a085e638b` | **Bug funcional real**: o `lookup` pinado (desde `7488e1cbf`) respondia só a forma legada; com `autoSelectFamily` (Node ≥ 20) todo alvo por **hostname** falhava ("Invalid IP address: undefined") em S-1/S-3/S-4/S-5 — `pinnedLookup()` compartilhado + `tests/unit/pinned-lookup-hostname.test.ts` (4, prova viva com Host header preservado) |
+
+Política adotada para integrações configuradas pelo operador (Obsidian, Qdrant, memory backends, tools do version manager, Bot API do Telegram, cloud agents, rerank local, translator/send): `areIntegrationPrivateUrlsAllowed()` = mesma precedência local-first dos providers (`getProviderOutboundGuard() !== "public-only"`); **metadata de nuvem nunca**, redirects nunca seguidos, conexão pinada ao endereço validado. Webhooks/federação/OIDC mantêm a política estrita (`arePrivateProviderUrlsAllowed`, opt-in explícito).
+
 ### 2.3 RCE / traversal / plugins (Fase 3)
 | id | Sev. | Class. | Evidência | Correção |
 |---|---|---|---|---|
