@@ -336,7 +336,7 @@ Combo: "always-on"                         strategy: priority
 | Платформа                 | Установка                                | Плюсы                          |
 | ------------------------- | ---------------------------------------- | ------------------------------ |
 | 📦 **npm (global)**       | `npm install -g omniroute`               | Одна команда, любая ОС         |
-| 🐳 **Docker**             | `docker run … diegosouzapw/omniroute`    | **AMD64 + ARM64**              |
+| 🐳 **Docker**             | `docker run … ghcr.io/lmprado-dz23/omniroute`    | **AMD64 + ARM64**              |
 | 🖥️ **Desktop (Electron)** | `npm run electron:build`                 | Окно + tray — Win/macOS/Linux  |
 | 💪 **ARM**                | native `arm64`                           | Pi, ARM servers, Apple Silicon |
 | 📱 **Android (Termux)**   | `pkg install nodejs && npx -y omniroute` | На телефоне 24/7, без root     |
@@ -527,7 +527,7 @@ Ollama tags:      http://localhost:20128/vscode/YOUR_KEY/api/tags
 
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 **🛠️ Из исходников**
@@ -624,7 +624,7 @@ IDE/CLI: `http://localhost:20128/v1` · API Key: любая строка (есл
 </table>
 </div>
 
-> 🎬 **Сняли видео про OmniRoute?** Откройте [issue](https://github.com/diegosouzapw/OmniRoute/issues/new) или [discussion](https://github.com/diegosouzapw/OmniRoute/discussions) — добавим в этот раздел.
+> 🎬 **Сняли видео про OmniRoute?** Откройте [issue](https://github.com/LMPrado-DZ23/OmniRoute/issues/new) или [discussion](https://github.com/LMPrado-DZ23/OmniRoute/discussions) — добавим в этот раздел.
 
 <br/>
 
@@ -761,8 +761,8 @@ Combo: "free-tier-fallback"
 > 💬 Ссылки Discord / Telegram / WhatsApp — [в шапке README](#-сообщество).
 
 - 🌍 **Сайт:** [omniroute.online](https://omniroute.online)
-- 🐙 **GitHub:** [github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)
-- 🐛 **Issues:** [сообщить о баге](https://github.com/diegosouzapw/OmniRoute/issues) (с `npm run system-info`)
+- 🐙 **GitHub:** [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)
+- 🐛 **Issues:** [сообщить о баге](https://github.com/LMPrado-DZ23/OmniRoute/issues) (с `npm run system-info`)
 - 🤝 **Contributing:** [CONTRIBUTING.md](../../../CONTRIBUTING.md) или label `good first issue`
 
 </div>

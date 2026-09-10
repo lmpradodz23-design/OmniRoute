@@ -19,7 +19,7 @@ Terima kasih atas minat Anda untuk berkontribusi! Panduan ini mencakup semua yan
 ### Kloning & Instalasi
 
 ```bash
-git clone https://github.com/diegosouzapw/OmniRoute.git
+git clone https://github.com/LMPrado-DZ23/OmniRoute.git
 cd OmniRoute
 npm install
 ```
@@ -307,5 +307,5 @@ Rilis dikelola melalui alur kerja `/generate-release`. Ketika GitHub Release bar
 
 - **Arsitektur**: Lihat [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md)
 - **Referensi API**: Lihat [`docs/reference/API_REFERENCE.md`](docs/reference/API_REFERENCE.md)
-- **Masalah**: [github.com/diegosouzapw/OmniRoute/issues](https://github.com/diegosouzapw/OmniRoute/issues)
+- **Masalah**: [github.com/LMPrado-DZ23/OmniRoute/issues](https://github.com/LMPrado-DZ23/OmniRoute/issues)
 - **ADR**: Lihat `docs/adr/` untuk catatan keputusan arsitektur

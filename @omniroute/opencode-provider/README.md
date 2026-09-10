@@ -18,7 +18,7 @@
 >
 > This package is **not removed** and still works for static/offline config generation, but it is no longer actively recommended and won't track new models automatically.
 
-Helper for connecting [OpenCode](https://opencode.ai) to a running [OmniRoute](https://github.com/diegosouzapw/OmniRoute) AI gateway.
+Helper for connecting [OpenCode](https://opencode.ai) to a running [OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute) AI gateway.
 
 The package emits a **schema-valid entry** for `opencode.json` (`https://opencode.ai/config.json`) that delegates the actual runtime to [`@ai-sdk/openai-compatible`](https://www.npmjs.com/package/@ai-sdk/openai-compatible). It does not ship any new HTTP client — OmniRoute already exposes an OpenAI-compatible surface, and OpenCode already speaks it through the AI SDK.
 
@@ -147,7 +147,7 @@ Duplicates and empty strings are dropped automatically, and order is preserved.
 
 ## Related
 
-- [OmniRoute](https://github.com/diegosouzapw/OmniRoute) — the AI gateway this plugin targets.
+- [OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute) — the AI gateway this plugin targets.
 - [OpenCode](https://opencode.ai) — the agentic CLI consumer.
 - [`@ai-sdk/openai-compatible`](https://www.npmjs.com/package/@ai-sdk/openai-compatible) — the runtime delegate that actually speaks HTTP.
 

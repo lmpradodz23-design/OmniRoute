@@ -9,7 +9,7 @@
 | --- | --- |
 | Diretório | `C:\Users\zodyp\Downloads\OmniRoute-Unified\repos\OmniRoute-v3851-port` |
 | Remote autorizado | `myfork` = https://github.com/lmpradodz23-design/OmniRoute.git |
-| Remote upstream | `origin` = https://github.com/diegosouzapw/OmniRoute.git (partial clone) |
+| Remote upstream | `origin` = https://github.com/LMPrado-DZ23/OmniRoute.git (partial clone) |
 | Branch da missão | `security/remediation-v3.8.51` (criada a partir do SHA exato) |
 | HEAD base | `b345c7f6cd4e1590d1177540813302375a75e332` |
 | Confirma SHA remoto esperado | **SIM** — `release/v3.8.51` no myfork == `b345c7f6c` |

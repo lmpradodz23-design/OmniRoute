@@ -9,7 +9,7 @@
 Jika Anda menemukan kerentanan keamanan di OmniRoute, harap laporkan secara bertanggung jawab:
 
 1. **JANGAN** membuka isu GitHub yang bersifat publik
-2. Gunakan [GitHub Security Advisories](https://github.com/diegosouzapw/OmniRoute/security/advisories/new)
+2. Gunakan [GitHub Security Advisories](https://github.com/LMPrado-DZ23/OmniRoute/security/advisories/new)
 3. Sertakan: deskripsi, langkah-langkah reproduksi, dan potensi dampak
 
 ## Linimasa Respons
@@ -165,7 +165,7 @@ docker run -d \
   -e JWT_SECRET="$(openssl rand -base64 48)" \
   -e API_KEY_SECRET="$(openssl rand -hex 32)" \
   -e STORAGE_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
-  diegosouzapw/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ---

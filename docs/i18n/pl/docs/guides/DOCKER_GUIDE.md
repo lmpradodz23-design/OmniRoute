@@ -34,7 +34,7 @@ docker run -d \
   --stop-timeout 40 \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  diegosouzapw/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ## Z plikiem środowiskowym
@@ -50,7 +50,7 @@ docker run -d \
   --env-file .env \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  diegosouzapw/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ## Docker Compose
@@ -206,14 +206,14 @@ zmienną środowiskową runtime.
 
 ### Wstępnie zbudowany obraz root + podścieżka w runtime
 
-Opublikowane obrazy `diegosouzapw/omniroute:*` są budowane pod root domeny. Nadal możesz
+Opublikowane obrazy `ghcr.io/lmprado-dz23/omniroute:*` są budowane pod root domeny. Nadal możesz
 ustawić `OMNIROUTE_BASE_PATH` w runtime; kontener jednorazowo patchuje bundel przy starcie.
 Połącz to z pasującym publicznym originem:
 
 ```yaml
 services:
   omniroute:
-    image: diegosouzapw/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:latest
     environment:
       OMNIROUTE_BASE_PATH: /omniroute
       NEXT_PUBLIC_BASE_URL: https://myhostname.example.com/omniroute
@@ -236,7 +236,7 @@ OmniRoute można bezpiecznie udostępnić dzięki automatycznemu provisionowaniu
 ```yaml
 services:
   omniroute:
-    image: diegosouzapw/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:latest
     container_name: omniroute
     restart: unless-stopped
     volumes:
@@ -288,8 +288,8 @@ Panele tuneli endpointów (Cloudflare, Tailscale, ngrok) można pokazywać lub u
 
 | Obraz                    | Tag      | Rozmiar | Opis                       |
 | ------------------------ | -------- | ------- | -------------------------- |
-| `diegosouzapw/omniroute` | `latest` | ~250MB  | Najnowsze stabilne wydanie |
-| `diegosouzapw/omniroute` | `3.8.0`  | ~250MB  | Bieżąca wersja             |
+| `ghcr.io/lmprado-dz23/omniroute` | `latest` | ~250MB  | Najnowsze stabilne wydanie |
+| `ghcr.io/lmprado-dz23/omniroute` | `3.8.0`  | ~250MB  | Bieżąca wersja             |
 
 Manifest multi-platform: natywne `linux/amd64` + `linux/arm64` (Apple Silicon, AWS Graviton, Raspberry Pi). Docker automatycznie wybiera pasującą architekturę; podaj `--platform linux/amd64`, jeśli musisz wymusić emulację AMD64 na hostach ARM.
 

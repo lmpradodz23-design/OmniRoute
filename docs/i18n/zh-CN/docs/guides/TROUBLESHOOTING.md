@@ -473,7 +473,7 @@ v3.8.0 版本特有的问题及其当前临时方案。如果后续补丁中得�
 
 ## 仍然卡住了？
 
-- **GitHub Issues**: [github.com/diegosouzapw/OmniRoute/issues](https://github.com/diegosouzapw/OmniRoute/issues)
+- **GitHub Issues**: [github.com/LMPrado-DZ23/OmniRoute/issues](https://github.com/LMPrado-DZ23/OmniRoute/issues)
 - **架构**：内部细节请参见 [`docs/architecture/ARCHITECTURE.md`](../../../../docs/architecture/ARCHITECTURE.md)
 - **API 参考**：所有端点请参见 [`docs/reference/API_REFERENCE.md`](../../../../docs/reference/API_REFERENCE.md)
 - **健康仪表盘**：在 **仪表盘 → Health** 中查看实时系统状态

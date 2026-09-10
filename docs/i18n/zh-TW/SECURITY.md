@@ -5,7 +5,7 @@
 如果您在 OmniRoute 中發現安全漏洞，請以負責任的方式回報：
 
 1. **請勿**在 GitHub 上建立公開 Issue
-2. 請使用 [GitHub 安全性公告](https://github.com/diegosouzapw/OmniRoute/security/advisories/new)
+2. 請使用 [GitHub 安全性公告](https://github.com/LMPrado-DZ23/OmniRoute/security/advisories/new)
 3. 內容需包含：說明、重現步驟及潛在影響
 
 ## 回應時程
@@ -178,7 +178,7 @@ docker run -d \
   -e JWT_SECRET="$(openssl rand -base64 48)" \
   -e API_KEY_SECRET="$(openssl rand -hex 32)" \
   -e STORAGE_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
-  diegosouzapw/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ---

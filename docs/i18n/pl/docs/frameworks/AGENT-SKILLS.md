@@ -20,7 +20,7 @@ Katalog zawiera **42 kanoniczne Agent Skills** (22 REST API + 20 CLI). Każdy sk
 - **Kanoniczne ID** (`omni-auth`, `cli-serve` itd.)
 - Plik **SKILL.md** w `skills/{id}/SKILL.md` z frontmatterem YAML (`name`, `description`) + bogatą treścią markdown
 - **Endpointy REST** (skills API) lub **podkomendy CLI** (skills CLI) wyprowadzone ze specyfikacji OpenAPI i rejestru CLI
-- **Surowy URL GitHub** do pobrania na żywo: `https://raw.githubusercontent.com/diegosouzapw/OmniRoute/refs/heads/main/skills/{id}/SKILL.md`
+- **Surowy URL GitHub** do pobrania na żywo: `https://raw.githubusercontent.com/LMPrado-DZ23/OmniRoute/refs/heads/main/skills/{id}/SKILL.md`
 
 ---
 
@@ -239,7 +239,7 @@ table = resp.json()["result"]["artifacts"][0]["content"]
 ### 4. Bezpośrednie pobranie raw z GitHuba (bez serwera)
 
 ```bash
-BASE="https://raw.githubusercontent.com/diegosouzapw/OmniRoute/refs/heads/main/skills"
+BASE="https://raw.githubusercontent.com/LMPrado-DZ23/OmniRoute/refs/heads/main/skills"
 curl "${BASE}/omni-providers/SKILL.md"
 ```
 

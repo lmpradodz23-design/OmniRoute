@@ -72,7 +72,7 @@ docker rm omniroute
 docker volume rm omniroute-data
 
 # (Optional) Remove the image
-docker rmi diegosouzapw/omniroute:latest
+docker rmi ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ### Docker Compose
