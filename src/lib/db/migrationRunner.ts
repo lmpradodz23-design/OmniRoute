@@ -30,6 +30,7 @@ import { getExtraMigrationFiles } from "./migrationRunner/extraDirs";
 import { migrationConsole as console } from "./migrationRunner/logger";
 import {
   createPreMigrationBackup,
+  describeRestorePoint,
   hashFileSync,
   type PreMigrationBackupReceipt,
 } from "./migrationRunner/preMigrationBackup";
@@ -1103,6 +1104,14 @@ export function runMigrations(
         );
       } else {
         console.error(`[Migration] FAILED: ${migration.version}_${migration.name} — ${message}`);
+        if (preMigrationBackup) {
+          // The per-file transaction already rolled this migration back; what the operator
+          // still needs is WHICH snapshot restores the pre-upgrade state (R-1). Keep the
+          // original error object (driver type/code) and extend its message.
+          const restorePoint = describeRestorePoint(preMigrationBackup);
+          console.error(`[Migration] ${restorePoint}`);
+          if (err instanceof Error) err.message = `${err.message}. ${restorePoint}`;
+        }
         throw err;
       }
     }

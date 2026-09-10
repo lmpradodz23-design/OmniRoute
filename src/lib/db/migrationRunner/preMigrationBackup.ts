@@ -11,6 +11,24 @@ export type PreMigrationBackupReceipt = {
   sha256: string;
 };
 
+/**
+ * Operator-facing rollback hint for a failed migration. Migrations have no down
+ * scripts, so rolling an upgrade back IS restoring this snapshot: name the exact file,
+ * its content hash (restoreDbBackup re-verifies it against the name) and the three
+ * supported restore paths, so a failed startup never leaves the operator guessing which
+ * of many `db_backups/` entries is the pre-upgrade state.
+ */
+export function describeRestorePoint(receipt: PreMigrationBackupReceipt): string {
+  const id = path.basename(receipt.path);
+  return (
+    `Restore point (pre-migration snapshot, sha256 ${receipt.sha256}): ${receipt.path}. ` +
+    `Roll back by restoring "${id}" from Dashboard → Storage → Backups, ` +
+    `via POST /api/db-backups {"backupId":"${id}"}, or by stopping OmniRoute and copying ` +
+    `the snapshot over the database file (then remove its -wal/-shm sidecars). ` +
+    `See docs/ops/DATABASE_GUIDE.md § "Rolling back a failed migration".`
+  );
+}
+
 function fsyncDirectoryEntry(directory: string): void {
   let fd: number | null = null;
   try {

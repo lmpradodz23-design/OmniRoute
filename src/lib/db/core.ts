@@ -1312,7 +1312,19 @@ export function getDbInstance(): SqliteDatabase {
     VALUES ('001', 'initial_schema');
   `);
 
-  runMigrations(db, { isNewDb, databaseExistedBeforeInitialization });
+  try {
+    runMigrations(db, { isNewDb, databaseExistedBeforeInitialization });
+  } catch (error) {
+    // A failed upgrade must leave the database file closed: the restore point named in
+    // the error is applied by replacing that file, and a leaked open handle blocks the
+    // unlink/copy on Windows and inside the Electron host (which outlives this failure).
+    try {
+      db.close();
+    } catch {
+      // The migration failure stays authoritative.
+    }
+    throw error;
+  }
   // Fresh installs need the same post-migration index guarantee as upgraded
   // databases, including recovery from an interrupted migration 127 attempt.
   ensureUsageHistoryAccountIndex(db);

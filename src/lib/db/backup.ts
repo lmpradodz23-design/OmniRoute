@@ -411,6 +411,23 @@ export async function restoreDbBackup(backupId: string) {
     throw new Error(`Backup not found: ${backupId}`);
   }
 
+  // Pre-migration snapshots are content-addressed (db_state-<sha256>_pre-migration.sqlite,
+  // see migrationRunner/preMigrationBackup.ts). The integrity check below only proves the
+  // file is a well-formed SQLite database; re-hashing proves it is still the exact image
+  // the failed upgrade named as its restore point, so a swapped or truncated snapshot is
+  // refused before the live database is replaced.
+  const contentAddress = backupId.match(/^db_state-([0-9a-f]{64})_pre-migration\.sqlite$/);
+  if (contentAddress) {
+    const { hashFileSync } = await import("@/lib/db/migrationRunner/preMigrationBackup");
+    const actual = hashFileSync(backupPath);
+    if (actual !== contentAddress[1]) {
+      throw new Error(
+        `Backup content does not match its content address: ${backupId} ` +
+          `(expected sha256 ${contentAddress[1]}, found ${actual})`
+      );
+    }
+  }
+
   // Validate backup integrity
   try {
     const { tryOpenSync } = await import("@/lib/db/adapters/driverFactory");
