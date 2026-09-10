@@ -35,6 +35,9 @@ test.beforeEach(() => {
 });
 
 test.after(() => {
+  // Close the SQLite handle before removing the dir — otherwise Windows rmSync EPERMs on the
+  // still-open DB file (the last test's connection outlives beforeEach's reset).
+  core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   if (ORIGINAL_JWT === undefined) delete process.env.JWT_SECRET;
   else process.env.JWT_SECRET = ORIGINAL_JWT;
@@ -450,4 +453,63 @@ test("managementPolicy: rejects remote inspector ingest as LOCAL_ONLY (D4)", asy
   if (!out.allow) {
     assert.equal(out.code, "LOCAL_ONLY");
   }
+});
+
+// ─── #2: LOCAL_ONLY is LOOPBACK-ONLY — a private-LAN peer no longer bypasses it ───
+//
+// A LAN device (real socket peer 192.168.x) previously skipped the whole LOCAL_ONLY gate and
+// fell through to the requireLogin=false anonymous allow, driving install/spawn/config routes
+// with no credential. The gate now treats LAN exactly like any other non-loopback caller.
+
+const LAN_PEER = { socket: { remoteAddress: "192.168.1.50" } };
+
+test("#2 LAN + LOCAL_ONLY spawn route + requireLogin=false → 403 (no anonymous host control)", async () => {
+  await settingsDb.updateSettings({ requireLogin: false });
+  const policy = await loadPolicy();
+  const out = await policy.evaluate(
+    ctx(new Headers(), "POST", "/api/cli-tools/runtime/foo", LAN_PEER)
+  );
+  assert.equal(out.allow, false, "anonymous LAN must NOT reach a spawn-capable LOCAL_ONLY route");
+  if (!out.allow) {
+    assert.equal(out.status, 403);
+    assert.equal(out.code, "LOCAL_ONLY");
+  }
+});
+
+test("#2 LAN + bypassable LOCAL_ONLY (/api/mcp) + no auth → 403", async () => {
+  await settingsDb.updateSettings({ requireLogin: false });
+  const policy = await loadPolicy();
+  const out = await policy.evaluate(ctx(new Headers(), "GET", "/api/mcp/stream", LAN_PEER));
+  assert.equal(out.allow, false);
+  if (!out.allow) assert.equal(out.code, "LOCAL_ONLY");
+});
+
+test("#2 LAN + bypassable LOCAL_ONLY (/api/mcp) + manage key → allow (authenticated TRUSTED_LAN)", async () => {
+  process.env.JWT_SECRET = "test-jwt-secret-for-mgmt-policy";
+  process.env.INITIAL_PASSWORD = "initial-pass";
+  await settingsDb.updateSettings({ requireLogin: true });
+  const created = await apiKeysDb.createApiKey("lan-manage", "machine-lan-manage", ["manage"]);
+  const policy = await loadPolicy();
+  const out = await policy.evaluate(
+    ctx(new Headers({ authorization: `Bearer ${created.key}` }), "GET", "/api/mcp/stream", LAN_PEER)
+  );
+  assert.equal(out.allow, true, "an authenticated manage key from LAN reaches the bypassable subset");
+});
+
+test("#2 LAN + spawn route + manage key → 403 (host control stays loopback-only even with auth)", async () => {
+  process.env.JWT_SECRET = "test-jwt-secret-for-mgmt-policy";
+  process.env.INITIAL_PASSWORD = "initial-pass";
+  await settingsDb.updateSettings({ requireLogin: true });
+  const created = await apiKeysDb.createApiKey("lan-manage-2", "machine-lan-manage-2", ["manage"]);
+  const policy = await loadPolicy();
+  const out = await policy.evaluate(
+    ctx(
+      new Headers({ authorization: `Bearer ${created.key}` }),
+      "POST",
+      "/api/cli-tools/runtime/foo",
+      LAN_PEER
+    )
+  );
+  assert.equal(out.allow, false, "a spawn route is never reachable from LAN, even authenticated");
+  if (!out.allow) assert.equal(out.code, "LOCAL_ONLY");
 });

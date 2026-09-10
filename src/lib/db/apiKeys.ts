@@ -10,6 +10,7 @@ import { registerDbStateResetter } from "./stateReset";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
 import { getKeyGroupsForApiKey, checkKeyModelAccess } from "./apiKeyGroups";
 import { API_KEY_COLUMN_FALLBACKS } from "./apiKeyColumnFallbacks";
+import { decrypt, encrypt, encryptSensitive, isEncryptionEnabled } from "./encryption";
 import {
   appendUsageLimitUpdates,
   hasUsageLimitUpdate,
@@ -437,11 +438,13 @@ function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
     _stmtDb = db;
     _stmtGetAllKeys = db.prepare<ApiKeyRow>("SELECT * FROM api_keys ORDER BY created_at");
     _stmtGetKeyById = db.prepare<ApiKeyRow>("SELECT * FROM api_keys WHERE id = ?");
+    // #7: validate by hash ONLY — the recoverable plaintext `key` column is no longer needed for
+    // auth (and is now encrypted at rest), so the DB/backup holds no usable key.
     _stmtValidateKey = db.prepare<JsonRecord>(
-      "SELECT id, expires_at, revoked_at, is_active, is_banned FROM api_keys WHERE key = ? OR key_hash = ?"
+      "SELECT id, expires_at, revoked_at, is_active, is_banned FROM api_keys WHERE key_hash = ?"
     );
     _stmtGetKeyMetadata = db.prepare<ApiKeyRow>(
-      "SELECT id, name, machine_id, model_access_mode, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, cache_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, chaos_mode_enabled, compression_enabled, proxy_id FROM api_keys WHERE key = ? OR key_hash = ?"
+      "SELECT id, name, machine_id, model_access_mode, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, cache_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, chaos_mode_enabled, compression_enabled, proxy_id FROM api_keys WHERE key_hash = ?"
     );
     _stmtInsertKey = db.prepare(
       "INSERT INTO api_keys (id, name, key, machine_id, model_access_mode, allowed_models, allowed_combos, allowed_connections, no_log, created_at, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -482,6 +485,9 @@ export async function getApiKeys(limit?: number, offset?: number) {
   }
   return rows.map((row) => {
     const camelRow = toRecord(rowToCamel(row)) as ApiKeyView;
+    // #7: key is encrypted at rest — decrypt for internal reuse/masking. A stale/absent key yields
+    // null (unusable) instead of exposing ciphertext.
+    if (typeof camelRow.key === "string") camelRow.key = decrypt(camelRow.key) as string;
     camelRow.modelAccessMode = parseModelAccessMode(
       camelRow.modelAccessMode,
       camelRow.allowedModels
@@ -622,6 +628,8 @@ export async function getApiKeyById(id: string) {
   const row = stmt.getKeyById.get(id);
   if (!row) return null;
   const camelRow = toRecord(rowToCamel(row)) as ApiKeyView;
+  // #7: key is encrypted at rest — decrypt for internal reuse/masking (null if stale/absent key).
+  if (typeof camelRow.key === "string") camelRow.key = decrypt(camelRow.key) as string;
   camelRow.modelAccessMode = parseModelAccessMode(camelRow.modelAccessMode, camelRow.allowedModels);
   camelRow.allowedModels = parseAllowedModels(camelRow.allowedModels);
   camelRow.blockedModels = parseAllowedModels(camelRow.blockedModels);
@@ -707,7 +715,9 @@ export async function createApiKey(
   stmt.insertKey.run(
     apiKey.id,
     apiKey.name,
-    apiKey.key,
+    // #7: store the key ENCRYPTED at rest (fail-closed in prod). Validation is by key_hash, so the
+    // recoverable plaintext is never needed for auth; the returned `apiKey.key` is the one-time reveal.
+    encryptSensitive(apiKey.key),
     apiKey.machineId,
     apiKey.modelAccessMode,
     JSON.stringify(apiKey.allowedModels),
@@ -723,6 +733,37 @@ export async function createApiKey(
 
   backupDbFile("pre-write");
   return apiKey;
+}
+
+/**
+ * #7 backfill: encrypt any API key still stored in plaintext in the `key` column (pre-migration
+ * rows). Idempotent (skips values already `enc:v1:`), transactional. No-op without an encryption
+ * key. Validation is by key_hash, so this changes only the at-rest value; the key keeps working.
+ * Runs at DB init. Returns the count migrated.
+ */
+export function encryptExistingApiKeyPlaintext(): number {
+  if (!isEncryptionEnabled()) return 0;
+  const db = getDbInstance();
+  const rows = db
+    .prepare(
+      "SELECT id, key FROM api_keys WHERE key IS NOT NULL AND key <> '' AND key NOT LIKE 'enc:v1:%'"
+    )
+    .all() as Array<{ id: string; key: string }>;
+  if (rows.length === 0) return 0;
+
+  const update = db.prepare("UPDATE api_keys SET key = ? WHERE id = ?");
+  let migrated = 0;
+  const runAll = db.transaction(() => {
+    for (const row of rows) {
+      const enc = encrypt(row.key);
+      if (typeof enc === "string" && enc.startsWith("enc:v1:")) {
+        update.run(enc, row.id);
+        migrated++;
+      }
+    }
+  });
+  runAll();
+  return migrated;
 }
 
 export async function regenerateApiKey(id: string) {
@@ -741,7 +782,7 @@ export async function regenerateApiKey(id: string) {
   const updateStmt = db.prepare(
     "UPDATE api_keys SET key = ?, key_hash = ?, key_prefix = ? WHERE id = ?"
   );
-  updateStmt.run(newKey, newHash, newPrefix, id);
+  updateStmt.run(encryptSensitive(newKey), newHash, newPrefix, id); // #7: encrypt at rest
 
   // Invalidate all caches
   clearApiKeyCaches();
@@ -1267,7 +1308,7 @@ export async function validateApiKey(key: string | null | undefined) {
 
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.validateKey.get(key, hashedKey) as JsonRecord | undefined;
+  const row = stmt.validateKey.get(hashedKey) as JsonRecord | undefined;
 
   if (!row) return false;
 
@@ -1401,7 +1442,7 @@ export async function getApiKeyMetadata(
 
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.getKeyMetadata.get(key, hashedKey);
+  const row = stmt.getKeyMetadata.get(hashedKey);
 
   if (!row) return null;
 

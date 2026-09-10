@@ -27,6 +27,21 @@ export interface ScopeCheckResult {
   reason?: string;
 }
 
+// #4: MCP scope enforcement is ON by default (fail-closed). A `mcp:connect` transport key must
+// never reach write:* / execute:* / admin:* tools just because a env var is unset. Only an
+// EXPLICIT disable value opts out (legacy migration escape hatch).
+const MCP_ENFORCE_OPT_OUT = new Set(["false", "0", "no", "off"]);
+
+/**
+ * Whether MCP per-tool scope enforcement is active. Default ON; disabled only when
+ * `OMNIROUTE_MCP_ENFORCE_SCOPES` is explicitly one of false/0/no/off.
+ */
+export function isMcpScopeEnforcementEnabled(
+  raw: string | undefined = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES
+): boolean {
+  return !MCP_ENFORCE_OPT_OUT.has(String(raw ?? "").trim().toLowerCase());
+}
+
 function normalizeScopeList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const normalized = raw

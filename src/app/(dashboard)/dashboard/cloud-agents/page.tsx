@@ -816,7 +816,12 @@ export default function CloudAgentsPage() {
                     variant="secondary"
                     size="sm"
                     onClick={() => {
-                      window.location.href = "/dashboard/providers?section=cloudagent";
+                      // The providers dashboard reads the active section from `?cat=`
+                      // (see readProviderFiltersFromUrl); `?section=` is ignored, so
+                      // the button used to dump the user on the unfiltered provider
+                      // list instead of the Cloud Agent section. `cloudagent` is the
+                      // valid category key for that section.
+                      window.location.href = "/dashboard/providers?cat=cloudagent";
                     }}
                   >
                     <span className="material-symbols-outlined text-[14px] mr-1">settings</span>

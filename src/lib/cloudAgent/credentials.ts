@@ -1,5 +1,5 @@
 import { getDbInstance } from "@/lib/db/core";
-import { encrypt, decrypt } from "@/lib/db/encryption";
+import { decrypt, encryptSensitive } from "@/lib/db/encryption";
 import type { AgentCredentials } from "@/lib/cloudAgent/baseAgent";
 
 // The `cloud_agent_credentials` table is provisioned by migration
@@ -68,7 +68,8 @@ export function saveCloudAgentCredential(
   apiKey: string,
   baseUrl?: string
 ): void {
-  const encrypted = encrypt(apiKey);
+  // #3: fail-closed in exposed/production profiles — never persist a plaintext passthrough.
+  const encrypted = encryptSensitive(apiKey);
   if (!encrypted) throw new Error("Failed to encrypt API key");
 
   const db = getDbInstance();

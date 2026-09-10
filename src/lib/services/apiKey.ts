@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { encrypt, decrypt } from "@/lib/db/encryption";
+import { decrypt, encryptSensitive } from "@/lib/db/encryption";
 import { getServiceRow, updateServiceField } from "@/lib/db/versionManager";
 
 export function generateServiceApiKey(prefix = "nr"): string {
@@ -33,7 +33,7 @@ export async function getOrCreateApiKey(tool: string): Promise<string> {
   const prefix =
     tool === "9router" ? "nr" : tool === "mux" ? "mx" : tool === "dario" ? "da" : "cp";
   const key = generateServiceApiKey(prefix);
-  await updateServiceField(tool, "apiKey", encrypt(key) ?? key);
+  await updateServiceField(tool, "apiKey", encryptSensitive(key) ?? key); // #3: fail-closed in prod
   return key;
 }
 
