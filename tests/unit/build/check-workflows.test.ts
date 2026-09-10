@@ -36,7 +36,9 @@ const readZizmorBaseline = readBaselineZizmorValue as (p?: string) => number | n
 const qualityWorkflowPath = new URL("../../../.github/workflows/quality.yml", import.meta.url);
 
 function readQualityWorkflow(): string {
-  return fs.readFileSync(qualityWorkflowPath, "utf8");
+  // A Windows checkout (core.autocrlf=true) holds CRLF; the structural regexes below are
+  // written for `\n`, so normalise — the assertions are about YAML directives, not EOLs.
+  return fs.readFileSync(qualityWorkflowPath, "utf8").replace(/\r\n/g, "\n");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

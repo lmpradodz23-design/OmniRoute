@@ -28,6 +28,9 @@ test.beforeEach(() => {
 });
 
 test.after(() => {
+  // The last test leaves the SQLite handle open; Windows refuses to remove a directory with
+  // an open file inside it (EPERM), so close before deleting.
+  core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   if (ORIGINAL_OMNIROUTE_API_KEY === undefined) delete process.env.OMNIROUTE_API_KEY;
   else process.env.OMNIROUTE_API_KEY = ORIGINAL_OMNIROUTE_API_KEY;

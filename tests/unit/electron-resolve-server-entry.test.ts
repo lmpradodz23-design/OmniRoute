@@ -45,9 +45,11 @@ describe("resolveServerEntry (#3386 — Electron 403 LOCAL_ONLY fix)", () => {
     };
     resolveServerEntry(FAKE_SERVER_DIR, existsSyncFn);
     assert.equal(checked.length, 1, "should only call existsSync once");
+    // `path.join` normalises separators per platform (`\fake\standalone` on Windows), so
+    // compare against the joined form rather than the POSIX literal.
     assert.ok(
-      checked[0].startsWith(FAKE_SERVER_DIR),
-      `checked path "${checked[0]}" should be inside serverDir "${FAKE_SERVER_DIR}"`
+      checked[0].startsWith(join(FAKE_SERVER_DIR)),
+      `checked path "${checked[0]}" should be inside serverDir "${join(FAKE_SERVER_DIR)}"`
     );
     assert.ok(
       checked[0].endsWith("server-ws.mjs"),
@@ -58,7 +60,13 @@ describe("resolveServerEntry (#3386 — Electron 403 LOCAL_ONLY fix)", () => {
   it("returns a plain filename (no directory component) in both branches", () => {
     const withWs = resolveServerEntry(FAKE_SERVER_DIR, () => true);
     const withoutWs = resolveServerEntry(FAKE_SERVER_DIR, () => false);
-    assert.ok(!withWs.includes("/") && !withWs.includes("\\"), "server-ws.mjs result must be a bare filename");
-    assert.ok(!withoutWs.includes("/") && !withoutWs.includes("\\"), "server.js result must be a bare filename");
+    assert.ok(
+      !withWs.includes("/") && !withWs.includes("\\"),
+      "server-ws.mjs result must be a bare filename"
+    );
+    assert.ok(
+      !withoutWs.includes("/") && !withoutWs.includes("\\"),
+      "server.js result must be a bare filename"
+    );
   });
 });

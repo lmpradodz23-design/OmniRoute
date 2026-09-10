@@ -256,7 +256,14 @@ async function prepareInstalledVersions(versions) {
   try {
     fs.unlinkSync(symlinkPath);
   } catch {}
-  fs.symlinkSync(path.join(binDir, "cliproxyapi-2.0.0", "CLIProxyAPI"), symlinkPath);
+  // Mirror binaryManager.installVersion(): the managed binary is a symlink on POSIX and a
+  // COPY on Windows (file symlinks need a privilege there — EPERM for a normal user).
+  const target = path.join(binDir, "cliproxyapi-2.0.0", "CLIProxyAPI");
+  if (process.platform === "win32") {
+    fs.copyFileSync(target, symlinkPath);
+  } else {
+    fs.symlinkSync(target, symlinkPath);
+  }
 }
 
 test.beforeEach(async () => {
