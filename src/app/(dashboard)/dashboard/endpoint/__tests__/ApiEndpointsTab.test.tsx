@@ -13,8 +13,20 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+// Real next-intl returns a REFERENTIALLY STABLE `t` per namespace. ApiEndpointsTab puts
+// `t` in the deps of `loadCatalog` and of its keys effect (for translated error copy),
+// so a mock that hands out a fresh closure on every render re-fires both effects after
+// each state change — an infinite /api/openapi/spec + /api/keys fetch loop that only
+// shows up once a click triggers a re-render. Cache the translator per namespace.
+const translatorCache = new Map<
+  string,
+  (key: string, values?: Record<string, unknown>) => string
+>();
+
 vi.mock("next-intl", () => ({
   useTranslations: (namespace?: string) => {
+    const cached = translatorCache.get(namespace ?? "");
+    if (cached) return cached;
     const messages: Record<string, string> = {
       "endpoint.apiEndpointsCatalogUnavailable": "API catalog unavailable",
       "endpoint.apiEndpointsSearchPlaceholder": "Search endpoints",
@@ -54,9 +66,18 @@ vi.mock("next-intl", () => ({
       "endpoint.executing": "Executing",
       "endpoint.close": "Close",
       "endpoint.openJsonResponse": "Open JSON response",
+      "endpoint.catalogStats": "{endpoints} endpoints across {categories} categories",
     };
 
-    return (key: string) => messages[`${namespace}.${key}`] || key;
+    // Mirrors next-intl's `t(key, values)` — the catalog header interpolates counts.
+    const t = (key: string, values?: Record<string, unknown>) => {
+      const message = messages[`${namespace}.${key}`] || key;
+      return values
+        ? message.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`))
+        : message;
+    };
+    translatorCache.set(namespace ?? "", t);
+    return t;
   },
 }));
 
@@ -124,7 +145,7 @@ describe("ApiEndpointsTab", () => {
 
   it("shows an API catalog error state instead of a blank page", async () => {
     fetchMock.mockImplementation(async (input) => {
-      if (input === "/api/cli-tools/keys") {
+      if (input === "/api/cli-tools/keys" || input === "/api/keys?limit=100") {
         return jsonResponse({ keys: [] });
       }
 
@@ -142,7 +163,11 @@ describe("ApiEndpointsTab", () => {
 
   it("renders catalog content when the OpenAPI catalog loads", async () => {
     fetchMock.mockImplementation(async (input) => {
-      if (input === "/api/cli-tools/keys") {
+      if (input === "/api/cli-tools/keys" || input === "/api/keys?limit=100") {
+        // Two consumers share this list shape: VscodeTokenAliasCard reads
+        // GET /api/cli-tools/keys (rawKey builds the alias URLs) and ApiEndpointsTab's
+        // Try It reads GET /api/keys?limit=100 (id + masked key; the secret is attached
+        // server-side by the Try It proxy, #7 reveal-once).
         return jsonResponse({
           keys: [{ id: "copilot", key: "sk-***", rawKey: "sk-live-123", isActive: true }],
         });
@@ -173,6 +198,9 @@ describe("ApiEndpointsTab", () => {
 
     await waitForText("VS Code Token Alias");
     await waitForText("OmniRoute API");
+    // The CLI-keys request resolves independently of the catalog; wait for the alias
+    // URLs to switch from the placeholder to the loaded key before asserting on them.
+    await waitForText("/api/v1/vscode/sk-live-123/models");
     expect(document.body.textContent).toContain("1 endpoints across 1 categories");
     expect(document.body.textContent).toContain("/api/v1/vscode/sk-live-123/models");
     expect(document.body.textContent).toContain("/api/v1/chat/completions");
@@ -181,7 +209,7 @@ describe("ApiEndpointsTab", () => {
   it("renders curl example using window.location.origin when NEXT_PUBLIC_BASE_URL is unset", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "");
     fetchMock.mockImplementation(async (input) => {
-      if (input === "/api/cli-tools/keys") {
+      if (input === "/api/cli-tools/keys" || input === "/api/keys?limit=100") {
         return jsonResponse({ keys: [] });
       }
 

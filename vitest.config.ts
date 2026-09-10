@@ -88,7 +88,6 @@ export default defineConfig({
       "tests/unit/ui/playground-structured-output-editor.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-tools-builder.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-improve-prompt-button.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "src/app/(dashboard)/dashboard/endpoint/__tests__/ApiEndpointsTab.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/compression-combos-routing-mode-6760.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/use-local-storage-pool-migration.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/waterfallInspector.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
