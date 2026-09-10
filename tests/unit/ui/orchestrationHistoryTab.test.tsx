@@ -6,7 +6,7 @@
  */
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (k: string, v?: Record<string, unknown>) =>
@@ -46,17 +46,27 @@ async function flush(n = 6) {
   }
 }
 
+const NOW = Date.parse("2026-09-01T12:00:00Z");
+const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60 * 1000).toISOString();
+/** Relative to whatever the component sees as "now" — kept for assertions that must hold
+ * inside the 1d window too. With the clock pinned below this equals `hoursAgo`. */
+const realHoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+
+// The component derives its 1d/7d/30d window from `Date.now()`, while the fixtures above
+// are anchored to the fixed `NOW`. Left unpinned, every fixture silently aged out of the
+// default 7d window a week after this file was written and the tab rendered
+// `historyEmpty` — a time bomb, not a product regression. Fake ONLY `Date` so the
+// microtask `flush()` helper keeps draining real promise chains.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: NOW });
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   document.body.innerHTML = "";
   drawerCalls.length = 0;
   vi.unstubAllGlobals();
 });
-
-const NOW = Date.parse("2026-09-01T12:00:00Z");
-const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60 * 1000).toISOString();
-/** Relative to the REAL clock — for assertions that must hold inside the 1d window too
- * (the component derives its range from `Date.now()`, not from the fixed `NOW` above). */
-const realHoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
 
 function mockFetch(opts: {
   a2aTasks?: unknown[];
