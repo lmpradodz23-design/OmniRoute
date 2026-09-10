@@ -65,15 +65,20 @@ const QUIET = process.argv.includes("--quiet");
  * @returns {boolean}
  */
 export function isBinaryAvailable(name) {
-  // Use `command -v` on Unix; `where` on Windows (via cmd).
-  // We shell through `sh -c` because execFileSync needs the actual path
-  // and we want cross-platform behaviour.
-  const result = spawnSync("sh", ["-c", `command -v ${name}`], {
-    encoding: "utf8",
-    timeout: 5_000,
-    windowsHide: true,
-  });
-  return result.status === 0 && result.stdout.trim().length > 0;
+  // A binary name never contains shell metacharacters; anything else is "not available"
+  // rather than something to hand to a shell.
+  if (typeof name !== "string" || !/^[A-Za-z0-9_.-]+$/.test(name)) return false;
+  // `where` on Windows (no `sh` in a plain PowerShell/cmd session), `command -v` via sh
+  // elsewhere — both without interpolating the name into a shell string.
+  const result =
+    process.platform === "win32"
+      ? spawnSync("where", [name], { encoding: "utf8", timeout: 5_000, windowsHide: true })
+      : spawnSync("sh", ["-c", 'command -v "$1"', "sh", name], {
+          encoding: "utf8",
+          timeout: 5_000,
+          windowsHide: true,
+        });
+  return result.status === 0 && String(result.stdout ?? "").trim().length > 0;
 }
 
 // ---------------------------------------------------------------------------

@@ -18,19 +18,19 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(DIR, "../.."); // …/OmniRoute
 const SAIDA = process.argv[2] || path.join(REPO, "export-omniroute.json");
 
-const { FREE_MODEL_BUDGETS } = await import(
-  path.join(REPO, "open-sse/config/freeModelCatalog.data.ts")
-);
-const { computeFreeModelTotals } = await import(
-  path.join(REPO, "open-sse/config/freeModelCatalog.ts")
-);
-const { REGISTRY } = await import(path.join(REPO, "open-sse/config/providerRegistry.ts"));
+// Dynamic imports take URLs: a bare absolute path such as `C:\…` is parsed as a `c:` scheme
+// on Windows (ERR_UNSUPPORTED_ESM_URL_SCHEME), so every import goes through pathToFileURL.
+const repoModule = (rel) => pathToFileURL(path.join(REPO, rel)).href;
+
+const { FREE_MODEL_BUDGETS } = await import(repoModule("open-sse/config/freeModelCatalog.data.ts"));
+const { computeFreeModelTotals } = await import(repoModule("open-sse/config/freeModelCatalog.ts"));
+const { REGISTRY } = await import(repoModule("open-sse/config/providerRegistry.ts"));
 
 /**
  * Proveniência: quem/quando/de-qual-commit gerou o export. Cada campo é `null`
@@ -48,10 +48,12 @@ function firstEnv(...names) {
 
 function gitHead() {
   try {
-    return execFileSync("git", ["-C", REPO, "rev-parse", "HEAD"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim() || null;
+    return (
+      execFileSync("git", ["-C", REPO, "rev-parse", "HEAD"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() || null
+    );
   } catch {
     return null;
   }
@@ -63,7 +65,8 @@ function buildProvenance(geradoEm) {
   const server = firstEnv("GITHUB_SERVER_URL");
   const repository = firstEnv("GITHUB_REPOSITORY");
   const runId = firstEnv("GITHUB_RUN_ID");
-  const runUrl = server && repository && runId ? `${server}/${repository}/actions/runs/${runId}` : null;
+  const runUrl =
+    server && repository && runId ? `${server}/${repository}/actions/runs/${runId}` : null;
   return {
     generatedAt: geradoEm,
     generator: "scripts/release/radar-export.mjs",
