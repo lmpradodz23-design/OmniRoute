@@ -5002,6 +5002,7 @@
     "noProviderFound": "No provider found. You can add one from the dashboard later.",
     "testFailed": "Test failed, but you can configure this later.",
     "couldNotTest": "Could not test right now. You can test from the dashboard.",
+    "testTimedOut": "The test took too long (15 s). Check the provider URL or try again.",
     "doneDesc": "You're all set! Your OmniRoute instance is configured and ready to proxy AI requests.",
     "yourEndpoint": "Your endpoint:",
     "continue": "Continue",

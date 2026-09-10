@@ -5003,6 +5003,7 @@
     "noProviderFound": "Nenhum provedor encontrado. Você pode adicionar um pelo painel depois.",
     "testFailed": "Teste falhou, mas você pode configurar isso depois.",
     "couldNotTest": "Não foi possível testar agora. Você pode testar pelo painel.",
+    "testTimedOut": "O teste demorou demais (15 s). Confira a URL do provedor ou tente de novo.",
     "doneDesc": "Tudo pronto! Sua instância OmniRoute está configurada e pronta para rotear requisições de IA.",
     "yourEndpoint": "Seu endpoint:",
     "continue": "Continuar",

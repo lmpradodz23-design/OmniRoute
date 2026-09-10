@@ -9,6 +9,8 @@ import { TierTour } from "./steps/TierTour";
 import { presentApiError } from "@/shared/utils/apiErrorPresentation";
 
 const STEP_IDS = ["welcome", "tiers", "security", "provider", "test", "done"];
+/** U8: upper bound for the onboarding connection test (list + probe). */
+const PROVIDER_TEST_TIMEOUT_MS = 15_000;
 const STEP_ICONS = ["waving_hand", "layers", "lock", "dns", "play_circle", "check_circle"];
 
 const COMMON_PROVIDERS = [
@@ -183,8 +185,11 @@ export default function OnboardingWizard() {
   const handleTestProvider = async () => {
     setTestStatus("testing");
     setTestMessage(t("testingConnection"));
+    // U8: a provider that never answers must not leave the wizard spinning forever.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROVIDER_TEST_TIMEOUT_MS);
     try {
-      const res = await fetch("/api/providers");
+      const res = await fetch("/api/providers", { signal: controller.signal });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       const conn = data.connections?.[0];
@@ -193,18 +198,29 @@ export default function OnboardingWizard() {
         setTestMessage(t("noProviderFound"));
         return;
       }
-      const testRes = await fetch(`/api/providers/${conn.id}/test`, { method: "POST" });
+      const testRes = await fetch(`/api/providers/${conn.id}/test`, {
+        method: "POST",
+        signal: controller.signal,
+      });
       if (testRes.ok) {
         setTestStatus("success");
         setTestMessage(t("connectionSuccessful"));
       } else {
         const err = await testRes.json().catch(() => ({}));
         setTestStatus("error");
-        setTestMessage(err.error || t("testFailed"));
+        setTestMessage(
+          typeof err.error === "string" && err.error.trim() ? err.error : t("testFailed")
+        );
       }
-    } catch {
+    } catch (err) {
       setTestStatus("error");
-      setTestMessage(t("couldNotTest"));
+      setTestMessage(
+        controller.signal.aborted || (err as { name?: string })?.name === "AbortError"
+          ? t("testTimedOut")
+          : t("couldNotTest")
+      );
+    } finally {
+      clearTimeout(timeout);
     }
   };
 
