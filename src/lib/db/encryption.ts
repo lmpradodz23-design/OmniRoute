@@ -26,6 +26,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash } from "crypto";
+import { isExposedDeploymentProfile } from "./deploymentProfile";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
@@ -100,7 +101,10 @@ function ensureSecretLoaded(): string | undefined {
         for (const line of content.split("\n")) {
           const trimmed = line.trim();
           if (trimmed.startsWith("STORAGE_ENCRYPTION_KEY=")) {
-            const val = trimmed.split("=", 2)[1]?.trim().replace(/^["'](.*)["']$/, "$1");
+            const val = trimmed
+              .split("=", 2)[1]
+              ?.trim()
+              .replace(/^["'](.*)["']$/, "$1");
             if (val) {
               process.env.STORAGE_ENCRYPTION_KEY = val;
               return val;
@@ -227,17 +231,19 @@ export class EncryptionUnavailableError extends Error {
 
 /**
  * Whether sensitive writes MUST be encrypted (fail-closed) in this deployment profile (#3).
- * True in production or when explicitly required; dev/test default to passthrough for convenience.
+ * True in production, when explicitly required, or when the operator explicitly bound the
+ * server beyond loopback (`HOST`/`HOSTNAME` — see deploymentProfile.ts); dev/test default to
+ * passthrough for convenience.
  */
-export function isStorageEncryptionRequired(): boolean {
+export function isStorageEncryptionRequired(env: NodeJS.ProcessEnv = process.env): boolean {
   // Explicit opt-in/opt-out wins over everything (including test context), so operators can force
   // fail-closed on and tests can exercise the required path.
-  const explicit = process.env.OMNIROUTE_REQUIRE_STORAGE_ENCRYPTION;
+  const explicit = env.OMNIROUTE_REQUIRE_STORAGE_ENCRYPTION;
   if (typeof explicit === "string" && explicit.trim() !== "") {
     return ["1", "true", "yes", "on"].includes(explicit.trim().toLowerCase());
   }
-  if (isTestContext()) return false;
-  return process.env.NODE_ENV === "production";
+  if (env === process.env && isTestContext()) return false;
+  return isExposedDeploymentProfile(env);
 }
 
 /**
@@ -272,9 +278,7 @@ export function encryptOrThrow(plaintext: string): string {
  * required by the deployment profile, otherwise the dev-friendly passthrough `encrypt`. Preserves
  * local/dev convenience while guaranteeing production never persists plaintext secrets.
  */
-export function encryptSensitive(
-  plaintext: string | null | undefined
-): string | null | undefined {
+export function encryptSensitive(plaintext: string | null | undefined): string | null | undefined {
   if (!plaintext || typeof plaintext !== "string") return plaintext;
   return isStorageEncryptionRequired() ? encryptOrThrow(plaintext) : encrypt(plaintext);
 }
@@ -288,8 +292,9 @@ export function assertStorageEncryptionConfigured(): void {
   if (isStorageEncryptionRequired() && !isEncryptionEnabled()) {
     throw new EncryptionUnavailableError(
       "STORAGE_ENCRYPTION_KEY is required in this deployment profile " +
-        "(NODE_ENV=production or OMNIROUTE_REQUIRE_STORAGE_ENCRYPTION). Refusing to start with " +
-        "sensitive-data encryption disabled. Generate one with: openssl rand -base64 32"
+        "(NODE_ENV=production, OMNIROUTE_REQUIRE_STORAGE_ENCRYPTION, or HOST/HOSTNAME bound beyond " +
+        "loopback). Refusing to start with sensitive-data encryption disabled. Generate one with: " +
+        "openssl rand -base64 32"
     );
   }
 }
@@ -447,12 +452,14 @@ export function decryptConnectionFields<T extends ConnectionFields | null | unde
 
   if (credentialDecryptFailed) {
     const failed: Array<{ field: string; value: unknown }> = [];
-    if (looksEncrypted(row.apiKey) && apiKey === null) failed.push({ field: "apiKey", value: row.apiKey });
+    if (looksEncrypted(row.apiKey) && apiKey === null)
+      failed.push({ field: "apiKey", value: row.apiKey });
     if (looksEncrypted(row.accessToken) && accessToken === null)
       failed.push({ field: "accessToken", value: row.accessToken });
     if (looksEncrypted(row.refreshToken) && refreshToken === null)
       failed.push({ field: "refreshToken", value: row.refreshToken });
-    if (looksEncrypted(row.idToken) && idToken === null) failed.push({ field: "idToken", value: row.idToken });
+    if (looksEncrypted(row.idToken) && idToken === null)
+      failed.push({ field: "idToken", value: row.idToken });
 
     const connectionId = typeof row.id === "string" ? row.id : "";
     const provider = typeof row.provider === "string" ? row.provider : "unknown";

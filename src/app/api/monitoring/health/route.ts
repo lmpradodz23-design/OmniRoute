@@ -7,6 +7,7 @@ import { APP_CONFIG } from "@/shared/constants/config";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { buildStorageReadiness } from "@/lib/db/storageEncryptionAudit";
 
 /**
  * GET /api/monitoring/health — System health overview
@@ -242,7 +243,11 @@ async function rebuildHealthPayload(): Promise<unknown> {
         )
       : null;
 
-  const payload = buildHealthPayload({
+  // #3 residual: storage-encryption posture (key configured? plaintext sensitive rows? bind
+  // exposed?). Management view only — publicHealthView() strips it for anonymous probes.
+  const storage = readHealthValue("storage readiness", () => buildStorageReadiness(), null);
+
+  const basePayload = buildHealthPayload({
     appVersion: APP_CONFIG.version,
     // #10427: surface the artifact's git SHA so a deployment can be audited over HTTP
     // instead of SSH + grepping compiled chunks (the 2026-08-14 gateway outage).
@@ -267,6 +272,7 @@ async function rebuildHealthPayload(): Promise<unknown> {
     adaptiveAdmission,
     chatAdmission,
   });
+  const payload = { ...(basePayload as Record<string, unknown>), storage };
 
   if (generation === healthPayloadCacheGeneration) {
     healthPayloadCache = { payload, expiresAt: Date.now() + HEALTH_PAYLOAD_TTL_MS };
