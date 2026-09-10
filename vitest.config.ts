@@ -69,7 +69,6 @@ export default defineConfig({
       "tests/unit/ui/runtime-page-client.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/engineConfigPage.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/agent-card-risk-modal.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "tests/unit/ui/request-logger-autorefresh-visibility-3972.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/search-tools-compare-tab.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/noauth-account-card.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-build-tab.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
@@ -85,7 +84,6 @@ export default defineConfig({
       "tests/unit/ui/model-select-modal-deselect.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/engine-pages.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/playground-config-pane.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "tests/unit/ui/logs-page-detail-modal-reopen-on-close.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/agent-card.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/agent-bridge-page.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/model-select-modal-connection-filter.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed

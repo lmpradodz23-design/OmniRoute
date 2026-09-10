@@ -22,9 +22,10 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
+// next-intl: no local mock — the real-EN default in tests/_setup/vitestUiPolyfills.ts
+// renders the detail modal's actual `aria-label`s ("Request log detail", "Close detail
+// modal") that the lifecycle assertions below query by. A key-echoing mock here made
+// those selectors match nothing once RequestLoggerV2 was internationalised (#7935).
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }),
