@@ -8,25 +8,68 @@ import IPFilterSection from "./IPFilterSection";
 import SessionInfoCard from "./SessionInfoCard";
 import AuthzSection from "./AuthzSection";
 import { useTranslations } from "next-intl";
+import { presentApiError, type PresentedApiError } from "@/shared/utils/apiErrorPresentation";
+
+type StatusNotice = { type: "" | "error" | "success"; message: string; detail?: string | null };
+
+/** U4: friendly headline (role=alert) with the technical server text behind "details". */
+function ErrorNotice({
+  error,
+  showDetailsLabel,
+  tone = "error",
+}: {
+  error: PresentedApiError | StatusNotice;
+  showDetailsLabel: string;
+  tone?: "error" | "success";
+}) {
+  if (!error.message) return null;
+  return (
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className={`text-sm ${tone === "error" ? "text-red-500" : "text-green-500"}`}
+    >
+      <p>{error.message}</p>
+      {tone === "error" && error.detail ? (
+        <details className="mt-1 text-xs text-text-muted">
+          <summary className="cursor-pointer">{showDetailsLabel}</summary>
+          <code className="block mt-1 break-all">{error.detail}</code>
+        </details>
+      ) : null}
+    </div>
+  );
+}
 
 export default function SecurityTab() {
   const [settings, setSettings] = useState<any>({ requireLogin: false, hasPassword: false });
   const [loading, setLoading] = useState(true);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
-  const [passStatus, setPassStatus] = useState({ type: "", message: "" });
+  const [passStatus, setPassStatus] = useState<StatusNotice>({ type: "", message: "" });
   const [passLoading, setPassLoading] = useState(false);
 
   const [requireLoginModalOpen, setRequireLoginModalOpen] = useState(false);
   const [pendingRequireLoginVal, setPendingRequireLoginVal] = useState<boolean | null>(null);
   const [requireLoginPassword, setRequireLoginPassword] = useState("");
-  const [requireLoginError, setRequireLoginError] = useState("");
+  const [requireLoginError, setRequireLoginError] = useState<PresentedApiError | null>(null);
   const [requireLoginLoading, setRequireLoginLoading] = useState(false);
+  const [toggleError, setToggleError] = useState<PresentedApiError | null>(null);
   const [newBannedKeyword, setNewBannedKeyword] = useState("");
 
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const getSettingsLabel = (key: string, fallback: string) =>
     typeof t.has === "function" && t.has(key) ? t(key) : fallback;
+  // `common.apiErrors.*` lookup that tolerates a missing key (older catalogs).
+  const translateApiError = (key: string) =>
+    typeof tc.has !== "function" || tc.has(key) ? tc(key) : null;
+  const describeError = (body: unknown, fallback: string, status?: number) =>
+    presentApiError(body, { translate: translateApiError, fallback, status });
+  const readBody = async (res: Response): Promise<unknown> => {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     fetch("/api/settings")
@@ -39,10 +82,11 @@ export default function SecurityTab() {
   }, []);
 
   const updateRequireLogin = async (requireLogin: boolean) => {
+    setToggleError(null);
     if (settings.hasPassword) {
       setPendingRequireLoginVal(requireLogin);
       setRequireLoginPassword("");
-      setRequireLoginError("");
+      setRequireLoginError(null);
       setRequireLoginModalOpen(true);
       return;
     }
@@ -55,16 +99,20 @@ export default function SecurityTab() {
       });
       if (res.ok) {
         setSettings((prev: any) => ({ ...prev, requireLogin }));
+      } else {
+        // U4: a failed toggle used to be silent — the switch just snapped back.
+        setToggleError(describeError(await readBody(res), t("errorOccurred"), res.status));
       }
     } catch (err) {
       console.error("Failed to update require login:", err);
+      setToggleError(describeError(null, t("errorOccurred")));
     }
   };
 
   const confirmRequireLoginUpdate = async () => {
     if (pendingRequireLoginVal === null) return;
     setRequireLoginLoading(true);
-    setRequireLoginError("");
+    setRequireLoginError(null);
 
     try {
       const res = await fetch("/api/settings", {
@@ -80,12 +128,11 @@ export default function SecurityTab() {
         setSettings((prev: any) => ({ ...prev, requireLogin: pendingRequireLoginVal }));
         setRequireLoginModalOpen(false);
       } else {
-        const data = await res.json();
-        setRequireLoginError(data?.error?.message || t("errorOccurred"));
+        setRequireLoginError(describeError(await readBody(res), t("errorOccurred"), res.status));
       }
     } catch (err) {
       console.error("Failed to update require login:", err);
-      setRequireLoginError(t("errorOccurred"));
+      setRequireLoginError(describeError(null, t("errorOccurred")));
     } finally {
       setRequireLoginLoading(false);
     }
@@ -147,13 +194,14 @@ export default function SecurityTab() {
           newPassword: passwords.new,
         }),
       });
-      const data = await res.json();
+      const data = await readBody(res);
       if (res.ok) {
         setPassStatus({ type: "success", message: t("passwordUpdated") });
         setPasswords({ current: "", new: "", confirm: "" });
         setSettings((prev: any) => ({ ...prev, hasPassword: true }));
       } else {
-        setPassStatus({ type: "error", message: data.error || t("failedUpdatePassword") });
+        const presented = describeError(data, t("failedUpdatePassword"), res.status);
+        setPassStatus({ type: "error", message: presented.message, detail: presented.detail });
       }
     } catch {
       setPassStatus({ type: "error", message: t("errorOccurred") });
@@ -187,6 +235,7 @@ export default function SecurityTab() {
               disabled={loading}
             />
           </div>
+          {toggleError && <ErrorNotice error={toggleError} showDetailsLabel={tc("showDetails")} />}
 
           <Modal
             isOpen={requireLoginModalOpen}
@@ -207,7 +256,9 @@ export default function SecurityTab() {
                 autoFocus
                 disabled={requireLoginLoading}
               />
-              {requireLoginError && <p className="text-sm text-red-500">{requireLoginError}</p>}
+              {requireLoginError && (
+                <ErrorNotice error={requireLoginError} showDetailsLabel={tc("showDetails")} />
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   variant="ghost"
@@ -263,11 +314,11 @@ export default function SecurityTab() {
               </div>
 
               {passStatus.message && (
-                <p
-                  className={`text-sm ${passStatus.type === "error" ? "text-red-500" : "text-green-500"}`}
-                >
-                  {passStatus.message}
-                </p>
+                <ErrorNotice
+                  error={passStatus}
+                  showDetailsLabel={tc("showDetails")}
+                  tone={passStatus.type === "error" ? "error" : "success"}
+                />
               )}
 
               <div className="pt-2">

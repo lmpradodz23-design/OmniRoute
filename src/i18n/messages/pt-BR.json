@@ -6,6 +6,16 @@
     "loading": "Carregando...",
     "selectOption": "Selecionar uma opção",
     "error": "Ocorreu um erro",
+    "showDetails": "Ver detalhes",
+    "apiErrors": {
+      "passwordRequired": "Informe sua senha atual para alterar uma configuração de segurança.",
+      "passwordMismatch": "A senha atual está incorreta.",
+      "invalidJson": "Não foi possível ler a requisição. Recarregue a página e tente de novo.",
+      "validation": "Alguns campos são inválidos. Confira os valores destacados.",
+      "settingsRevisionConflict": "As configurações mudaram em outra janela. Recarregue e tente de novo.",
+      "oidcAllowedSubjectsRequired": "Liste pelo menos uma conta permitida antes de ativar o login SSO.",
+      "paidModelTargetBlocked": "Este destino é um modelo pago e destinos pagos estão bloqueados nas configurações."
+    },
     "success": "Sucesso",
     "confirm": "Tem certeza?",
     "refresh": "Atualizar",

@@ -6,6 +6,16 @@
     "loading": "Loading...",
     "selectOption": "Select an option",
     "error": "An error occurred",
+    "showDetails": "Show details",
+    "apiErrors": {
+      "passwordRequired": "Enter your current password to change a security setting.",
+      "passwordMismatch": "The current password is incorrect.",
+      "invalidJson": "The request could not be read. Reload the page and try again.",
+      "validation": "Some fields are invalid. Check the highlighted values.",
+      "settingsRevisionConflict": "Settings changed in another window. Reload and try again.",
+      "oidcAllowedSubjectsRequired": "List at least one allowed account before enabling SSO login.",
+      "paidModelTargetBlocked": "This target is a paid model and paid targets are blocked in settings."
+    },
     "success": "Success",
     "confirm": "Are you sure?",
     "refresh": "Refresh",

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useDisplayBaseUrl } from "@/shared/hooks";
 import { FreeProviderOnboardingCard } from "./steps/FreeProviderOnboardingCard";
 import { TierTour } from "./steps/TierTour";
+import { presentApiError } from "@/shared/utils/apiErrorPresentation";
 
 const STEP_IDS = ["welcome", "tiers", "security", "provider", "test", "done"];
 const STEP_ICONS = ["waving_hand", "layers", "lock", "dns", "play_circle", "check_circle"];
@@ -76,6 +77,15 @@ export default function OnboardingWizard() {
   // U1: API failures land here and are rendered (role="alert") inside the step that
   // produced them; changing step clears it so a stale message never follows the user.
   const [errorMessage, setErrorMessage] = useState("");
+  // U4: the body may be `{ error: "text" }` or `{ error: { code, message } }` — always a string here.
+  const describeFailure = async (res: Response, fallback: string) => {
+    const body = await res.json().catch(() => null);
+    return presentApiError(body, {
+      translate: (key) => (typeof tc.has !== "function" || tc.has(key) ? tc(key) : null),
+      fallback,
+      status: res.status,
+    }).message;
+  };
 
   const handleNext = () => {
     setErrorMessage("");
@@ -118,8 +128,7 @@ export default function OnboardingWizard() {
         body: JSON.stringify({ requireLogin: true, password }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.error || t("failedSetPassword"));
+        setErrorMessage(await describeFailure(res, t("failedSetPassword")));
         return;
       }
       const loginRes = await fetch("/api/auth/login", {
@@ -128,8 +137,7 @@ export default function OnboardingWizard() {
         body: JSON.stringify({ password }),
       });
       if (!loginRes.ok) {
-        const data = await loginRes.json().catch(() => ({}));
-        setErrorMessage(data.error || t("connectionError"));
+        setErrorMessage(await describeFailure(loginRes, t("connectionError")));
         return;
       }
       handleNext();
@@ -163,8 +171,7 @@ export default function OnboardingWizard() {
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.error || t("failedAddProvider"));
+        setErrorMessage(await describeFailure(res, t("failedAddProvider")));
         return;
       }
       handleNext();
