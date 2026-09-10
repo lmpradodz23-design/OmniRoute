@@ -8,10 +8,33 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
+// Shape follows `CacheTrendPoint` (the /api/cache/trends rows): the chart derives its
+// bars from requests vs cachedRequests and its "peak" line from the busiest bucket.
 const sampleTrendData = [
-  { timestamp: "2026-04-01T00:00:00Z", requests: 120, hits: 100, misses: 20, hitRate: 83.3 },
-  { timestamp: "2026-04-01T01:00:00Z", requests: 95, hits: 80, misses: 15, hitRate: 84.2 },
-  { timestamp: "2026-04-01T02:00:00Z", requests: 200, hits: 180, misses: 20, hitRate: 90.0 },
+  {
+    timestamp: "2026-04-01T00:00:00Z",
+    requests: 120,
+    cachedRequests: 100,
+    inputTokens: 12_000,
+    cachedTokens: 9_000,
+    cacheCreationTokens: 500,
+  },
+  {
+    timestamp: "2026-04-01T01:00:00Z",
+    requests: 95,
+    cachedRequests: 80,
+    inputTokens: 9_500,
+    cachedTokens: 7_000,
+    cacheCreationTokens: 400,
+  },
+  {
+    timestamp: "2026-04-01T02:00:00Z",
+    requests: 200,
+    cachedRequests: 180,
+    inputTokens: 20_000,
+    cachedTokens: 17_000,
+    cacheCreationTokens: 600,
+  },
 ];
 
 describe("CacheTrends", () => {
@@ -33,9 +56,9 @@ describe("CacheTrends", () => {
       expect(screen.getByRole("heading")).toBeInTheDocument();
     });
 
-    it("renders peak hit rate from data", () => {
+    it("renders the peak cached / total requests from the busiest bucket", () => {
       render(<CacheTrends data={sampleTrendData} />);
-      expect(screen.getByText("90.0")).toBeInTheDocument();
+      expect(screen.getByText("180 / 200")).toBeInTheDocument();
     });
   });
 

@@ -160,13 +160,6 @@ export default function CachePerformance({
                 )}
               </div>
             )}
-
-            {/* hitRate as text for test assertions */}
-            {hitRate !== undefined && (
-              <div className="text-center">
-                <span className="text-sm font-semibold tabular-nums">{hitRate}</span>
-              </div>
-            )}
           </>
         )}
       </div>
