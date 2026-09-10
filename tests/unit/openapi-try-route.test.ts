@@ -13,6 +13,9 @@ const ORIGINAL_JWT_SECRET = process.env.JWT_SECRET;
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.INITIAL_PASSWORD = "openapi-try-password";
 process.env.JWT_SECRET = "openapi-try-jwt-secret";
+// createApiKey() needs the CRC secret the startup validator normally provisions.
+const ORIGINAL_API_KEY_SECRET = process.env.API_KEY_SECRET;
+process.env.API_KEY_SECRET = "openapi-try-api-key-secret";
 
 const core = await import("../../src/lib/db/core.ts");
 const route = await import("../../src/app/api/openapi/try/route.ts");
@@ -76,6 +79,11 @@ test.after(() => {
     delete process.env.JWT_SECRET;
   } else {
     process.env.JWT_SECRET = ORIGINAL_JWT_SECRET;
+  }
+  if (ORIGINAL_API_KEY_SECRET === undefined) {
+    delete process.env.API_KEY_SECRET;
+  } else {
+    process.env.API_KEY_SECRET = ORIGINAL_API_KEY_SECRET;
   }
 });
 
@@ -240,6 +248,61 @@ test("openapi try route only proxies operations documented in the OpenAPI spec (
     assert.equal(response.status, 403, `${target.method} ${target.path}`);
     assert.match(String(body.error), /not a documented/i);
   }
+  assert.equal(fetchCalled, false);
+});
+
+test("openapi try route attaches a stored key by id server-side and never echoes it (#7 reveal-once)", async () => {
+  const cookie = await createAuthCookie();
+  const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
+  const created = await apiKeysDb.createApiKey("Try It key", "1234567890abcdef");
+  let fetchInit: RequestInit | undefined;
+  globalThis.fetch = async (_url, init) => {
+    fetchInit = init;
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const response = await route.POST(
+    makeRequest(
+      { method: "GET", path: "/api/monitoring/health", apiKeyId: created.id },
+      cookie
+    ) as never
+  );
+  assert.equal(response.status, 200);
+  const forwardedHeaders = (fetchInit?.headers ?? {}) as Record<string, string>;
+  assert.equal(forwardedHeaders.Authorization, `Bearer ${created.key}`);
+  assert.ok(!JSON.stringify(await response.json()).includes(created.key), "key never echoed");
+
+  // An explicit Authorization wins over apiKeyId; an unknown id is a 404 with no proxied call.
+  let fetchCalled = false;
+  globalThis.fetch = async (_url, init) => {
+    fetchCalled = true;
+    fetchInit = init;
+    return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  };
+  await route.POST(
+    makeRequest(
+      {
+        method: "GET",
+        path: "/api/monitoring/health",
+        apiKeyId: created.id,
+        headers: { Authorization: "Bearer explicit" },
+      },
+      cookie
+    ) as never
+  );
+  assert.equal((fetchInit?.headers as Record<string, string>).Authorization, "Bearer explicit");
+
+  fetchCalled = false;
+  const missing = await route.POST(
+    makeRequest(
+      { method: "GET", path: "/api/monitoring/health", apiKeyId: "nope" },
+      cookie
+    ) as never
+  );
+  assert.equal(missing.status, 404);
   assert.equal(fetchCalled, false);
 });
 

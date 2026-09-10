@@ -69,16 +69,14 @@ async function waitForNextDevCompileToFinish(page: Page) {
 test.describe("API keys flow", () => {
   test.setTimeout(600_000);
 
-  test("creates, copies, reveals, revokes, and returns to the empty state", async ({ page }) => {
+  test("creates, copies once, revokes, and returns to the empty state", async ({ page }) => {
     const state: {
       keys: ApiKeyRecord[];
       nextId: number;
-      revealCalls: number;
       deleteCalls: number;
     } = {
       keys: [],
       nextId: 1,
-      revealCalls: 0,
       deleteCalls: 0,
     };
 
@@ -106,13 +104,6 @@ test.describe("API keys flow", () => {
 
     await page.route("**/api/sessions", async (route) => {
       await fulfillJson(route, { byApiKey: {} });
-    });
-
-    await page.route(/\/api\/keys\/[^/]+\/reveal$/, async (route) => {
-      state.revealCalls += 1;
-      const keyId = route.request().url().split("/").slice(-2)[0];
-      const record = state.keys.find((key) => key.id === keyId);
-      await fulfillJson(route, { key: record?.fullKey ?? "" });
     });
 
     await page.route(/\/api\/keys\/[^/]+$/, async (route) => {
@@ -219,9 +210,9 @@ test.describe("API keys flow", () => {
       .filter({ has: page.getByText("sk-live-****1002", { exact: true }) })
       .first();
 
-    await keyRow.getByRole("button", { name: /copy/i }).click();
-    await expect.poll(() => state.revealCalls).toBe(1);
-    await expect.poll(() => readClipboard(page)).toBe("sk-live-1002-demo-secret");
+    // #7 (reveal-once): an existing key offers no copy/reveal control — the full value was
+    // shown once in the created dialog above.
+    await expect(keyRow.getByRole("button", { name: /copy/i })).toHaveCount(0);
 
     page.once("dialog", async (dialog) => {
       await dialog.accept();
@@ -530,9 +521,6 @@ test.describe("API keys flow", () => {
     });
     await page.route(/\/api\/keys\/[^/]+$/, async (route) => {
       await fulfillJson(route, { error: "Not found" }, 404);
-    });
-    await page.route(/\/api\/keys\/[^/]+\/reveal$/, async (route) => {
-      await fulfillJson(route, { key: "" });
     });
 
     await gotoDashboardRoute(page, "/dashboard/api-manager", {

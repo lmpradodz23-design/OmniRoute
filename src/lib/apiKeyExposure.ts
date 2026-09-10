@@ -2,6 +2,12 @@ import { isApiKeyRevealEnabledFlag } from "@/shared/utils/featureFlags";
 
 const ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);
 
+/**
+ * `ALLOW_API_KEY_REVEAL` now governs ONLY the reveal of stored third-party PROVIDER
+ * credentials on the providers page. OmniRoute's own API keys are never revealable (#7
+ * reveal-once): a key is shown in full exactly once — in the create / regenerate responses —
+ * and every listing carries only `maskStoredApiKey`'s form.
+ */
 export function isApiKeyRevealEnabled(): boolean {
   try {
     return isApiKeyRevealEnabledFlag();

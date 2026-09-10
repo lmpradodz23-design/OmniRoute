@@ -10,6 +10,7 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
 import { isLocalOnlyPath, isAlwaysProtectedPath } from "@/server/authz/routeGuard";
 import { isDocumentedOperation } from "@/lib/openapi/documentedOperations";
+import { getApiKeyById } from "@/lib/db/apiKeys";
 
 /** Methods that change state: the panel must confirm them explicitly (#5 residual). */
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -45,6 +46,12 @@ const tryRequestSchema = z.object({
   body: z.any().optional(),
   /** Required for POST/PUT/PATCH/DELETE — a deliberate act of the operator, never implied. */
   confirmMutation: z.boolean().optional().default(false),
+  /**
+   * #7 (reveal-once): one of the operator's own stored keys, injected as `Authorization`
+   * SERVER-SIDE so the plaintext never travels to the browser. Ignored when the caller
+   * supplies an explicit Authorization header.
+   */
+  apiKeyId: z.string().trim().min(1).max(128).optional(),
 });
 
 function getRequestOrigin(request: NextRequest) {
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const { method, path, headers, body: reqBody, confirmMutation } = validation.data;
+    const { method, path, headers, body: reqBody, confirmMutation, apiKeyId } = validation.data;
 
     const origin = getRequestOrigin(request);
     const targetUrl = new URL(path, origin);
@@ -124,6 +131,19 @@ export async function POST(request: NextRequest) {
     // dashboard session cookie is never forwarded — the server must not act as the admin's
     // deputy; hop-by-hop / host headers and a caller-supplied Cookie are dropped as before.
     const forwardHeaders = buildForwardHeaders(headers as Record<string, string>);
+
+    // #7 (reveal-once): the panel names one of the operator's stored keys instead of
+    // revealing it; the bearer is attached here and never echoed back.
+    const hasExplicitAuthorization = Object.keys(forwardHeaders).some(
+      (key) => key.toLowerCase() === "authorization"
+    );
+    if (apiKeyId && !hasExplicitAuthorization) {
+      const stored = await getApiKeyById(apiKeyId);
+      if (!stored || typeof stored.key !== "string" || !stored.key) {
+        return NextResponse.json({ error: "API key not found" }, { status: 404 });
+      }
+      forwardHeaders["Authorization"] = `Bearer ${stored.key}`;
+    }
 
     if (reqBody && !forwardHeaders["Content-Type"]) {
       forwardHeaders["Content-Type"] = "application/json";
