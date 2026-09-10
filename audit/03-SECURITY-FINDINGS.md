@@ -33,6 +33,15 @@ HEAD auditado: `2a156c73812d45119d5a06a2f55d611280442860` · Fontes: auditor de 
 | R-9 | MEDIUM | CONFIRMADO | `httpTransport.ts:15,92,298-309` transporte "SSE" singleton | `initialize` de um cliente derruba os demais | Transporte por sessão |
 | R-10 | MEDIUM | CONFIRMADO | `audit.ts:374` `api_key_id` = env estático | Auditoria não atribuível ao caller real | Gravar `callerId` resolvido |
 
+**Status após a execução da Fase 1 §7 (branch `fix/final-user-readiness`):**
+
+| id | Estado | Commits | Evidência |
+|---|---|---|---|
+| M-1 | **CORRIGIDO** | `0e594e7a6` | `_meta` nunca é fonte de escopo (`ScopeSource = authInfo\|env\|none`); sessão por cookie sem chave → sem `authInfo` → só env fallback → com enforcement (default) e sem env, **negado**; `t08` asserção invertida; `tests/unit/mcp-scope-meta-escalation.test.ts` (stdio/cookie/`scopes:[]` com `_meta:["*"]` negados) |
+| R-10 | **CORRIGIDO** | `482511918` | `callerContext.ts` (AsyncLocalStorage) + `resolveAuditApiKeyId`; `mcp_tool_audit.api_key_id` = principal real; env id só como fallback stdio; sessão/anonymous nunca gravados |
+| M-2 | **DECISÃO + CORRIGIDO (auditoria)** | `2ef9671c4` | `*` mantido como grant super-usuário **intencional** (nenhuma tool exige `admin:*`; só um principal MANAGEMENT emite — `POST /api/keys` é MANAGEMENT-class, provado pela matriz authz). Gap real fechado: `createApiKey` não emitia auditoria alguma e grant/revoke só reconhecia `manage` → `PRIVILEGED_API_KEY_SCOPES = {manage, admin, *}`, evento `apiKey.create {privileged}`, `scopes.grant/revoke` para os três; `tests/unit/mcp-scope-wildcard-semantics.test.ts` (wildcard de família nunca cruza família) |
+| R-9 | pendente (Fase 2) | — | transporte SSE singleton — item R-* de confiabilidade |
+
 ### 2.2 SSRF / rede outbound
 | id | Sev. | Class. | Evidência | Correção |
 |---|---|---|---|---|
@@ -73,6 +82,22 @@ Política adotada para integrações configuradas pelo operador (Obsidian, Qdran
 
 ### 2.4 Electron (Fase 1 #6 / Fase 5)
 E-1 (HIGH) nav block inerte; E-2 (HIGH) guard só em `login:start`; E-3 (MEDIUM) sem sandbox/preload único; E-4 (HIGH, release) sem code-signing (`electron/package.json`); E-5 (HIGH) sem rollback/backup pré-update; E-6 (MEDIUM) órfãos POSIX; E-7 (MEDIUM) `server.env` sem `0o600`; E-8 (MEDIUM) `--no-sandbox` no browser pool; E-9 (Fase 8) updater aponta ao upstream. Detalhes em `02-ARCHITECTURE.md` e checkpoint. Positivos: `contextIsolation`, sem `nodeIntegration`, sem `webviewTag`, login em janela isolada, credenciais nunca ao renderer.
+
+**Status após a execução da Fase 1 §1 / §3 / §5 / §6 / §2:**
+
+| id | Estado | Commits | Evidência |
+|---|---|---|---|
+| E-1 | **CORRIGIDO** | `f90d3e2d0` | `will-navigate`/`will-redirect` → `blockCrossOriginNavigation` (`shouldBlockNavigation`); `setWindowOpenHandler` deny |
+| E-2 | **CORRIGIDO** | `f90d3e2d0` | `PRIVILEGED_IPC_CHANNELS` (10) todos por `withPrivilegedSender` (valida `event.sender`/`senderFrame`/origem; remoto negado) |
+| E-3 | **CORRIGIDO** | `f90d3e2d0` | `sandbox:true` na janela principal; preload da prompt remota separado e mínimo (padrão já existente) |
+| E-7 | **CORRIGIDO** | `f90d3e2d0` | `electron/lib/ownerOnlyFile.js` — `server.env` gravado com `0o600` + chmod |
+| **E-10 (novo; "E-4 HTTPS" no checkpoint/commit)** | **CORRIGIDO** | `a639938bf` | HTTPS obrigatório fora de rede privada para a URL de Remote Server (`isPrivateNetworkHost`); prompt valida no main via invoke/handle e mostra o motivo; `tests/unit/electron-remote-server-transport.test.ts` (RED 3 → 10/10) |
+| E-4 (code-signing) | `BLOCKED_BY_EXTERNAL_DEPENDENCY` | — | certificados do operador; registrar em `RELEASE_READINESS.md` |
+| E-5 / E-6 / E-8 / E-9 | pendentes (Fases 5 / 2 / 3 / 8) | — | rollback pré-update; `detached`/PID POSIX; `--no-sandbox` browser pool; publish → `LMPrado-DZ23` |
+| #5 OpenAPI Try | **CORRIGIDO** | `7cdf5a0a8` | allowlist = operações **documentadas no spec** (`documentedOperations.ts`, catch-all excluído) → 403 fora dela; cookie de sessão **nunca** encaminhado; mutáveis só com `confirmMutation`; `apiKeyId` → `Authorization` injetado server-side (por isso a chave cifrada em repouso continua necessária — ver #7) |
+| #7 API keys | **CORRIGIDO (reveal-once)** | `f9ec8e0ed` | `/api/keys/{id}/reveal` removido (+ UI/doc); chave mostrada por completo só na criação/regeneração. **Opção A (só hash+prefixo) avaliada e NÃO adotada:** o plaintext cifrado (`enc:v1:`, fail-closed em produção, validação por `key_hash`) é consumido pelo Try server-side (#5) e pela integração de agentes; `ALLOW_API_KEY_REVEAL` re-escopada só para credenciais de provedores |
+| #3 Criptografia/readiness | **CORRIGIDO** | `87c4478a5` | `deploymentProfile.ts` (`isExposedDeploymentProfile` = produção **ou** bind explícito ≠ loopback) exige `STORAGE_ENCRYPTION_KEY`; `storageEncryptionAudit.ts` conta linhas sensíveis sem `enc:v1:` (valores nunca retornados); `/api/monitoring/health` (visão management) expõe `storage.status ∈ {ok, encryption_disabled, insecure_storage}`. Cifrar `JWT_SECRET`/`API_KEY_SECRET` em repouso = **N/A** (são as raízes de chave; proteção = arquivo `0o600`, E-7) |
+| #2 Matriz authz | **CORRIGIDO (trava)** | `ee822b5d6` | `tests/unit/authz/route-origin-auth-matrix.test.ts` — 144 células rota×origem×credencial×requireLogin, todas conforme o contrato (nenhuma correção de produção necessária) |
 
 ### 2.5 CI / supply chain (Fase 7)
 | id | Sev. | Class. | Evidência | Correção |
