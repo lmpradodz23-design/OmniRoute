@@ -8,10 +8,17 @@ type AuthInfoLike = {
 export type McpToolExtraLike = {
   authInfo?: AuthInfoLike;
   sessionId?: string;
+  /**
+   * The SDK copies the CLIENT's `request.params._meta` here. It is untrusted request payload
+   * and is never a scope source (M-1): a caller with no per-key identity — stdio, a
+   * management-session cookie, a key with `scopes: []` — could otherwise send
+   * `_meta: { scopes: ["*"] }` and reach every write/execute/admin tool.
+   */
   _meta?: unknown;
 };
 
-export type ScopeSource = "authInfo" | "meta" | "env" | "none";
+/** Where the caller's scopes came from: the resolved per-key identity, the operator's env fallback, or nowhere. */
+export type ScopeSource = "authInfo" | "env" | "none";
 
 export interface CallerScopeContext {
   callerId: string;
@@ -39,7 +46,11 @@ const MCP_ENFORCE_OPT_OUT = new Set(["false", "0", "no", "off"]);
 export function isMcpScopeEnforcementEnabled(
   raw: string | undefined = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES
 ): boolean {
-  return !MCP_ENFORCE_OPT_OUT.has(String(raw ?? "").trim().toLowerCase());
+  return !MCP_ENFORCE_OPT_OUT.has(
+    String(raw ?? "")
+      .trim()
+      .toLowerCase()
+  );
 }
 
 function normalizeScopeList(raw: unknown): string[] {
@@ -49,28 +60,6 @@ function normalizeScopeList(raw: unknown): string[] {
     .map((value) => value.trim())
     .filter(Boolean);
   return Array.from(new Set(normalized));
-}
-
-function extractMetaScopeList(meta: unknown): string[] {
-  if (!meta || typeof meta !== "object") return [];
-  const metaRecord = meta as Record<string, unknown>;
-
-  const direct = normalizeScopeList(metaRecord.scopes);
-  if (direct.length > 0) return direct;
-
-  const auth = metaRecord.auth;
-  if (auth && typeof auth === "object") {
-    const authScopes = normalizeScopeList((auth as Record<string, unknown>).scopes);
-    if (authScopes.length > 0) return authScopes;
-  }
-
-  const omni = metaRecord.omniroute;
-  if (omni && typeof omni === "object") {
-    const omniScopes = normalizeScopeList((omni as Record<string, unknown>).scopes);
-    if (omniScopes.length > 0) return omniScopes;
-  }
-
-  return [];
 }
 
 function scopeMatches(grantedScope: string, requiredScope: string): boolean {
@@ -93,14 +82,12 @@ export function resolveCallerScopeContext(
     (typeof extra?.sessionId === "string" && extra.sessionId.trim()) ||
     "anonymous";
 
+  // Only two sources exist: the per-key scopes resolved server-side (`authInfo`, fed by
+  // httpAuthContext over HTTP) and the operator's OMNIROUTE_MCP_SCOPES env fallback. Anything
+  // the client puts in its own request (`extra._meta`) is ignored.
   const authScopes = normalizeScopeList(extra?.authInfo?.scopes);
   if (authScopes.length > 0) {
     return { callerId, scopes: authScopes, source: "authInfo" };
-  }
-
-  const metaScopes = extractMetaScopeList(extra?._meta);
-  if (metaScopes.length > 0) {
-    return { callerId, scopes: metaScopes, source: "meta" };
   }
 
   const fallback = normalizeScopeList(fallbackScopes);
