@@ -9,8 +9,10 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
 import { isLocalOnlyPath, isAlwaysProtectedPath } from "@/server/authz/routeGuard";
+import { isDocumentedOperation } from "@/lib/openapi/documentedOperations";
 
-const ALLOWED_TRY_PATH_PREFIXES = ["/api/", "/v1/", "/v1beta/", "/a2a", "/.well-known/agent.json"];
+/** Methods that change state: the panel must confirm them explicitly (#5 residual). */
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const BLOCKED_FORWARD_HEADERS = new Set([
   "connection",
@@ -38,13 +40,11 @@ const tryRequestSchema = z.object({
     .string()
     .min(1, "Path is required")
     .startsWith("/", "Path must start with /")
-    .refine((value) => !value.startsWith("//"), "Path must be a same-origin path")
-    .refine(
-      (value) => ALLOWED_TRY_PATH_PREFIXES.some((prefix) => value.startsWith(prefix)),
-      "Path must target an OmniRoute API endpoint"
-    ),
+    .refine((value) => !value.startsWith("//"), "Path must be a same-origin path"),
   headers: z.record(z.string(), z.string()).optional().default({}),
   body: z.any().optional(),
+  /** Required for POST/PUT/PATCH/DELETE — a deliberate act of the operator, never implied. */
+  confirmMutation: z.boolean().optional().default(false),
 });
 
 function getRequestOrigin(request: NextRequest) {
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const { method, path, headers, body: reqBody } = validation.data;
+    const { method, path, headers, body: reqBody, confirmMutation } = validation.data;
 
     const origin = getRequestOrigin(request);
     const targetUrl = new URL(path, origin);
@@ -84,6 +84,24 @@ export async function POST(request: NextRequest) {
 
     const upperMethod = method.toUpperCase();
     const pathname = targetUrl.pathname;
+
+    // #5 residual (explicit allowlist): only operations documented in docs/openapi.yaml —
+    // the very catalog the panel renders — can be proxied. A generic /api/ prefix would admit
+    // every undocumented or internal route.
+    if (!isDocumentedOperation(upperMethod, pathname)) {
+      return NextResponse.json(
+        { error: "Target is not a documented OmniRoute endpoint" },
+        { status: 403 }
+      );
+    }
+
+    // #5 residual (mutations): state-changing methods need the operator's explicit confirmation.
+    if (MUTATING_METHODS.has(upperMethod) && !confirmMutation) {
+      return NextResponse.json(
+        { error: "Mutating requests require confirmMutation: true" },
+        { status: 403 }
+      );
+    }
 
     // #5 (confused deputy — core fix): never let the same-origin self-fetch reach host-sensitive
     // (LOCAL_ONLY) or always-protected routes. Those rely on the caller's network locality / login,
@@ -101,14 +119,11 @@ export async function POST(request: NextRequest) {
 
     const start = performance.now();
 
-    // Forward cookies/auth from the original (already management-authenticated) request.
+    // #5 residual (no implicit credentials): the proxied call carries ONLY the headers the
+    // operator typed into the panel (an explicit Authorization for the key under test). The
+    // dashboard session cookie is never forwarded — the server must not act as the admin's
+    // deputy; hop-by-hop / host headers and a caller-supplied Cookie are dropped as before.
     const forwardHeaders = buildForwardHeaders(headers as Record<string, string>);
-
-    // Forward auth from the dashboard session so the proxied call runs as the same admin.
-    const cookie = request.headers.get("cookie");
-    if (cookie && !forwardHeaders["Cookie"]) {
-      forwardHeaders["Cookie"] = cookie;
-    }
 
     if (reqBody && !forwardHeaders["Content-Type"]) {
       forwardHeaders["Content-Type"] = "application/json";

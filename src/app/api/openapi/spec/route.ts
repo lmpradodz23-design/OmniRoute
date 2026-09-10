@@ -5,19 +5,12 @@
 
 import { NextResponse } from "next/server";
 import fs from "fs";
-import path from "path";
 import * as yaml from "js-yaml";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+// Shared with the Try It proxy's explicit allowlist (#5 residual) so both read the same file.
+import { OPENAPI_SPEC_CANDIDATES } from "@/lib/openapi/documentedOperations";
 
 let cachedSpec: { data: any; mtime: number } | null = null;
-const OPENAPI_SPEC_CANDIDATES = [
-  path.join(/* turbopackIgnore: true */ process.cwd(), "docs", "openapi.yaml"),
-  path.join(/* turbopackIgnore: true */ process.cwd(), "app", "docs", "openapi.yaml"),
-  // Legacy locations kept as fallback for old standalone bundles (pre-#4781 move
-  // from docs/reference/openapi.yaml to the canonical docs/openapi.yaml).
-  path.join(/* turbopackIgnore: true */ process.cwd(), "docs", "reference", "openapi.yaml"),
-  path.join(/* turbopackIgnore: true */ process.cwd(), "app", "docs", "reference", "openapi.yaml"),
-];
 
 /**
  * Generate example value from OpenAPI schema.

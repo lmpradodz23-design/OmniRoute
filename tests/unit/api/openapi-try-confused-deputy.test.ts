@@ -70,15 +70,26 @@ describe("POST /api/openapi/try — confused-deputy destination block (#5)", () 
     assert.equal(res.status, 403);
   });
 
-  it("does NOT block an ordinary (non-sensitive) /api/ route — the feature still works", async () => {
-    // The self-fetch to a non-existent same-origin route fails, so the handler's catch returns a
-    // 200 error envelope — the point is it is NOT blocked (403) by the deputy gate.
+  it("does NOT block an ordinary (non-sensitive) documented route — the feature still works", async () => {
+    // The self-fetch to the same-origin route fails in this harness (no server listening), so
+    // the handler's catch returns a 200 error envelope — the point is it is NOT blocked (403).
+    const res = await tryRoute.POST(
+      tryRequest("http://localhost", {
+        method: "GET",
+        path: "/api/monitoring/health",
+      }) as never
+    );
+    assert.notEqual(res.status, 403);
+  });
+
+  it("rejects an UNDOCUMENTED path — the allowlist is the OpenAPI spec, not a generic /api/ prefix", async () => {
     const res = await tryRoute.POST(
       tryRequest("http://localhost", {
         method: "POST",
         path: "/api/does-not-exist-xyz",
+        confirmMutation: true,
       }) as never
     );
-    assert.notEqual(res.status, 403);
+    assert.equal(res.status, 403);
   });
 });

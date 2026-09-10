@@ -288,6 +288,10 @@ export default function ApiEndpointsTab() {
           path: ep.path,
           headers,
           body: tryBody ? JSON.parse(tryBody) : undefined,
+          // The proxy refuses POST/PUT/PATCH/DELETE without this explicit confirmation; the
+          // operator is running a documented mutating operation on purpose from this panel.
+          // The proxy never forwards the dashboard session — only the key chosen above.
+          confirmMutation: ep.method !== "GET",
         }),
       });
       if (res.ok) setTryResult(await res.json());
