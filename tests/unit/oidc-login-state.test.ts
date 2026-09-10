@@ -18,6 +18,22 @@ const { updateSettings } = await import("@/lib/db/settings");
 const localDb = { updateSettings };
 // @ts-ignore - intentional for test harness timing
 const loginRoute = await import("../../src/app/api/auth/oidc/login/route.ts");
+const oidcDiscovery = await import("../../src/lib/auth/oidcDiscovery.ts");
+
+// S-4: discovery I/O now goes through `oidcDiscoveryInternals.transport` (a pinned client in
+// production, which cannot be intercepted by mocking globalThis.fetch). Route it through whatever
+// globalThis.fetch each test installs so the existing URL-routed mock keeps driving the fallback.
+const originalTransport = oidcDiscovery.oidcDiscoveryInternals.transport;
+function installFetchBackedTransport() {
+  oidcDiscovery.oidcDiscoveryInternals.transport = async (url, options) => {
+    const r = await globalThis.fetch(url.toString(), {
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+    });
+    return { status: r.status, ok: r.ok, bodyText: await r.text() };
+  };
+}
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -27,6 +43,11 @@ async function resetStorage() {
 
 test.beforeEach(async () => {
   await resetStorage();
+  installFetchBackedTransport();
+});
+
+test.afterEach(() => {
+  oidcDiscovery.oidcDiscoveryInternals.transport = originalTransport;
 });
 
 test.after(() => {

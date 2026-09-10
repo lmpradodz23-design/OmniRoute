@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCachedSettings } from "@/lib/db/readCache";
+import { OidcEndpointError, discoverOidcEndpoints } from "@/lib/auth/oidcDiscovery";
 
 /**
  * GET /api/auth/oidc/login
@@ -43,23 +44,19 @@ export async function GET(request: Request) {
   const origin = `${scheme}://${host}`;
   const redirectUri = `${origin}${redirectPath}`;
 
-  // Discover authorization_endpoint
-  let authEndpoint = `${issuer}/authorize`;
+  // Discover authorization_endpoint through the validated helper (SSRF S-4): the browser will be
+  // sent there carrying the authorization code + state, so the endpoint must be https (loopback
+  // http only for a dev IdP), never cloud-metadata, private only under the opt-in, and taken from
+  // the discovery document only when that document's `issuer` matches the configured one.
+  // Discovery failures fall back to the conventional endpoint under the issuer, as before.
+  let authEndpoint: string;
   try {
-    const wellKnownResp = await fetch(`${issuer}/.well-known/openid-configuration`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (wellKnownResp.ok) {
-      const data: unknown = await wellKnownResp.json();
-      if (data && typeof data === "object" && "authorization_endpoint" in data) {
-        const candidate = (data as Record<string, unknown>).authorization_endpoint;
-        if (typeof candidate === "string" && candidate.length > 0) {
-          authEndpoint = candidate;
-        }
-      }
+    authEndpoint = (await discoverOidcEndpoints(issuer)).authorizationEndpoint;
+  } catch (error) {
+    if (error instanceof OidcEndpointError) {
+      return NextResponse.json({ error: `OIDC issuer rejected: ${error.message}` }, { status: 400 });
     }
-  } catch {
-    // fall back to convention
+    throw error;
   }
 
   const scope = scopes.join(" ");
