@@ -56,7 +56,6 @@ export default defineConfig({
       "tests/unit/ui/providerIconKimiLogomark.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/ClaudeClassifierCompatToggle.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/system-storage-manual-vacuum.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "tests/unit/ui/burn-rate-chart.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/model-select-modal-zero-config.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/model-select-modal-hidden-models-7156.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "tests/unit/ui/toonEncoderTable.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
@@ -98,8 +97,6 @@ export default defineConfig({
       "src/app/(dashboard)/dashboard/providers/[id]/__tests__/ProviderDetailPageClient.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
       "src/lib/skills/__tests__/integration.test.ts", // #8618 — pre-existing failure; remove this exclusion when fixed
       "src/app/(dashboard)/dashboard/cache/__tests__/MemoryCards.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "tests/unit/ui/combos-page-smoke.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
-      "tests/unit/ui/evals-tab-smoke.test.tsx", // #8618 — pre-existing failure; remove this exclusion when fixed
     ],
 
     coverage: {
