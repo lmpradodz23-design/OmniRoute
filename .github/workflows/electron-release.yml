@@ -36,7 +36,7 @@ jobs:
       version: ${{ steps.validate.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -86,14 +86,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           # workflow_dispatch: build the tag being (re)built, not the dispatching branch. On a
           # tag push this resolves to the same commit.
           ref: ${{ needs.validate.outputs.version }}
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
@@ -118,7 +118,7 @@ jobs:
         run: node scripts/build/standaloneBundle.mjs pack --out web-bundle.tar.gz
 
       - name: Upload shared web bundle
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: web-standalone-bundle
           # compression-level 0: the payload is already a deterministic tar.gz;
@@ -174,14 +174,14 @@ jobs:
             arch: x64,arm64
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           # workflow_dispatch: build the tag being (re)built, not the dispatching branch. On a
           # tag push this resolves to the same commit.
           ref: ${{ needs.validate.outputs.version }}
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
@@ -243,7 +243,7 @@ jobs:
         # Stage 8: inverse of the fallback step above — runs exactly when the
         # shared `web-build` job produced the bundle.
         if: needs.web-build.result == 'success'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: web-standalone-bundle
 
@@ -355,7 +355,7 @@ jobs:
           done
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: electron-${{ matrix.platform }}
           path: release-assets/
@@ -378,7 +378,7 @@ jobs:
       contents: write # softprops/action-gh-release creates the GitHub Release
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -394,7 +394,7 @@ jobs:
       # ARM dmg. Downloading into per-artifact subdirectories keeps both, so they can be
       # merged on purpose instead of by luck.
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: artifacts
 
@@ -436,7 +436,7 @@ jobs:
         run: ls -la release-assets/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: ${{ needs.validate.outputs.version }}
           draft: false
