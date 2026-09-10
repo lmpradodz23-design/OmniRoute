@@ -40,6 +40,14 @@ const IPV6_RE = new RegExp(
 // (AGENTS.md → "Regex Security (ReDoS)").
 const MAX_IP_LITERAL_LENGTH = 110;
 
+// Non-canonical IPv4 spellings — bare decimal (`2130706433`), hex (`0x7f000001`), octal
+// (`0177.0.0.1`) and short dotted forms (`127.1`) — are how an attacker smuggles a loopback or
+// private address past a string guard. `ipVersion` (= node:net.isIP) rightly rejects them, but
+// the guard used to fall through to "public" for anything that was not a canonical literal.
+// URL-based callers never see these (WHATWG normalizes them to `127.0.0.1`); a raw-config caller
+// must fail closed. Every quantifier is bounded (AGENTS.md → "Regex Security (ReDoS)").
+const NON_CANONICAL_IPV4_RE = /^(?:0x[0-9a-f]{1,8}|\d{1,10})(?:\.(?:0x[0-9a-f]{1,8}|\d{1,10})){0,3}$/;
+
 /** Pure-JS `node:net#isIP`: 4, 6, or 0 when the string is not an IP literal. */
 export function ipVersion(host: string): 0 | 4 | 6 {
   if (!host || host.length > MAX_IP_LITERAL_LENGTH) return 0;
@@ -48,9 +56,15 @@ export function ipVersion(host: string): 0 | 4 | 6 {
 }
 
 export function normalizeHost(hostname: string) {
-  const normalized = hostname.trim().toLowerCase();
+  let normalized = hostname.trim().toLowerCase();
   if (normalized.startsWith("[") && normalized.endsWith("]")) {
-    return normalized.slice(1, -1);
+    normalized = normalized.slice(1, -1);
+  }
+  // Drop the FQDN root dot. `localhost.` resolves exactly like `localhost`, and a trailing dot
+  // otherwise slips past every exact and suffix test in `isPrivateHost` — including `.internal`,
+  // so `metadata.google.internal.` would have been allowed (S-2). A lone "." is left alone.
+  if (normalized.length > 1 && normalized.endsWith(".")) {
+    normalized = normalized.slice(0, -1);
   }
   return normalized;
 }
@@ -62,19 +76,25 @@ export function isPrivateHost(hostname: string) {
   if (
     normalized === "localhost" ||
     normalized === "0.0.0.0" ||
-    // `::` is the IPv6 twin of `0.0.0.0`: connecting to it reaches a service bound
-    // to the IPv6 loopback, so it has to be refused alongside its IPv4 spelling.
-    normalized === "::" ||
     normalized === "127.0.0.1" ||
-    normalized === "::1" ||
+    // Everything in ::/96 — the unspecified address (`::`, the IPv6 twin of `0.0.0.0`), the
+    // loopback `::1`, IPv4-mapped (`::ffff:7f00:1`) AND the deprecated IPv4-compatible form
+    // (`::7f00:1`, i.e. `::127.0.0.1`). None is a legitimate public egress target, and the old
+    // `::ffff:`-only check let the compatible form through (S-2).
+    normalized.startsWith("::") ||
     normalized.endsWith(".localhost") ||
     normalized.endsWith(".local") ||
     // `.internal` is reserved for private use (ICANN-style) and is the
     // hostname suffix used by GCP/Azure metadata probes
     // (e.g. `metadata.google.internal`).
-    normalized.endsWith(".internal") ||
-    normalized.startsWith("::ffff:")
+    normalized.endsWith(".internal")
   ) {
+    return true;
+  }
+
+  // A numeric spelling that is NOT a canonical dotted quad is never a public host — fail closed
+  // instead of falling through to "public" (see NON_CANONICAL_IPV4_RE).
+  if (NON_CANONICAL_IPV4_RE.test(normalized) && ipVersion(normalized) !== 4) {
     return true;
   }
 
@@ -95,7 +115,9 @@ export function isPrivateHost(hostname: string) {
       normalized === "::1" ||
       normalized.startsWith("fc") ||
       normalized.startsWith("fd") ||
-      normalized.startsWith("fe80:")
+      // Link-local is fe80::/10 — fe80 through febf — not only the `fe80:` spelling, so
+      // `feb0::1` used to be classified public (S-2).
+      /^fe[89ab]/.test(normalized)
     );
   }
 
