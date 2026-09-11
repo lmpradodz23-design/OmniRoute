@@ -439,6 +439,27 @@ export function expectedAddedColumns(sql: string): Array<{ table: string; column
   return out;
 }
 
+const CREATE_OBJECT_RE =
+  /CREATE\s+(?:UNIQUE\s+)?(TABLE|INDEX)\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`[]?([A-Za-z0-9_]+)["'`\]]?/gi;
+
+/** Every table/index a plain-SQL migration creates — the rest of its final state (A-6). */
+export function expectedCreatedObjects(
+  sql: string
+): Array<{ type: "table" | "index"; name: string }> {
+  const out: Array<{ type: "table" | "index"; name: string }> = [];
+  for (const match of sql.matchAll(CREATE_OBJECT_RE)) {
+    out.push({ type: match[1].toLowerCase() as "table" | "index", name: match[2] });
+  }
+  return out;
+}
+
+function hasSchemaObject(db: SqliteAdapter, type: "table" | "index", name: string): boolean {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = ? AND name = ?")
+    .get(type, name) as { name: string } | undefined;
+  return Boolean(row);
+}
+
 /**
  * R-4 final-state probe behind the "duplicate column name" tolerance: the columns the
  * file still has to add. Empty means the whole file is already applied; a non-empty list
@@ -457,16 +478,23 @@ function missingAddedColumns(
   ) {
     return isSchemaAlreadyApplied(db, migration) ? [] : ["(handler-managed schema incomplete)"];
   }
-  let expected: Array<{ table: string; column: string }>;
+  let sql: string;
   try {
-    expected = expectedAddedColumns(fs.readFileSync(migration.path, "utf-8"));
+    sql = fs.readFileSync(migration.path, "utf-8");
   } catch {
     return ["(migration file unreadable)"];
   }
+  const expected = expectedAddedColumns(sql);
   if (expected.length === 0) return ["(no ADD COLUMN statement found to verify)"];
-  return expected
+  const missing = expected
     .filter(({ table, column }) => !hasColumn(db, table, column))
     .map(({ table, column }) => `${table}.${column}`);
+  // A-6: the columns are not the whole final state. A file whose first ALTER collided
+  // while its CREATE INDEX / CREATE TABLE never ran is still partial — probe those too.
+  for (const { type, name } of expectedCreatedObjects(sql)) {
+    if (!hasSchemaObject(db, type, name)) missing.push(`${type}:${name}`);
+  }
+  return missing;
 }
 
 function isSchemaAlreadyApplied(
