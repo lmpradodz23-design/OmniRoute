@@ -73,6 +73,7 @@
       "lib/ownerOnlyFile.js",
       "lib/remoteServerPreferences.js",
       "lib/serverReadiness.js",
+      "lib/loadFailure.js",
       "lib/windowClosePolicy.js",
       "assets/remoteServerPrompt.html",
       "package.json",

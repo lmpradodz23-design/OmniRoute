@@ -56,6 +56,7 @@ const {
   writeCloseBehavior,
 } = require("./lib/remoteServerPreferences");
 const { buildReadinessUrl, waitForServer } = require("./lib/serverReadiness");
+const { createLoadFailureRecovery } = require("./lib/loadFailure");
 const { shouldStartHidden, showOrCreateWindow } = require("./lib/windowLifecycle");
 const {
   CLOSE_BEHAVIOR_KEEP_LOADED,
@@ -473,6 +474,12 @@ function createWindow({ showWhenReady = true } = {}) {
   };
   window.webContents.on("will-navigate", blockCrossOriginNavigation);
   window.webContents.on("will-redirect", blockCrossOriginNavigation);
+  window.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      loadFailureRecovery.handle({ errorCode, errorDescription, validatedURL, isMainFrame });
+    }
+  );
 
   // Keep the server alive while either hiding the renderer for a fast reopen or
   // unloading it to reclaim memory, according to the persisted tray preference.
@@ -497,6 +504,14 @@ function createWindow({ showWhenReady = true } = {}) {
 
   return window;
 }
+
+// J2: if the dashboard fails to load (server not listening yet, crash before listen),
+// show a static explanation and reload once the readiness ping answers again.
+const loadFailureRecovery = createLoadFailureRecovery({
+  getWindow: () => mainWindow,
+  getServerUrl: () => getServerUrl(),
+  waitForServer: (serverUrl, timeoutMs) => waitForServer(buildReadinessUrl(serverUrl), timeoutMs),
+});
 
 function showMainWindow() {
   return showOrCreateWindow({
