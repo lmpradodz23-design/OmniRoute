@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/shared/utils/cn";
 import { getActiveSidebarHref } from "@/shared/utils/sidebarRouteMatch";
 import { filterSidebarSectionsByQuery } from "@/shared/utils/sidebarSearch";
+import { waitForServerRestart } from "@/shared/utils/waitForServerReady";
 import {
   expandActiveSection,
   hydrateExpandedSections,
@@ -424,7 +425,12 @@ export default function Sidebar({
     setIsRestarting(false);
     setShowRestartModal(false);
     setIsDisconnected(true);
-    setTimeout(() => globalThis.location.reload(), 3000);
+    // U7/J13: reload only once the server answers again (a fixed timer landed on the
+    // browser's connection-refused page whenever the restart took longer). On timeout the
+    // disconnected overlay keeps its manual "Reload page" button.
+    void waitForServerRestart().then((ready) => {
+      if (ready) globalThis.location.reload();
+    });
   };
 
   const handleMouseEnter = useCallback(
