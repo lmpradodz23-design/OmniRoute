@@ -1672,7 +1672,8 @@
     "settingsAdvancedDescription": "Regras avançadas de payload, limites de pedidos e definições de API de proxy",
     "mitmProxyDescription": "Configura definições de proxy MITM para inspeção de tráfego e depuração",
     "oneProxyDescription": "Configura definições do 1Proxy para encadeamento avançado de proxy",
-    "omniSkillsDescription": "Instalar e gerir competências de sandbox para execução automatizada de prompts e ferramentas"
+    "omniSkillsDescription": "Instalar e gerir competências de sandbox para execução automatizada de prompts e ferramentas",
+    "openMenu": "Abrir menu de navegação"
   },
   "cloudSyncStatus": {
     "synced": "Sincronizado",

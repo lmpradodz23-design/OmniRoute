@@ -892,10 +892,15 @@ export default function ApiManagerPageClient() {
           <span className="material-symbols-outlined text-red-500">error</span>
           <p className="text-sm text-red-700 dark:text-red-300 flex-1">{pageError}</p>
           <button
+            type="button"
             onClick={clearPageError}
+            aria-label={tc("close")}
+            title={tc("close")}
             className="text-red-500 hover:text-red-700 transition-colors"
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              close
+            </span>
           </button>
         </div>
       )}

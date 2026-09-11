@@ -214,10 +214,15 @@ export default function Header({
       <div className="flex items-center gap-3 lg:hidden">
         {showMenuButton && (
           <button
+            type="button"
             onClick={onMenuClick}
+            aria-label={t("openMenu")}
+            title={t("openMenu")}
             className="text-text-main hover:text-primary transition-colors"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              menu
+            </span>
           </button>
         )}
       </div>

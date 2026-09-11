@@ -1684,7 +1684,8 @@
     "settingsAdvancedDescription": "Advanced payload rules, request limits, and proxy API settings",
     "mitmProxyDescription": "Configure MITM proxy settings for traffic inspection and debugging",
     "oneProxyDescription": "Configure 1Proxy settings for advanced proxy chaining",
-    "omniSkillsDescription": "Install and manage sandbox skills for automated prompt and tool execution"
+    "omniSkillsDescription": "Install and manage sandbox skills for automated prompt and tool execution",
+    "openMenu": "Open navigation menu"
   },
   "cloudSyncStatus": {
     "synced": "Synced",
