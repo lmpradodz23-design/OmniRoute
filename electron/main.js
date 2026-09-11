@@ -945,6 +945,13 @@ function startNextServer() {
     shell: false,
   });
 
+  // The child this call spawned. Event handlers below must compare against it instead of
+  // the module-level `nextServer`: when a stop times out, waitForServerExit() resolves
+  // BEFORE the old child's `exit` fires, a new server is spawned, and the late `exit` of
+  // the OLD child would otherwise null `nextServer` and delete the NEW server's pid file
+  // (final audit A-4).
+  const spawnedServer = nextServer;
+
   // R-12: record the pid so a later launch can reap this server if we die first.
   if (nextServer.pid) {
     serverPidFilePath = serverPidFile;
@@ -995,6 +1002,8 @@ function startNextServer() {
 
   nextServer.on("exit", (code) => {
     console.log("[Electron] Server exited with code:", code);
+    // A-4: a superseded child's late exit must not touch the current server's state.
+    if (nextServer !== spawnedServer) return;
     sendToRenderer("server-status", { status: "stopped", port: serverPort });
     nextServer = null;
     removeServerPidFile(serverPidFilePath);

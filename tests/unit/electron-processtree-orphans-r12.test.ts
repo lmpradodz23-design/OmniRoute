@@ -187,4 +187,16 @@ describe("Electron main.js wires the detached spawn and the PID file (R-12)", ()
     assert.match(main, /reapOrphanServer\(/);
     assert.match(main, /removeServerPidFile\(/);
   });
+  it("a superseded server's late exit cannot clear the current server's pid file (A-4)", () => {
+    // waitForServerExit() resolves on timeout BEFORE the old child's `exit`; the handler
+    // must be scoped to the child it was attached to, not to the module-level `nextServer`.
+    const exitHandler = main.match(/nextServer\.on\("exit",[\s\S]*?\n  \}\);/)?.[0] ?? "";
+    assert.match(exitHandler, /if \(nextServer !== spawnedServer\) return;/);
+    assert.ok(
+      exitHandler.indexOf("if (nextServer !== spawnedServer) return;") <
+        exitHandler.indexOf("removeServerPidFile("),
+      "the identity guard runs before the pid file is removed"
+    );
+    assert.match(main, /const spawnedServer = nextServer;/);
+  });
 });
