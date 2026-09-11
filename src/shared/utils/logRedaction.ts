@@ -14,9 +14,21 @@
 const CENSOR = "[REDACTED]";
 
 // Cheap pre-test: skip the (still bounded) replace work entirely for clean strings.
-const SECRET_HINT = /bearer|telegram\.org\/bot|api[_-]?key|authorization|sk-/i;
+const SECRET_HINT = /bearer|telegram\.org\/bot|api[_-]?key|authorization|sk-|cookie|cli-token/i;
+
+/**
+ * Object keys whose entire string value is a credential (Fase 4): a header dump logged
+ * as `{ headers: { cookie: "session=…" } }` carries no "cookie:" prefix inside the
+ * value, so the text patterns below cannot see it — the key is the evidence.
+ */
+const SENSITIVE_KEY = /^(?:set-)?cookie$|^authorization$|^x-api-key$|^x-omniroute-cli-token$/i;
 
 const PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
+  // Cookie: <jar>  /  "set-cookie":"<value>"  — the whole jar is censored, not one
+  // attribute: session ids ride in it under operator-chosen names.
+  [/((?:set-)?cookie"?\s*[:=]\s*"?)[^\r\n"']{6,}/gi, `$1${CENSOR}`],
+  // x-omniroute-cli-token: <val> (dashboard/CLI credential)
+  [/((?:x-omniroute-cli-token|x-cli-token)"?\s*[:=]\s*"?)[\w.\-]{6,}/gi, `$1${CENSOR}`],
   // Authorization: Bearer <token>  /  authorization=Bearer <token>
   [/(authorization\s*[:=]\s*bearer\s+)[\w.\-]{6,}/gi, `$1${CENSOR}`],
   // bare "Bearer <token>"
@@ -83,7 +95,10 @@ function redactValue(value: unknown, depth: number, state: RedactState): unknown
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(value as Record<string, unknown>)) {
     const original = (value as Record<string, unknown>)[key];
-    const redacted = redactValue(original, depth + 1, state);
+    const redacted =
+      typeof original === "string" && original.length > 0 && SENSITIVE_KEY.test(key)
+        ? CENSOR
+        : redactValue(original, depth + 1, state);
     if (redacted !== original) changed = true;
     out[key] = redacted;
   }
