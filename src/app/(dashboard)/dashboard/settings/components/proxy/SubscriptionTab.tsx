@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/shared/components";
 import { isNeedsCoreNode } from "@/lib/proxySubscription/needsCore";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 interface SubscriptionRecord {
   id: string;
@@ -70,6 +71,7 @@ export default function SubscriptionTab() {
   const [error, setError] = useState<string | null>(null);
 
   const t = useTranslations("settings");
+  const confirmDialog = useConfirmDialog();
 
   // Resolve a subscription `error` value into a localized message. Values are
   // either a `{ code, detail? }` JSON (user-facing, i18n'd) or a plain
@@ -235,7 +237,7 @@ export default function SubscriptionTab() {
   };
 
   const remove = async (sub: SubscriptionRecord) => {
-    if (!window.confirm(t("proxySubscription.confirmDelete", { name: sub.name }))) return;
+    if (!(await confirmDialog(t("proxySubscription.confirmDelete", { name: sub.name })))) return;
     setBusyId(sub.id);
     try {
       const res = await fetch(`/api/v1/management/proxy-subscriptions/${sub.id}`, {

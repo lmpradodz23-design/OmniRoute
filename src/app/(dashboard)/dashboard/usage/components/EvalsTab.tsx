@@ -14,6 +14,7 @@ import {
 } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import { matchesSearch } from "@/shared/utils/turkishText";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type EvalTargetType = "suite-default" | "model" | "combo";
 
@@ -430,6 +431,7 @@ function getResultDetails(
 
 export default function EvalsTab() {
   const t = useTranslations("usage");
+  const confirmDialog = useConfirmDialog();
   const notify = useNotificationStore();
   const [suites, setSuites] = useState<EvalSuite[]>([]);
   const [recentRuns, setRecentRuns] = useState<EvalRun[]>([]);
@@ -751,7 +753,7 @@ export default function EvalsTab() {
 
   async function handleDeleteSuite(suite: EvalSuite) {
     if (suite.source !== "custom") return;
-    const confirmDelete = window.confirm(
+    const confirmDelete = await confirmDialog(
       t("suiteBuilderDeleteConfirm", { name: suite.name || suite.id })
     );
     if (!confirmDelete) return;

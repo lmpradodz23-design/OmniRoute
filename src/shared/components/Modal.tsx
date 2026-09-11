@@ -281,7 +281,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <p className="text-text-muted">{message}</p>
+      <p className="text-text-muted whitespace-pre-line">{message}</p>
     </Modal>
   );
 }

@@ -23,6 +23,7 @@ import { useLocale, useTranslations } from "next-intl";
 import TelemetryCard from "./TelemetryCard";
 import ProviderHealthAutopilotCard from "./ProviderHealthAutopilotCard";
 import ProviderHealthMatrixCard from "./ProviderHealthMatrixCard";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 function formatUptime(seconds) {
   const d = Math.floor(seconds / 86400);
@@ -60,6 +61,7 @@ const CB_STYLES = {
 export default function HealthPage() {
   const locale = useLocale();
   const t = useTranslations("health");
+  const confirmDialog = useConfirmDialog();
   const tc = useTranslations("common");
   const tp = useTranslations("providers");
   const nodeMap = useProviderNodeMap();
@@ -134,7 +136,7 @@ export default function HealthPage() {
   }, [fetchHealth, fetchExtras, fetchDbHealth]);
 
   const handleResetHealth = async () => {
-    if (!confirm(t("resetConfirm"))) return;
+    if (!(await confirmDialog(t("resetConfirm")))) return;
     setResetting(true);
     try {
       const res = await fetch("/api/monitoring/health", { method: "DELETE" });
@@ -271,13 +273,11 @@ export default function HealthPage() {
       {/* Verdict Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">
-          {
-            data.status === "healthy"
-              ? t("healthVerdictReady")
-              : data.status === "cooling"
-                ? t("healthVerdictCoolingDown")
-                : t("healthVerdictActionRequired")
-          }
+          {data.status === "healthy"
+            ? t("healthVerdictReady")
+            : data.status === "cooling"
+              ? t("healthVerdictCoolingDown")
+              : t("healthVerdictActionRequired")}
         </h1>
         <p className="text-text-muted text-lg">{t("healthSubtitle")}</p>
       </div>
@@ -300,9 +300,7 @@ export default function HealthPage() {
           {data.status === "healthy" ? "check_circle" : "error"}
         </span>
         <span className={data.status === "healthy" ? "text-green-400" : "text-red-400"}>
-          {data.status === "healthy"
-            ? t("allOperational")
-            : t("issuesDetected")}
+          {data.status === "healthy" ? t("allOperational") : t("issuesDetected")}
         </span>
       </div>
 

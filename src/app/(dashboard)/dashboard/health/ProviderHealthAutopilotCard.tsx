@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
 import { getProviderDisplayName } from "@/lib/display/names";
 import { useProviderNodeMap, resolveProviderName } from "@/lib/display/useProviderNodeMap";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type AutopilotAction = {
   type: string;
@@ -226,6 +227,7 @@ function ProviderIssues({
 
 export default function ProviderHealthAutopilotCard() {
   const t = useTranslations("providerHealthAutopilot");
+  const confirmDialog = useConfirmDialog();
   const nodeMap = useProviderNodeMap();
   const [report, setReport] = useState<AutopilotReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -269,7 +271,7 @@ export default function ProviderHealthAutopilotCard() {
       const localizedRecommendation = issueText(issue, "recommendation", t);
       if (
         action.requiresConfirmation &&
-        !confirm(`${localizedAction}?\n\n${localizedRecommendation}`)
+        !(await confirmDialog(`${localizedAction}?\n\n${localizedRecommendation}`))
       ) {
         return;
       }
@@ -297,7 +299,7 @@ export default function ProviderHealthAutopilotCard() {
         setBusyAction(null);
       }
     },
-    [load, t]
+    [load, t, confirmDialog]
   );
 
   return (

@@ -8,6 +8,7 @@ import { STACKED_PIPELINE_ENGINE_INTENSITIES } from "@/shared/validation/compres
 import { CompressionPipelineEditor } from "@/shared/components/compression/CompressionPipelineEditor";
 import { ComboCompressionModeSelect } from "@/shared/components/compression/ComboCompressionModeSelect";
 import CompressionHub from "./CompressionHub";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type PipelineStep = { engine: string; intensity?: string };
 type CompressionCombo = {
@@ -38,6 +39,7 @@ const ENGINE_INTENSITIES: Record<string, readonly string[]> = STACKED_PIPELINE_E
 
 function NamedCombosManager() {
   const t = useTranslations("contextCombos");
+  const confirmDialog = useConfirmDialog();
   const [combos, setCombos] = useState<CompressionCombo[]>([]);
   const [routingCombos, setRoutingCombos] = useState<RoutingCombo[]>([]);
   const [languagePacks, setLanguagePacks] = useState<LanguagePack[]>([]);
@@ -160,7 +162,7 @@ function NamedCombosManager() {
   };
 
   const deleteCombo = async (combo: CompressionCombo) => {
-    if (!confirm(t("deleteNamedConfirm", { name: combo.name }))) return;
+    if (!(await confirmDialog(t("deleteNamedConfirm", { name: combo.name })))) return;
     const res = await fetch(`/api/context/combos/${combo.id}`, { method: "DELETE" });
     if (res.ok) refresh();
   };

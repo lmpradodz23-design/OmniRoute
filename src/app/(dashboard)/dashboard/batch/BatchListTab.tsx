@@ -7,6 +7,7 @@ import BatchDetailModal from "./BatchDetailModal";
 import ExpirationBadge from "./components/ExpirationBadge";
 import ProgressBarBicolor from "./components/ProgressBarBicolor";
 import { useBatchActions } from "./components/useBatchActions";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -191,6 +192,7 @@ function BatchRowActions({
   setDeletingId: (id: string | null) => void;
 }>) {
   const t = useTranslations("common");
+  const confirmDialog = useConfirmDialog();
   const actions = useBatchActions({ onRefresh, t });
 
   const isTerminal = ["completed", "failed", "cancelled", "expired"].includes(batch.status);
@@ -203,7 +205,7 @@ function BatchRowActions({
       {canCancel && (
         <button
           onClick={async () => {
-            if (window.confirm(t("batchDetailCancelConfirm"))) {
+            if (await confirmDialog(t("batchDetailCancelConfirm"))) {
               await actions.cancel(batch.id);
             }
           }}
@@ -247,7 +249,9 @@ function BatchRowActions({
       {canRetry && (
         <button
           onClick={async () => {
-            if (window.confirm(t("batchActionRetryConfirm", { n: batch.requestCountsFailed }))) {
+            if (
+              await confirmDialog(t("batchActionRetryConfirm", { n: batch.requestCountsFailed }))
+            ) {
               await actions.retry({
                 id: batch.id,
                 inputFileId: batch.inputFileId,
@@ -457,9 +461,7 @@ export default function BatchListTab({
                   if (!batch.model || total === 0) return "—";
                   // Prefer real usage data when available (completed batches)
                   const usage = batch.usage as
-                    | { input_tokens?: number; output_tokens?: number }
-                    | null
-                    | undefined;
+                    { input_tokens?: number; output_tokens?: number } | null | undefined;
                   if (usage?.input_tokens != null && usage?.output_tokens != null) {
                     // batch rate ≈ $0.005/1K tokens (blended, already -50%)
                     const cost = ((usage.input_tokens + usage.output_tokens) * 0.005) / 1000;

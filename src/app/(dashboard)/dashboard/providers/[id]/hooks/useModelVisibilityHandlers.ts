@@ -32,6 +32,7 @@ import {
 } from "../providerPageHelpers";
 import { useNotificationStore } from "@/store/notificationStore";
 import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type NotifyStore = ReturnType<typeof useNotificationStore>;
 
@@ -108,6 +109,7 @@ export function useModelVisibilityHandlers({
   selectedConnection,
   providerNode,
 }: UseModelVisibilityHandlersParams): UseModelVisibilityHandlersReturn {
+  const confirmDialog = useConfirmDialog();
   const [compatSavingModelId, setCompatSavingModelId] = useState<string | null>(null);
   const [togglingModelId, setTogglingModelId] = useState<string | null>(null);
   const [bulkVisibilityAction, setBulkVisibilityAction] = useState<"select" | "deselect" | null>(
@@ -116,7 +118,9 @@ export function useModelVisibilityHandlers({
   const [clearingModels, setClearingModels] = useState(false);
   const [modelFilter, setModelFilter] = useState("");
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
-  const [modelTestStatus, setModelTestStatus] = useState<Record<string, "ok" | "error" | "quota">>({});
+  const [modelTestStatus, setModelTestStatus] = useState<Record<string, "ok" | "error" | "quota">>(
+    {}
+  );
   const [testingAll, setTestingAll] = useState(false);
   const [testProgress, setTestProgress] = useState<{ done: number; total: number } | null>(null);
   const [autoHideFailed, setAutoHideFailed] = useState(false);
@@ -256,7 +260,7 @@ export function useModelVisibilityHandlers({
 
   const handleClearAllModels = async () => {
     if (clearingModels) return;
-    if (!confirm(t("clearAllModelsConfirm"))) return;
+    if (!(await confirmDialog(t("clearAllModelsConfirm")))) return;
     setClearingModels(true);
     try {
       const res = await fetch(

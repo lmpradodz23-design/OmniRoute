@@ -9,6 +9,7 @@ import { McpA2aLinksBar } from "./components/McpA2aLinksBar";
 import { SkillCard } from "./components/SkillCard";
 import { SkillPreviewPane } from "./components/SkillPreviewPane";
 import type { AgentSkill, SkillCoverage } from "@/lib/agentSkills/types";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type FilterCategory = "all" | "api" | "cli" | "config";
 
@@ -50,6 +51,7 @@ function CoverageBarSkeleton(): JSX.Element {
 
 export function AgentSkillsPageClient(): JSX.Element {
   const t = useTranslations("agentSkills");
+  const confirmDialog = useConfirmDialog();
 
   // State
   const [catalog, setCatalog] = useState<AgentSkill[]>([]);
@@ -141,7 +143,7 @@ export function AgentSkillsPageClient(): JSX.Element {
 
   // ── Generate missing skills ───────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
-    const confirmed = window.confirm(t("regenerateConfirm"));
+    const confirmed = await confirmDialog(t("regenerateConfirm"));
     if (!confirmed) return;
     setGeneratingSkills(true);
     try {
@@ -163,7 +165,7 @@ export function AgentSkillsPageClient(): JSX.Element {
     } finally {
       setGeneratingSkills(false);
     }
-  }, [t]);
+  }, [t, confirmDialog]);
 
   // ── Filtering + search ────────────────────────────────────────────────────
   const localizedCatalog = useMemo(

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, Button, EmptyState } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useTranslations } from "next-intl";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 interface PluginInfo {
   name: string;
@@ -18,6 +19,7 @@ interface PluginInfo {
 export default function PluginsPage() {
   const { addNotification } = useNotificationStore();
   const t = useTranslations("plugins");
+  const confirmDialog = useConfirmDialog();
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -77,7 +79,7 @@ export default function PluginsPage() {
   };
 
   const handleUninstall = async (name: string) => {
-    if (!confirm(t("uninstallConfirm", { name }))) return;
+    if (!(await confirmDialog(t("uninstallConfirm", { name })))) return;
     try {
       const res = await fetch(`/api/plugins/${name}`, { method: "DELETE" });
       if (res.ok) {

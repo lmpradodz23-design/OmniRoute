@@ -6,6 +6,7 @@ import { Card, Button } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getApiLabel, getApiPath } from "../providerPageHelpers";
 import type { ProviderMessageTranslator } from "../providerPageHelpers";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 interface ProviderNode {
   baseUrl?: string;
@@ -41,6 +42,7 @@ export default function CompatibleNodeCard({
   t,
 }: CompatibleNodeCardProps) {
   const router = useRouter();
+  const confirmDialog = useConfirmDialog();
 
   return (
     <Card>
@@ -79,12 +81,7 @@ export default function CompatibleNodeCard({
           <Button size="sm" icon="add" onClick={() => gateConnectionFlow(openApiKeyAddFlow)}>
             {t("add")}
           </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon="edit"
-            onClick={onOpenEditNodeModal}
-          >
+          <Button size="sm" variant="secondary" icon="edit" onClick={onOpenEditNodeModal}>
             {t("edit")}
           </Button>
           <Button
@@ -93,7 +90,7 @@ export default function CompatibleNodeCard({
             icon="delete"
             onClick={async () => {
               if (
-                !confirm(
+                !(await confirmDialog(
                   t("deleteCompatibleNodeConfirm", {
                     type: isCcCompatible
                       ? t("ccCompatibleLabel")
@@ -101,7 +98,7 @@ export default function CompatibleNodeCard({
                         ? t("anthropic")
                         : t("openai"),
                   })
-                )
+                ))
               )
                 return;
               try {

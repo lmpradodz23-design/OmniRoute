@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, Button, Input, EmptyState } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useTranslations } from "next-intl";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 const CHAIN_COLORS = [
   "#6366f1",
@@ -47,6 +48,7 @@ export default function FallbackChainsEditor() {
   const notify = useNotificationStore();
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const confirmDialog = useConfirmDialog();
 
   const applyChains = useCallback((data) => {
     if (data) setChains(data);
@@ -109,7 +111,7 @@ export default function FallbackChainsEditor() {
   };
 
   const handleDelete = async (model) => {
-    if (!confirm(t("deleteChainConfirm", { model }))) return;
+    if (!(await confirmDialog(t("deleteChainConfirm", { model })))) return;
     try {
       const res = await fetch("/api/fallback/chains", {
         method: "DELETE",

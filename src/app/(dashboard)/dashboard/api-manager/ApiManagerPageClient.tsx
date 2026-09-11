@@ -33,6 +33,7 @@ import { AllowedCombosSection } from "./components/AllowedCombosSection";
 import ProviderModelPermissionList from "./components/ProviderModelPermissionList";
 import ReasoningRoutingRules from "@/shared/components/ReasoningRoutingRules";
 import { ALL_COMBOS_ACCESS_RULE } from "@/shared/constants/comboAccess";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 // Constants for validation
 const MAX_KEY_NAME_LENGTH = 200;
@@ -211,6 +212,7 @@ export default function ApiManagerPageClient() {
   const t = useTranslations("apiManager");
   const tc = useTranslations("common");
   const locale = useLocale();
+  const confirmDialog = useConfirmDialog();
   const newKeyNameInputId = useId();
   const createKeyFormRef = useRef<HTMLDivElement | null>(null);
   const [keys, setKeys] = useState<ApiKey[]>([]);
@@ -670,7 +672,7 @@ export default function ApiManagerPageClient() {
       return;
     }
 
-    if (!confirm(t("deleteConfirm"))) return;
+    if (!(await confirmDialog(t("deleteConfirm")))) return;
 
     setIsSubmitting(true);
     clearPageError();
@@ -693,7 +695,7 @@ export default function ApiManagerPageClient() {
 
   const handleRegenerateKey = async (id: string) => {
     if (!id) return;
-    if (!confirm(t("regenerateConfirm"))) return;
+    if (!(await confirmDialog(t("regenerateConfirm")))) return;
 
     setIsSubmitting(true);
     clearPageError();

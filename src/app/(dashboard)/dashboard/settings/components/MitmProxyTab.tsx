@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 const TRANSPARENT_MITM_PORT = 443;
 
@@ -78,6 +79,7 @@ async function fetchMitmStatusResult(): Promise<MitmStatusResult> {
 
 export default function MitmProxyTab() {
   const t = useTranslations("mitm");
+  const confirmDialog = useConfirmDialog();
   const [status, setStatus] = useState<MitmStatus>(emptyStatus);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -168,7 +170,7 @@ export default function MitmProxyTab() {
   };
 
   const regenerateCertificate = async () => {
-    if (!confirm(t("regenerateConfirm"))) return;
+    if (!(await confirmDialog(t("regenerateConfirm")))) return;
 
     setSaving(true);
     setFeedback(null);

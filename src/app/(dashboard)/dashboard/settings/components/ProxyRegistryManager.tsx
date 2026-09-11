@@ -29,8 +29,9 @@ import {
   loadProxyUsage,
   repairRelayResponseSchema,
 } from "./proxyRegistryData";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
- export default function ProxyRegistryManager({
+export default function ProxyRegistryManager({
   onRedeployRelay,
   showVercelRelay = false,
   showDenoRelay = false,
@@ -41,6 +42,7 @@ import {
 }: ProxyRegistryManagerProps = {}) {
   const t = useTranslations("proxyRegistry");
   const settingsT = useTranslations("settings");
+  const confirmDialog = useConfirmDialog();
   const [items, setItems] = useState<ProxyItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -345,7 +347,7 @@ import {
       const payload = await res.json().catch(() => ({}));
       const inUse = res.status === 409;
       if (inUse) {
-        const ok = window.confirm(t("errorForceDeleteConfirm"));
+        const ok = await confirmDialog(t("errorForceDeleteConfirm"));
         if (!ok) return;
 
         const forceRes = await fetch(`/api/settings/proxies?id=${encodeURIComponent(id)}&force=1`, {
