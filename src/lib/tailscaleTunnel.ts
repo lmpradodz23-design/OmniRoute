@@ -13,8 +13,23 @@ import { getConsistentMachineId } from "@/shared/utils/machineId";
 
 const execFileAsync = promisify(execFile);
 
-const WINDOWS_TAILSCALE_BIN = "C:\\Program Files\\Tailscale\\tailscale.exe";
-const WINDOWS_TAILSCALED_BIN = "C:\\Program Files\\Tailscale\\tailscaled.exe";
+// Windows default install location, resolved at RUNTIME from %ProgramFiles% — never a
+// module-level absolute-path string literal. Two reasons:
+//  1. Turbopack's output-file tracer treats a literal absolute path that reaches
+//     `fs.existsSync` as a build-time file reference and, when that path exists on the
+//     build host, tries to copy it into the standalone bundle:
+//       Failed to copy traced files for .../api/tunnels/tailscale/check/route.js
+//       ENOENT mkdir '.../standalone/C:/Program Files/Tailscale'
+//  2. %ProgramFiles% is the correct answer on systems whose Windows drive is not C:.
+// Exported for the regression test (tests/unit/tailscale-windows-default-path.test.ts).
+export function getWindowsDefaultTailscaleBinaries(): { tailscale: string; tailscaled: string } {
+  const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+  const dir = path.join(programFiles, "Tailscale");
+  return {
+    tailscale: path.join(dir, "tailscale.exe"),
+    tailscaled: path.join(dir, "tailscaled.exe"),
+  };
+}
 
 // Runtime platform getter. A bundler (Turbopack in `next build`) constant-folds
 // `process.platform` to the BUILD machine's value on a non-Windows runner and prunes
@@ -248,9 +263,10 @@ async function resolveBinary(): Promise<BinaryResolution> {
     return { binaryPath: pathBinary, installSource: "path", managedInstall: false };
   }
 
-  if (getCurrentPlatform() === "win32" && fs.existsSync(WINDOWS_TAILSCALE_BIN)) {
+  const windowsDefaultBin = getWindowsDefaultTailscaleBinaries().tailscale;
+  if (getCurrentPlatform() === "win32" && fs.existsSync(windowsDefaultBin)) {
     return {
-      binaryPath: WINDOWS_TAILSCALE_BIN,
+      binaryPath: windowsDefaultBin,
       installSource: "windows-default",
       managedInstall: false,
     };
@@ -273,8 +289,9 @@ async function resolveDaemonBinary(tailscaleBinaryPath: string | null) {
   const pathBinary = await resolvePathCommand("tailscaled");
   if (pathBinary) return pathBinary;
 
-  if (getCurrentPlatform() === "win32" && fs.existsSync(WINDOWS_TAILSCALED_BIN))
-    return WINDOWS_TAILSCALED_BIN;
+  const windowsDefaultDaemon = getWindowsDefaultTailscaleBinaries().tailscaled;
+  if (getCurrentPlatform() === "win32" && fs.existsSync(windowsDefaultDaemon))
+    return windowsDefaultDaemon;
 
   return null;
 }
