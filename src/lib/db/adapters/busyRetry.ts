@@ -6,15 +6,28 @@
  * inspection connection, `VACUUM INTO` snapshots, backups, a second OmniRoute instance
  * — and a checkpointing/closing WAL connection briefly holds it EXCLUSIVE. Before this
  * helper the only retry lived in the startup probe; a write that met the lock past the
- * timeout threw straight into the request. The budget below is deliberately small
- * (25+50+100+200 ms on top of each attempt's busy_timeout) so a genuinely stuck lock
- * still surfaces quickly instead of parking the event loop.
+ * timeout threw straight into the request.
+ *
+ * The retry is bounded by a TOTAL wall-clock budget (`SQLITE_BUSY_RETRY_BUDGET_MS`),
+ * counted from the first attempt and INCLUDING the time each attempt spends inside
+ * SQLite's own `busy_timeout`. That is what keeps the event-loop invariant in core.ts
+ * ("a contended op can no longer freeze the loop past the host watchdog's 6 s liveness
+ * probe", busy_timeout = 2 s) true: with a 2 s busy_timeout the first attempt already
+ * consumes the budget, so a stuck lock surfaces after ~2 s — not after five attempts
+ * (~10 s) as the per-attempt-only delay list allowed (final audit A-1). With a small
+ * busy_timeout (probes, tests) the 25/50/100/200 ms back-off runs in full.
  *
  * Retries only apply OUTSIDE an open transaction: inside one the statement may be part
  * of already-applied work, so the caller's transaction decides.
  */
 
 export const SQLITE_BUSY_RETRY_DELAYS_MS: readonly number[] = [25, 50, 100, 200];
+
+/**
+ * Upper bound on the synchronous time `runWithBusyRetry` may spend in total (attempts +
+ * back-off). Chosen below core.ts's 2 s busy_timeout so retry never multiplies it.
+ */
+export const SQLITE_BUSY_RETRY_BUDGET_MS = 1_000;
 
 /** SQLITE_BUSY / "database is locked" across better-sqlite3, node:sqlite and message-only errors. */
 export function isSqliteBusyError(error: unknown): boolean {
@@ -54,15 +67,20 @@ let lastWarnAt = 0;
 export function runWithBusyRetry<T>(
   fn: () => T,
   canRetry: () => boolean,
-  delays: readonly number[] = SQLITE_BUSY_RETRY_DELAYS_MS
+  delays: readonly number[] = SQLITE_BUSY_RETRY_DELAYS_MS,
+  budgetMs: number = SQLITE_BUSY_RETRY_BUDGET_MS
 ): T {
   let attempt = 0;
+  const startedAt = Date.now();
   for (;;) {
     try {
       return fn();
     } catch (error) {
       if (!isSqliteBusyError(error) || attempt >= delays.length || !canRetry()) throw error;
       const delay = delays[attempt];
+      // Total budget: what the attempts already cost (each one waited busy_timeout inside
+      // SQLite) plus the back-off we are about to sleep. Exceeding it rethrows now.
+      if (Date.now() - startedAt + delay > budgetMs) throw error;
       attempt += 1;
       const now = Date.now();
       if (now - lastWarnAt > 10_000) {

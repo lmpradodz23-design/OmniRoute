@@ -17,6 +17,7 @@ import Database from "better-sqlite3";
 import { DatabaseSync } from "node:sqlite";
 
 import { createBetterSqliteAdapter } from "../../src/lib/db/adapters/betterSqliteAdapter.ts";
+import { SQLITE_BUSY_RETRY_BUDGET_MS } from "../../src/lib/db/adapters/busyRetry.ts";
 import { createNodeSqliteAdapterFromDatabase } from "../../src/lib/db/adapters/nodeSqliteShared.ts";
 import type { SqliteAdapter } from "../../src/lib/db/adapters/types.ts";
 
@@ -127,6 +128,41 @@ for (const { name, open } of adapters) {
         (error: unknown) => /database is locked|SQLITE_BUSY/i.test(String((error as Error).message))
       );
       assert.ok(Date.now() - started < 1_500, "retries must be bounded, not wait out the holder");
+    } finally {
+      adapter.close();
+      holder.kill();
+      await waitForExit(holder);
+    }
+  });
+
+  test(`${name}: with the production busy_timeout (2 s) the retry never multiplies the event-loop stall`, async () => {
+    // Final audit A-1: each attempt only sees SQLITE_BUSY after the whole busy_timeout, so
+    // a per-attempt delay list alone made a stuck lock cost 5 × 2 s ≈ 10 s of synchronous
+    // time. The total budget must cap it near ONE busy_timeout.
+    const adapter =
+      name === "better-sqlite3"
+        ? (() => {
+            const db = new Database(file);
+            db.pragma("busy_timeout = 2000");
+            return createBetterSqliteAdapter(db);
+          })()
+        : createNodeSqliteAdapterFromDatabase(
+            new DatabaseSync(file, { timeout: 2000 }) as never,
+            file
+          );
+    const holder = await holdWriteLock(8_000);
+    try {
+      const started = Date.now();
+      assert.throws(
+        () => adapter.prepare("INSERT INTO probe (note) VALUES (?)").run(`${name}-budget`),
+        (error: unknown) => /database is locked|SQLITE_BUSY/i.test(String((error as Error).message))
+      );
+      const elapsed = Date.now() - started;
+      assert.ok(elapsed >= 1_500, `the attempt waited SQLite's own busy_timeout (${elapsed} ms)`);
+      assert.ok(
+        elapsed < 2_000 + SQLITE_BUSY_RETRY_BUDGET_MS + 500,
+        `one busy_timeout plus at most the retry budget, not five busy_timeouts (${elapsed} ms)`
+      );
     } finally {
       adapter.close();
       holder.kill();
