@@ -97,6 +97,8 @@ export const COLLECTORS = [
   { glob: "tests/boundary/*.live.test.ts", sources: ["package.json"] },
   // Node native runner — test:system
   { glob: "tests/e2e/system-failover.test.ts", sources: ["package.json"] },
+  // Node native runner — test:compat (Fase 6: isolated-instance client compatibility)
+  { glob: "tests/e2e/compat-isolated.test.ts", sources: ["package.json"] },
   // vitest.mcp.config.ts — test:vitest
   { glob: "open-sse/mcp-server/__tests__/**/*.test.ts", sources: ["vitest.mcp.config.ts"] },
   { glob: "open-sse/services/autoCombo/__tests__/**/*.test.ts", sources: ["vitest.mcp.config.ts"] },
