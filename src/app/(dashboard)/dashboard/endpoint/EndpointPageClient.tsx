@@ -175,7 +175,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
   const [customSystemPromptEnabled, setCustomSystemPromptEnabled] = useState(false);
   const [customSystemPrompt, setCustomSystemPrompt] = useState("");
 
-  const { copied, copy } = useCopyToClipboard();
+  const { copied, failed: copyFailed, copy } = useCopyToClipboard();
 
   const translateOrFallback = useCallback(
     (key: string, fallback: string, values?: TranslationValues) => {
@@ -1371,9 +1371,17 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
               className="shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-border/70 text-text-muted hover:text-text hover:border-border transition-colors"
             >
               <span className="material-symbols-outlined text-[14px]">
-                {copied === "endpoint_url" ? "check" : "content_copy"}
+                {copied === "endpoint_url"
+                  ? "check"
+                  : copyFailed === "endpoint_url"
+                    ? "error"
+                    : "content_copy"}
               </span>
-              {copied === "endpoint_url" ? tc("copied") : tc("copy")}
+              {copied === "endpoint_url"
+                ? tc("copied")
+                : copyFailed === "endpoint_url"
+                  ? tc("copyFailed")
+                  : tc("copy")}
             </button>
           </div>
 

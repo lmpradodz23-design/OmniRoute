@@ -994,7 +994,8 @@
     "batchFileUsedByCount": "Usado por {count, plural, one {# lote} other {# lotes}}",
     "batchFilePreview": "Prévia",
     "batchFilePreviewTruncated": "Mostrando as primeiras {shown} linhas ({total} linhas no total)",
-    "batchFileDownloadFull": "Baixar Arquivo Completo"
+    "batchFileDownloadFull": "Baixar Arquivo Completo",
+    "copyFailed": "Falha ao copiar — selecione o texto e copie manualmente"
   },
   "disabled": "Desabilitado",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Roteie solicitações com orçamento esgotado para o provedor/modelo de fallback gratuito de emergência.",

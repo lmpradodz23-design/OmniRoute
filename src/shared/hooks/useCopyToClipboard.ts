@@ -6,11 +6,16 @@ import { copyToClipboard } from "@/shared/utils/clipboard";
 /**
  * Hook for copy to clipboard with feedback.
  * Uses shared copyToClipboard utility that works on both HTTP and HTTPS.
- * @param {number} resetDelay - Time in ms before resetting copied state (default: 2000)
- * @returns {{ copied: string|null, copy: (text: string, id?: string) => Promise<boolean> }}
+ *
+ * `copied` holds the id of the last successful copy and `failed` the id of the last
+ * failed one (U6: a silent failure left the user pasting nothing); both reset after
+ * `resetDelay` and each clears the other.
+ * @param {number} resetDelay - Time in ms before resetting copied/failed state (default: 2000)
+ * @returns {{ copied: string|null, failed: string|null, copy: (text: string, id?: string) => Promise<boolean> }}
  */
 export function useCopyToClipboard(resetDelay = 2000) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const copy = useCallback(
@@ -19,20 +24,25 @@ export function useCopyToClipboard(resetDelay = 2000) {
 
       if (success) {
         setCopied(id);
-
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-
-        timeoutRef.current = setTimeout(() => {
-          setCopied(null);
-        }, resetDelay);
+        setFailed(null);
+      } else {
+        setCopied(null);
+        setFailed(id);
       }
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        setCopied(null);
+        setFailed(null);
+      }, resetDelay);
 
       return success;
     },
     [resetDelay]
   );
 
-  return { copied, copy };
+  return { copied, failed, copy };
 }

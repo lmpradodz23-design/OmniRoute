@@ -246,7 +246,7 @@ export default function ApiManagerPageClient() {
   const [typeFilter, setTypeFilter] = useState<KeyType | null>(null);
   const [quotaPoolGroup, setQuotaPoolGroup] = useState<Record<string, string>>({});
 
-  const { copied, copy } = useCopyToClipboard();
+  const { copied, failed: copyFailed, copy } = useCopyToClipboard();
 
   const scrollCreateKeyFormToTop = useCallback(() => {
     const scrollContainer = createKeyFormRef.current?.parentElement;
@@ -1561,10 +1561,20 @@ export default function ApiManagerPageClient() {
             <Input value={createdKey || ""} readOnly className="flex-1 font-mono text-sm" />
             <Button
               variant="secondary"
-              icon={copied === "created_key" ? "check" : "content_copy"}
+              icon={
+                copied === "created_key"
+                  ? "check"
+                  : copyFailed === "created_key"
+                    ? "error"
+                    : "content_copy"
+              }
               onClick={() => copy(createdKey, "created_key")}
             >
-              {copied === "created_key" ? tc("copied") : tc("copy")}
+              {copied === "created_key"
+                ? tc("copied")
+                : copyFailed === "created_key"
+                  ? tc("copyFailed")
+                  : tc("copy")}
             </Button>
           </div>
           <Button onClick={() => setCreatedKey(null)} fullWidth>
