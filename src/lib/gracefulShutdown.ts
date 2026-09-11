@@ -28,35 +28,20 @@ declare global {
     | undefined;
   var __omnirouteRequestShutdown: ((signal: string) => Promise<void>) | undefined;
   var __omnirouteCustomServerOwnsShutdown: boolean | undefined;
-  var __omnirouteShutdownHooks: Map<string, ShutdownHook> | undefined;
 }
 
-export type ShutdownHook = () => void | Promise<void>;
+import {
+  getShutdownHooks,
+  registerShutdownHook,
+  unregisterShutdownHook,
+  type ShutdownHook,
+} from "./shutdownHooks";
+
+export { registerShutdownHook, unregisterShutdownHook };
+export type { ShutdownHook };
 
 /** Per-step budget while stopping background work; a stuck stopper must not block exit. */
 const STOP_STEP_TIMEOUT_MS = 5_000;
-
-function getShutdownHooks(): Map<string, ShutdownHook> {
-  // On globalThis so HMR module instances and the custom server share one registry.
-  return (globalThis.__omnirouteShutdownHooks ??= new Map());
-}
-
-/**
- * Register teardown for a module-owned timer/worker (R-6). Runs at the START of graceful
- * shutdown — before requests drain and before the database closes — so no background job
- * fires into a closing process. Idempotent per `name`; returns an unregister handle that
- * only removes the hook it registered.
- */
-export function registerShutdownHook(name: string, hook: ShutdownHook): () => void {
-  getShutdownHooks().set(name, hook);
-  return () => {
-    if (getShutdownHooks().get(name) === hook) getShutdownHooks().delete(name);
-  };
-}
-
-export function unregisterShutdownHook(name: string): void {
-  getShutdownHooks().delete(name);
-}
 
 async function stopQuietly(name: string, stop: () => void | Promise<void>): Promise<void> {
   let timer: NodeJS.Timeout | undefined;

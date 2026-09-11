@@ -21,6 +21,7 @@ import {
   deleteModelIntelligenceBySource,
   type ModelIntelligenceEntry,
 } from "./db/modelIntelligence";
+import { registerShutdownHook } from "./shutdownHooks";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -554,6 +555,8 @@ function startPeriodicSync(intervalMs?: number): void {
       );
     });
 
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("arena-elo-sync", stopArenaEloSync);
   syncTimer = setInterval(() => {
     syncArenaElo()
       .then((result) => {

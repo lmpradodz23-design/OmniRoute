@@ -1,4 +1,5 @@
 import { cleanupReasoningCache } from "../../../open-sse/services/reasoningCache.ts";
+import { registerShutdownHook } from "../shutdownHooks.ts";
 
 const DEFAULT_INTERVAL_MS = 30 * 60 * 1000;
 
@@ -27,6 +28,8 @@ export function startReasoningCacheCleanupJob() {
   };
 
   run();
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("reasoning-cache-cleanup", stopReasoningCacheCleanupJob);
   timer = setInterval(run, getIntervalMs());
   timer.unref?.();
   return timer;
