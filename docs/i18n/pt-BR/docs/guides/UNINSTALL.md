@@ -36,6 +36,17 @@ This removes the application **and permanently erases** all data:
 
 > ⚠️ **Warning:** `npm run uninstall:full` is irreversible. All your provider connections, combos, API keys, and usage history will be permanently deleted.
 
+Because it is irreversible, the full uninstall never runs on the flag alone:
+
+- On a terminal it prints the exact directory that will be erased and asks you to type `ERASE` (anything else keeps your data).
+- In scripts or non-interactive shells (no prompt possible) it refuses and exits with status 1 unless you pass `--yes`:
+
+```bash
+npm run uninstall:full -- --yes
+```
+
+The plain `npm run uninstall` always keeps the data directory and prints where it is.
+
 ---
 
 ## Manual Uninstall
