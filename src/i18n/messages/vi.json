@@ -983,7 +983,19 @@
     "batchFileUsedByCount": "{count, plural, one {# batch} other {# batch}}",
     "batchFilePreview": "Bản xem trước",
     "batchFilePreviewTruncated": "Hiển thị {shown} dòng đầu tiên (tổng cộng {total} dòng)",
-    "batchFileDownloadFull": "Tải xuống toàn bộ tệp"
+    "batchFileDownloadFull": "Tải xuống toàn bộ tệp",
+    "copyFailed": "Sao chép thất bại — hãy chọn văn bản và sao chép thủ công",
+    "showDetails": "Hiển thị chi tiết",
+    "apiErrors": {
+      "passwordRequired": "Nhập mật khẩu hiện tại để thay đổi cài đặt bảo mật.",
+      "passwordMismatch": "Mật khẩu hiện tại không đúng.",
+      "passwordRequiredToEnableLogin": "Hãy chọn mật khẩu trước khi bật đăng nhập — nếu không sẽ không ai đăng nhập được.",
+      "invalidJson": "Không thể đọc yêu cầu. Tải lại trang và thử lại.",
+      "validation": "Một số trường không hợp lệ. Kiểm tra các giá trị được đánh dấu.",
+      "settingsRevisionConflict": "Cài đặt đã thay đổi ở cửa sổ khác. Tải lại và thử lại.",
+      "oidcAllowedSubjectsRequired": "Liệt kê ít nhất một tài khoản được phép trước khi bật đăng nhập SSO.",
+      "paidModelTargetBlocked": "Đích này là mô hình trả phí và các đích trả phí đang bị chặn trong cài đặt."
+    }
   },
   "disabled": "Đã tắt",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Định tuyến các yêu cầu đã hết ngân sách đến nhà cung cấp/mô hình dự phòng khẩn cấp miễn phí.",
@@ -1552,7 +1564,10 @@
       "settings.update": "Đã cập nhật cài đặt",
       "settings.update_failed": "Cập nhật cài đặt thất bại",
       "sync.token.created": "Đã tạo token đồng bộ",
-      "sync.token.revoked": "Đã thu hồi token đồng bộ"
+      "sync.token.revoked": "Đã thu hồi token đồng bộ",
+      "apiKey": {
+        "create": "Đã tạo khóa API"
+      }
     },
     "mcpMetricCalls24h": "Lượt gọi (24 giờ)",
     "mcpMetricSuccessRate": "Tỷ lệ thành công",
@@ -1673,7 +1688,8 @@
     "settingsAdvancedDescription": "Các quy tắc payload nâng cao, giới hạn yêu cầu và cài đặt proxy API",
     "mitmProxyDescription": "Định cấu hình cài đặt proxy MITM để kiểm tra và gỡ lỗi lưu lượng truy cập",
     "oneProxyDescription": "Định cấu hình cài đặt 1Proxy cho chuỗi proxy nâng cao",
-    "omniSkillsDescription": "Cài đặt và quản lý các kỹ năng trong môi trường hộp cát để thực thi tự động prompt và công cụ"
+    "omniSkillsDescription": "Cài đặt và quản lý các kỹ năng trong môi trường hộp cát để thực thi tự động prompt và công cụ",
+    "openMenu": "Mở menu điều hướng"
   },
   "cloudSyncStatus": {
     "synced": "Đã đồng bộ",
@@ -5038,7 +5054,8 @@
         "skipped": "đã được cấu hình",
         "failed": "thất bại"
       }
-    }
+    },
+    "testTimedOut": "Kiểm tra mất quá nhiều thời gian (15 giây). Kiểm tra URL nhà cung cấp hoặc thử lại."
   },
   "providers": {
     "title": "Nhà cung cấp",
@@ -8365,7 +8382,9 @@
     "headroomProxySave": "Lưu",
     "headroomProxyStart": "Bắt đầu",
     "headroomProxyStop": "Dừng",
-    "headroomProxyExternalHint": "URL này không phải loopback, nên OmniRoute sẽ không khởi chạy CLI cục bộ."
+    "headroomProxyExternalHint": "URL này không phải loopback, nên OmniRoute sẽ không khởi chạy CLI cục bộ.",
+    "requireLoginNeedsPassword": "Chọn mật khẩu bạn sẽ dùng để đăng nhập. Đăng nhập được bật ngay khi lưu.",
+    "enableLogin": "Lưu mật khẩu và bật đăng nhập"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -11716,7 +11735,9 @@
     "verified": "Đã xác minh",
     "install": "Cài đặt",
     "installedFromMarketplace": "Đã cài đặt plugin {name}!",
-    "hooks": "Hooks"
+    "hooks": "Hooks",
+    "trustNoticeTitle": "Plugin chạy như mã được tin cậy",
+    "trustNotice": "Plugin chạy trong một tiến trình con Node.js với cùng đặc quyền như máy chủ OmniRoute — bao gồm tệp, mạng và lệnh. Các quyền mà plugin khai báo chỉ mang tính thông tin (chỉ bộ lọc biến môi trường được thực thi). Chỉ cài plugin từ nguồn bạn tin cậy và ưu tiên các mục marketplace có checksum đã công bố."
   },
   "quotaPlans": {
     "title": "Gói dịch vụ & Hạn ngạch",
