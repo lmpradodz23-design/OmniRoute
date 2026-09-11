@@ -687,7 +687,9 @@ async function handleXSearch(args: {
         search_type: "x",
         provider: args.provider ?? "x-search",
       }),
-      signal: AbortSignal.timeout(120000),
+      // R-11: same bounded, env-tunable upstream budget as the sibling search tools
+      // (OMNIROUTE_MCP_UPSTREAM_TIMEOUT_MS) instead of a hardcoded 120 s.
+      signal: mcpFetchTimeoutSignal("upstream"),
     });
     await logToolCall("omniroute_x_search", args, result, Date.now() - start, true);
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
