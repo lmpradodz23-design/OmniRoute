@@ -307,9 +307,14 @@ interface RpcRequest {
 export async function handleMcpSSE(request: Request): Promise<Response> {
   const headerSessionId = request.headers.get("mcp-session-id");
   let session: McpHttpSession | undefined;
+  // A session created by THIS initialize must not outlive a failed initialize (final audit
+  // A-5): the Streamable HTTP path already closes it in its catch; the SSE path did not, and
+  // left it in the map until the 5-minute idle sweep.
+  let createdHere = false;
 
   if (await isInitializeRequest(request)) {
     session = createSession("sse");
+    createdHere = true;
   } else if (headerSessionId) {
     session = _sessions.get(headerSessionId);
     if (!session) {
@@ -333,6 +338,7 @@ export async function handleMcpSSE(request: Request): Promise<Response> {
     }
     return protectMcpSseResponse(request, withSessionHeader(response, active.sessionId));
   } catch (err) {
+    if (createdHere) closeSession(active.sessionId);
     console.error("[MCP] SSE error:", err);
     return new Response(JSON.stringify({ error: "MCP SSE transport error" }), {
       status: 500,
@@ -380,3 +386,10 @@ export function shutdownMcpHttp(): void {
 export function isMcpHttpActive(): boolean {
   return _sessions.size > 0;
 }
+
+/** Live HTTP sessions across both endpoints (bounded by the cap). */
+export function getMcpHttpSessionCount(): number {
+  return _sessions.size;
+}
+
+export { MCP_MAX_HTTP_SESSIONS };

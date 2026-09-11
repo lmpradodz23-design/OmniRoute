@@ -90,6 +90,27 @@ test("SSE and Streamable HTTP clients coexist: neither endpoint's initialize kil
   assert.equal(mod.isMcpHttpActive(), false);
 });
 
+test("the live-session cap evicts the least recently active session (bounded map)", async () => {
+  // R-9 claimed "cap 64 with eviction" as covered; final audit A-5 found no case for it.
+  mod.shutdownMcpHttp();
+  const cap = mod.MCP_MAX_HTTP_SESSIONS;
+  const first = await sessionIdOf(
+    await mod.handleMcpSSE(initializeRequest("/api/mcp/sse", 1, "oldest"))
+  );
+  for (let i = 0; i < cap; i += 1) {
+    // Each later session is more recently active than `first`, so `first` is the victim.
+    await sessionIdOf(
+      await mod.handleMcpStreamableHTTP(initializeRequest("/api/mcp/stream", 1, `c${i}`))
+    );
+  }
+  assert.equal(mod.getMcpHttpSessionCount(), cap, "the map never exceeds the cap");
+  const evicted = await mod.handleMcpSSE(toolsListRequest("/api/mcp/sse", 2, first));
+  assert.equal(evicted.status, 404, "the evicted session answers 404 so the client re-initializes");
+  await evicted.text().catch(() => "");
+  mod.shutdownMcpHttp();
+  assert.equal(mod.getMcpHttpSessionCount(), 0);
+});
+
 test("an unknown SSE session id answers 404 so a spec-compliant client re-initializes", async () => {
   mod.shutdownMcpHttp();
   await sessionIdOf(await mod.handleMcpSSE(initializeRequest("/api/mcp/sse", 1, "A")));
