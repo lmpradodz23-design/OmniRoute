@@ -223,7 +223,8 @@ test("addDNSEntries: calls exec with array-form args (Hard Rule #13 pattern)", a
   // We cannot fully mock execFile in ESM without experimental flags, so we
   // verify structural compliance by inspecting the source file directly.
   const srcPath = fileURLToPath(new URL("../../src/mitm/dns/dnsConfig.ts", import.meta.url));
-  const src = fs.readFileSync(srcPath, "utf8");
+  // Normalize CRLF: a Windows checkout (autocrlf) would break the multi-line snippets.
+  const src = fs.readFileSync(srcPath, "utf8").replace(/\r\n/g, "\n");
 
   // The tee invocation must use array form: args array contains HOSTS_FILE as
   // a string argument, never template-interpolated into a shell string.
@@ -242,7 +243,8 @@ test("addDNSEntries: calls exec with array-form args (Hard Rule #13 pattern)", a
 
 test("addDNSEntries: entry passed as stdin data, not shell-interpolated", () => {
   const srcPath = fileURLToPath(new URL("../../src/mitm/dns/dnsConfig.ts", import.meta.url));
-  const src = fs.readFileSync(srcPath, "utf8");
+  // Normalize CRLF: a Windows checkout (autocrlf) would break the multi-line snippets.
+  const src = fs.readFileSync(srcPath, "utf8").replace(/\r\n/g, "\n");
 
   // The stdin `data` is built from the batched entries and sent to tee via pipe —
   // not part of the command array. Verify the pattern appears in the source and
@@ -263,7 +265,8 @@ test("addDNSEntries: entry passed as stdin data, not shell-interpolated", () => 
 test("addDNSEntries: generates both IPv4 and IPv6 lines per host", () => {
   // Validate by reading source — the dnsLines helper must produce both.
   const srcPath = fileURLToPath(new URL("../../src/mitm/dns/dnsConfig.ts", import.meta.url));
-  const src = fs.readFileSync(srcPath, "utf8");
+  // Normalize CRLF: a Windows checkout (autocrlf) would break the multi-line snippets.
+  const src = fs.readFileSync(srcPath, "utf8").replace(/\r\n/g, "\n");
   assert.ok(src.includes("127.0.0.1 ${hostname}"), "must produce 127.0.0.1 entry");
   assert.ok(src.includes("::1 ${hostname}"), "must produce ::1 entry");
 });
