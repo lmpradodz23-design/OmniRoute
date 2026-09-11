@@ -6,6 +6,8 @@ import { ensureSettingsSchema, hashManagementPassword, updateSettings } from "./
 async function loadSqlite() {
   if (process.versions.bun) {
     try {
+      // @ts-expect-error bun-only built-in: no type declarations under Node's checkJs; the
+      // `process.versions.bun` guard above means Node never reaches this import.
       return { Database: (await import("bun:sqlite")).Database, driver: "bun:sqlite" };
     } catch (bunError) {
       // fall through to better-sqlite3 if bun:sqlite fails
