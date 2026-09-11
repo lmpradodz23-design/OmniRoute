@@ -37,6 +37,27 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+// `npm install -g --prefix <p>` lays the package out as <p>/lib/node_modules/omniroute on
+// POSIX but <p>/node_modules/omniroute on Windows, where the bin entry is a `omniroute.cmd`
+// shim that cannot be spawned without a shell. Boot the installed CLI through the package's
+// own bin script under the current Node instead — same code path the shim resolves to.
+function installedPackageRoot(prefix) {
+  return process.platform === "win32"
+    ? path.join(prefix, "node_modules", "omniroute")
+    : path.join(prefix, "lib", "node_modules", "omniroute");
+}
+function installedCliLaunch(prefix) {
+  if (process.platform === "win32") {
+    return {
+      file: process.execPath,
+      args: [path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs")],
+      exists: path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs"),
+    };
+  }
+  const bin = path.join(prefix, "bin", "omniroute");
+  return { file: bin, args: [], exists: bin };
+}
+
 // Windows: npm is `npm.cmd`, which Node refuses to spawn without a shell since the
 // CVE-2024-27980 fix (EINVAL). Every npm argument here is a fixed literal or a path we
 // built ourselves; under the shell they are quoted, never interpolated from user input.
@@ -62,7 +83,7 @@ const warn = (msg) => console.log(`[install-upgrade] ⚠️  ${msg}`);
 
 /** Root of the installed package inside an `npm install -g --prefix` tree. */
 function packageRootFor(prefix) {
-  return path.join(prefix, "lib", "node_modules", "omniroute");
+  return installedPackageRoot(prefix);
 }
 
 /**
@@ -187,16 +208,16 @@ function findDb(dataDir) {
 
 /** Boot an installed CLI and poll health. Returns { ok, version, failures, tail }. */
 async function bootAndProbe({ prefix, dataDir, port, expectVersion, label }) {
-  const binPath = path.join(prefix, "bin", "omniroute");
-  if (!fs.existsSync(binPath)) {
-    return { ok: false, failures: [`${label}: bin not found at ${binPath}`], tail: [] };
+  const launch = installedCliLaunch(prefix);
+  if (!fs.existsSync(launch.exists)) {
+    return { ok: false, failures: [`${label}: bin not found at ${launch.exists}`], tail: [] };
   }
   const cliToken = derivePackagedCliToken(prefix);
   const probeHeaders = {
     [INTERNAL_SERVICE_HEADER]: INTERNAL_SERVICE_TOKEN,
     ...(cliToken ? { "x-omniroute-cli-token": cliToken } : {}),
   };
-  const child = spawn(binPath, ["serve", "--port", String(port)], {
+  const child = spawn(launch.file, [...launch.args, "serve", "--port", String(port)], {
     env: {
       ...process.env,
       PORT: String(port),

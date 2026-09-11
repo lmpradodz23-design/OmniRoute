@@ -26,6 +26,27 @@ const MAX_SERVER_OUTPUT_CHARS = 1_000_000;
 const SQLJS_STARTUP_MARKER = "Pre-initializing sql.js WASM";
 const DEFAULT_CLI_SALT = "omniroute-cli-auth-v1";
 
+// `npm install -g --prefix <p>` lays the package out as <p>/lib/node_modules/omniroute on
+// POSIX but <p>/node_modules/omniroute on Windows, where the bin entry is a `omniroute.cmd`
+// shim that cannot be spawned without a shell. Boot the installed CLI through the package's
+// own bin script under the current Node instead — same code path the shim resolves to.
+function installedPackageRoot(prefix) {
+  return process.platform === "win32"
+    ? path.join(prefix, "node_modules", "omniroute")
+    : path.join(prefix, "lib", "node_modules", "omniroute");
+}
+function installedCliLaunch(prefix) {
+  if (process.platform === "win32") {
+    return {
+      file: process.execPath,
+      args: [path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs")],
+      exists: path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs"),
+    };
+  }
+  const bin = path.join(prefix, "bin", "omniroute");
+  return { file: bin, args: [], exists: bin };
+}
+
 // Windows: npm is `npm.cmd`, which Node refuses to spawn without a shell since the
 // CVE-2024-27980 fix (EINVAL). Every npm argument here is a fixed literal or a path we
 // built ourselves; under the shell they are quoted, never interpolated from user input.
@@ -294,23 +315,27 @@ async function stopChild(child, graceMs = 30_000) {
  * so it leads its own process group — stopChild() relies on that to SIGTERM the whole tree.
  * The caller owns shutdown so the graceful DB flush lands before teardown.
  */
-function spawnServer(binPath, port, dataDir) {
-  const child = spawn(binPath, ["serve", "--port", String(port), "--log", "--no-open"], {
-    env: {
-      ...process.env,
-      PORT: String(port),
-      DATA_DIR: dataDir,
-      JWT_SECRET: "pack-boot-smoke-secret-with-sufficient-length-000",
-      API_KEY_SECRET: "pack-boot-smoke-api-key-secret-long",
-      DISABLE_SQLITE_AUTO_BACKUP: "true",
-      OMNIROUTE_SKIP_SYSTEM_TRUST: "1",
-      OMNIROUTE_PACK_BOOT_SMOKE: "1",
-      OMNIROUTE_PACK_BOOT_FORCE_SQLJS: "1",
-      INITIAL_PASSWORD: "pack-boot-machine-token-auth-required",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: true,
-  });
+function spawnServer(launch, port, dataDir) {
+  const child = spawn(
+    launch.file,
+    [...launch.args, "serve", "--port", String(port), "--log", "--no-open"],
+    {
+      env: {
+        ...process.env,
+        PORT: String(port),
+        DATA_DIR: dataDir,
+        JWT_SECRET: "pack-boot-smoke-secret-with-sufficient-length-000",
+        API_KEY_SECRET: "pack-boot-smoke-api-key-secret-long",
+        DISABLE_SQLITE_AUTO_BACKUP: "true",
+        OMNIROUTE_SKIP_SYSTEM_TRUST: "1",
+        OMNIROUTE_PACK_BOOT_SMOKE: "1",
+        OMNIROUTE_PACK_BOOT_FORCE_SQLJS: "1",
+        INITIAL_PASSWORD: "pack-boot-machine-token-auth-required",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+    }
+  );
   const tail = [];
   let retainedChars = 0;
   const keepTail = (chunk) => {
@@ -455,7 +480,7 @@ async function main() {
       maxBuffer: 64 * 1024 * 1024,
       shell: NPM.shell,
     });
-    const packageRoot = path.join(prefix, "lib", "node_modules", "omniroute");
+    const packageRoot = installedPackageRoot(prefix);
     const missingSqlJsFiles = findMissingSqlJsRuntimeFiles(packageRoot);
     if (missingSqlJsFiles.length > 0) {
       throw new Error(
@@ -474,7 +499,7 @@ async function main() {
     const port = pickPort();
     const dataDir = path.join(tmp, "data");
     fs.mkdirSync(dataDir, { recursive: true });
-    const binPath = path.join(prefix, "bin", "omniroute");
+    const binPath = installedCliLaunch(prefix);
     const packagedCliToken = derivePackagedCliToken(packageRoot);
 
     // BOOT #1 — boot, prove the forced sql.js tier, PATCH a setting, then shut down cleanly
