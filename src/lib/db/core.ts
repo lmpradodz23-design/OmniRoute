@@ -37,7 +37,11 @@ import {
 } from "../usage/callLogArtifacts";
 import { assertStorageEncryptionConfigured, migrateLegacyEncryptedString } from "./encryption";
 import { encryptExistingWebhookSecrets } from "./webhooks";
-import { encryptExistingApiKeyPlaintext } from "./apiKeys";
+import {
+  deriveApiKeyStorageFields,
+  encryptExistingApiKeyPlaintext,
+  ensureApiKeysColumns,
+} from "./apiKeys";
 import { invalidateDbCache } from "./readCache";
 import { rowToCamel } from "./caseMapping";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
@@ -1706,15 +1710,22 @@ function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
           updatedAt: normalizedCombo.updatedAt || new Date().toISOString(),
         });
       }
+      // key_hash/key_prefix are how validateApiKey/getApiKeyMetadata find a row — writing
+      // only `key` produced keys that never authenticated after the startup migration.
+      // Both are lazily-added fallback columns: ensure them before preparing the INSERT.
+      ensureApiKeysColumns(db);
       const insertKey = db.prepare(`
-        INSERT OR REPLACE INTO api_keys (id, name, key, machine_id, model_access_mode, allowed_models, no_log, created_at)
-        VALUES (@id, @name, @key, @machineId, @modelAccessMode, @allowedModels, @noLog, @createdAt)
+        INSERT OR REPLACE INTO api_keys (id, name, key, key_hash, key_prefix, machine_id, model_access_mode, allowed_models, no_log, created_at)
+        VALUES (@id, @name, @key, @keyHash, @keyPrefix, @machineId, @modelAccessMode, @allowedModels, @noLog, @createdAt)
       `);
       for (const apiKey of data.apiKeys || []) {
+        const storage = deriveApiKeyStorageFields(apiKey.key);
         insertKey.run({
           id: apiKey.id,
           name: apiKey.name,
-          key: apiKey.key,
+          key: storage.key,
+          keyHash: storage.keyHash,
+          keyPrefix: storage.keyPrefix,
           machineId: apiKey.machineId || null,
           modelAccessMode: parseModelAccessMode(apiKey.modelAccessMode, apiKey.allowedModels),
           allowedModels: JSON.stringify(apiKey.allowedModels || []),
