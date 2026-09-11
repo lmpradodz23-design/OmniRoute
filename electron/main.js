@@ -57,6 +57,7 @@ const {
 } = require("./lib/remoteServerPreferences");
 const { buildReadinessUrl, waitForServer } = require("./lib/serverReadiness");
 const { createLoadFailureRecovery } = require("./lib/loadFailure");
+const { createTrayTranslator } = require("./lib/trayStrings");
 const { shouldStartHidden, showOrCreateWindow } = require("./lib/windowLifecycle");
 const {
   CLOSE_BEHAVIOR_KEEP_LOADED,
@@ -299,8 +300,8 @@ function setupAutoUpdater() {
 
     if (Notification.isSupported()) {
       const notification = new Notification({
-        title: "OmniRoute Update Ready",
-        body: `Version ${info.version} is ready to install. Click to restart.`,
+        title: tt("updateReadyTitle"),
+        body: tt("updateReadyBody", { version: info.version }),
       });
       notification.on("click", () => {
         autoUpdater.quitAndInstall();
@@ -505,6 +506,14 @@ function createWindow({ showWhenReady = true } = {}) {
   return window;
 }
 
+// I3: tray / notification strings follow the OS locale (pt / en, English fallback).
+// app.getLocale() is only meaningful after "ready", so the translator is built lazily.
+let trayTranslator = null;
+function tt(key, params) {
+  if (!trayTranslator) trayTranslator = createTrayTranslator(app.getLocale());
+  return trayTranslator(key, params);
+}
+
 // J2: if the dashboard fails to load (server not listening yet, crash before listen),
 // show a static explanation and reload once the readiness ping answers again.
 const loadFailureRecovery = createLoadFailureRecovery({
@@ -554,18 +563,18 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "Open OmniRoute",
+      label: tt("openApp"),
       click: () => showMainWindow(),
     },
     {
-      label: "Open Dashboard",
+      label: tt("openDashboard"),
       click: () => shell.openExternal(getServerUrl()),
     },
     { type: "separator" },
     {
-      label: "Server Port",
+      label: tt("serverPort"),
       submenu: [
-        { label: `Port: ${serverPort}`, enabled: false },
+        { label: tt("portLabel", { port: serverPort }), enabled: false },
         { type: "separator" },
         { label: "20128", click: () => changePort(20128) },
         { label: "3000", click: () => changePort(3000) },
@@ -574,32 +583,34 @@ function createTray() {
       enabled: !remoteServerUrl,
     },
     {
-      label: "Remote Server",
+      label: tt("remoteServer"),
       submenu: [
         {
-          label: remoteServerUrl ? `Connected: ${remoteServerUrl}` : "Using local embedded server",
+          label: remoteServerUrl
+            ? tt("remoteConnected", { url: remoteServerUrl })
+            : tt("remoteLocal"),
           enabled: false,
         },
         { type: "separator" },
-        { label: "Connect to Remote Server…", click: () => showRemoteServerPrompt() },
+        { label: tt("remoteConnect"), click: () => showRemoteServerPrompt() },
         {
-          label: "Disconnect (use Local Server)",
+          label: tt("remoteDisconnect"),
           enabled: Boolean(remoteServerUrl),
           click: () => setRemoteServerUrl(null),
         },
       ],
     },
     {
-      label: "When Dashboard Closes",
+      label: tt("whenDashboardCloses"),
       submenu: [
         {
-          label: "Keep Loaded (Faster Reopen)",
+          label: tt("keepLoaded"),
           type: "radio",
           checked: closeBehavior === CLOSE_BEHAVIOR_KEEP_LOADED,
           click: () => setCloseBehavior(CLOSE_BEHAVIOR_KEEP_LOADED),
         },
         {
-          label: "Unload Renderer (Lower Memory)",
+          label: tt("unloadRenderer"),
           type: "radio",
           checked: closeBehavior === CLOSE_BEHAVIOR_UNLOAD,
           click: () => setCloseBehavior(CLOSE_BEHAVIOR_UNLOAD),
@@ -608,12 +619,12 @@ function createTray() {
     },
     { type: "separator" },
     {
-      label: "Check for Updates",
+      label: tt("checkForUpdates"),
       click: () => checkForUpdates(false),
     },
     { type: "separator" },
     {
-      label: "Quit",
+      label: tt("quit"),
       click: () => {
         app.isQuitting = true;
         app.quit();
@@ -621,7 +632,7 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip("OmniRoute");
+  tray.setToolTip(tt("tooltip"));
   tray.setContextMenu(contextMenu);
 
   tray.on("double-click", () => showMainWindow());
@@ -672,7 +683,7 @@ function showRemoteServerPrompt() {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: "Connect to Remote Server",
+    title: tt("remotePromptTitle"),
     parent: mainWindow || undefined,
     modal: Boolean(mainWindow),
     webPreferences: {

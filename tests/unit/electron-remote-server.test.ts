@@ -206,9 +206,10 @@ describe("Electron main.js Remote Server Mode wiring", () => {
   });
 
   it("exposes a tray menu entry to configure or clear the remote server", () => {
-    assert.match(mainSrc, /label: "Remote Server"/);
-    assert.match(mainSrc, /Connect to Remote Server/);
-    assert.match(mainSrc, /Disconnect \(use Local Server\)/);
+    // I3: labels resolve through electron/lib/trayStrings (en: "Remote Server", …).
+    assert.match(mainSrc, /label: tt\("remoteServer"\)/);
+    assert.match(mainSrc, /label: tt\("remoteConnect"\)/);
+    assert.match(mainSrc, /label: tt\("remoteDisconnect"\)/);
   });
 
   it("the remote-server prompt window uses contextIsolation and disables nodeIntegration", () => {

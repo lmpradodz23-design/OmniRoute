@@ -47,8 +47,9 @@ describe("Electron main-process close policy wiring", () => {
 
   it("defaults to keeping the renderer loaded and exposes both policies in the tray", () => {
     assert.match(mainSrc, /electronPreferences\.closeBehavior/);
-    assert.match(mainSrc, /Keep Loaded \(Faster Reopen\)/);
-    assert.match(mainSrc, /Unload Renderer \(Lower Memory\)/);
+    // I3: labels resolve through electron/lib/trayStrings (en: "Keep Loaded (Faster Reopen)").
+    assert.match(mainSrc, /label: tt\("keepLoaded"\)/);
+    assert.match(mainSrc, /label: tt\("unloadRenderer"\)/);
     assert.match(mainSrc, /writeCloseBehavior\(REMOTE_SERVER_PREFS_PATH, closeBehavior\)/);
   });
 
@@ -70,7 +71,7 @@ describe("Electron main-process close policy wiring", () => {
     );
     assert.ok(secondInstanceHandler.includes("showMainWindow()"));
     assert.ok(secondInstanceHandler.includes("if (isHeadless) return"));
-    assert.match(mainSrc, /label: "Open OmniRoute",\s*click: \(\) => showMainWindow\(\)/);
+    assert.match(mainSrc, /label: tt\("openApp"\),\s*click: \(\) => showMainWindow\(\)/);
     assert.match(mainSrc, /tray\.on\("double-click", \(\) => showMainWindow\(\)\)/);
     assert.match(
       mainSrc,
