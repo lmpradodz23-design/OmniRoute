@@ -37,6 +37,20 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+// Windows has neither process groups nor signals: `process.kill(-pid)` throws, and a
+// detached child keeps running after the parent is terminated. Terminate the whole tree
+// with taskkill /T /F there (TerminateProcess — no graceful phase exists on win32).
+function signalProcessGroup(pid, signal) {
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    return;
+  }
+  process.kill(-pid, signal);
+}
+
 // `npm install -g --prefix <p>` lays the package out as <p>/lib/node_modules/omniroute on
 // POSIX but <p>/node_modules/omniroute on Windows, where the bin entry is a `omniroute.cmd`
 // shim that cannot be spawned without a shell. Boot the installed CLI through the package's
@@ -230,6 +244,7 @@ async function bootAndProbe({ prefix, dataDir, port, expectVersion, label }) {
     },
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
+    windowsHide: true,
   });
 
   const tail = [];
@@ -284,7 +299,7 @@ async function bootAndProbe({ prefix, dataDir, port, expectVersion, label }) {
   }
 
   try {
-    if (childExit === null) process.kill(-child.pid, "SIGTERM");
+    if (childExit === null) signalProcessGroup(child.pid, "SIGTERM");
   } catch {
     /* already gone */
   }

@@ -13,7 +13,7 @@
  * package-artifact job or `check:release-green --with-build`). Exit codes:
  * 0 = boots and reports the right version · 1 = boot failed · 2 = missing build.
  */
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHmac } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -25,6 +25,20 @@ const BOOT_DEADLINE_MS = 240_000;
 const MAX_SERVER_OUTPUT_CHARS = 1_000_000;
 const SQLJS_STARTUP_MARKER = "Pre-initializing sql.js WASM";
 const DEFAULT_CLI_SALT = "omniroute-cli-auth-v1";
+
+// Windows has neither process groups nor signals: `process.kill(-pid)` throws, and a
+// detached child keeps running after the parent is terminated. Terminate the whole tree
+// with taskkill /T /F there (TerminateProcess — no graceful phase exists on win32).
+function signalProcessGroup(pid, signal) {
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    return;
+  }
+  process.kill(-pid, signal);
+}
 
 // `npm install -g --prefix <p>` lays the package out as <p>/lib/node_modules/omniroute on
 // POSIX but <p>/node_modules/omniroute on Windows, where the bin entry is a `omniroute.cmd`
@@ -287,14 +301,14 @@ async function stopChild(child, graceMs = 30_000) {
     if (hasExited(child)) return;
 
     try {
-      process.kill(-child.pid, "SIGTERM");
+      signalProcessGroup(child.pid, "SIGTERM");
     } catch {
       /* group already gone */
     }
     if (await waitForExit(graceMs)) return;
 
     try {
-      process.kill(-child.pid, "SIGKILL");
+      signalProcessGroup(child.pid, "SIGKILL");
     } catch {
       /* group already gone */
     }
@@ -334,6 +348,7 @@ function spawnServer(launch, port, dataDir) {
       },
       stdio: ["ignore", "pipe", "pipe"],
       detached: true,
+      windowsHide: true,
     }
   );
   const tail = [];
