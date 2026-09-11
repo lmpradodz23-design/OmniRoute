@@ -123,10 +123,7 @@ export function getExecutorTimeoutMs(
     // Defensive backstop for direct callers: resolveConnectionTimeoutMs is the
     // gate (it rejects out-of-range values so the chain falls through); this
     // clamp only caps values a future caller could pass unvetted.
-    return Math.min(
-      Math.max(0, Math.floor(connectionTimeoutMs)),
-      MAX_PROVIDER_SPECIFIC_TIMEOUT_MS
-    );
+    return Math.min(Math.max(0, Math.floor(connectionTimeoutMs)), MAX_PROVIDER_SPECIFIC_TIMEOUT_MS);
   }
   const modelOverride = resolveModelTimeoutOverride(provider, model);
   if (modelOverride !== undefined) return modelOverride;
@@ -278,8 +275,15 @@ export async function executeWithUpstreamStartTimeout<T>({
   try {
     return await Promise.race([execute(combinedController.signal), timeoutPromise, abortPromise]);
   } finally {
+    // Disarm only the START-timeout machinery here. The caller→combined abort
+    // forwarding (abortListener, `once`) must outlive this function: for a streaming
+    // call execute() resolves when the response HEADERS arrive, while the executor's
+    // fetch keeps combinedController.signal for the whole body. Removing the listener
+    // here left that signal orphaned, so a client disconnect detected later never
+    // reached the upstream and the provider kept streaming (and billing) to the end.
+    // The caller signal is the per-request stream-controller signal, so the listener
+    // dies with the request (no accumulation on long-lived signals — cf. R-7).
     if (timeoutId) clearTimeout(timeoutId);
-    if (abortListener) signal.removeEventListener("abort", abortListener);
     if (timeoutAbortListener) {
       timeoutController.signal.removeEventListener("abort", timeoutAbortListener);
     }
