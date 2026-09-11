@@ -37,7 +37,12 @@ before(async () => {
         return res.end(JSON.stringify({ ok: false, description: "Bad Request: chat not found" }));
       }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, result: { message_id: 7, chat: { id: 1, type: "private" }, text: "hi" } }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          result: { message_id: 7, chat: { id: 1, type: "private" }, text: "hi" },
+        })
+      );
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -75,7 +80,8 @@ test("S-6 telegram: a Bot API error keeps its description (no token in the messa
   mode = "fail";
   await assert.rejects(
     botApi.sendTelegramMessage({ chat_id: 1, text: "hi" }),
-    (e: unknown) => e instanceof Error && /chat not found/.test(e.message) && !e.message.includes(TOKEN)
+    (e: unknown) =>
+      e instanceof Error && /chat not found/.test(e.message) && !e.message.includes(TOKEN)
   );
 });
 
@@ -84,7 +90,10 @@ test("S-6 telegram: a cloud-metadata base is blocked before any socket and the t
   await assert.rejects(
     botApi.sendTelegramMessage({ chat_id: 1, text: "hi" }),
     (e: unknown) =>
-      e instanceof Error && /blocked/i.test(e.message) && !e.message.includes(TOKEN) && !/169\.254/.test(e.message)
+      e instanceof Error &&
+      /blocked/i.test(e.message) &&
+      !e.message.includes(TOKEN) &&
+      !/169\.254/.test(e.message)
   );
 });
 

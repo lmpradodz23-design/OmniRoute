@@ -71,7 +71,9 @@ async function botFetch<T>(method: string, body: unknown): Promise<T> {
     });
   } catch (error) {
     if (error instanceof OutboundUrlGuardError) {
-      throw new Error(`Telegram API ${method} failed: Bot API base URL blocked by the outbound guard`);
+      throw new Error(
+        `Telegram API ${method} failed: Bot API base URL blocked by the outbound guard`
+      );
     }
     throw error;
   }

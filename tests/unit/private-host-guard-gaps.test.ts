@@ -89,7 +89,13 @@ describe("canonical private-host guard — previously-correct behaviour is uncha
     });
   }
 
-  for (const host of ["example.com", "api.anthropic.com", "8.8.8.8", "93.184.216.34", "2606:4700::1111"]) {
+  for (const host of [
+    "example.com",
+    "api.anthropic.com",
+    "8.8.8.8",
+    "93.184.216.34",
+    "2606:4700::1111",
+  ]) {
     it(`still allows ${host}`, () => {
       assert.equal(isPrivateHost(host), false);
     });

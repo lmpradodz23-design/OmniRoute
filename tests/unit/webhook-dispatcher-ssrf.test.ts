@@ -59,7 +59,11 @@ const payload = {
 describe("deliverRaw — DNS rebinding is classified by the RESOLVED address", () => {
   it("blocks a public hostname that resolves to cloud metadata, even with the private opt-in", async () => {
     const { lookup, calls } = countingLookup("169.254.169.254");
-    const r = await deliverRaw("https://hook.example.test/x", { a: 1 }, { lookup, allowPrivate: true });
+    const r = await deliverRaw(
+      "https://hook.example.test/x",
+      { a: 1 },
+      { lookup, allowPrivate: true }
+    );
     assert.equal(r.success, false);
     assert.equal(r.status, 0, "a blocked target must not leak the internal service's status");
     assert.match(r.error ?? "", /metadata|block/i);
@@ -68,7 +72,11 @@ describe("deliverRaw — DNS rebinding is classified by the RESOLVED address", (
 
   it("blocks a public hostname that resolves to a private ip when opt-in is OFF", async () => {
     const { lookup } = countingLookup("10.1.2.3");
-    const r = await deliverRaw("https://hook.example.test/x", { a: 1 }, { lookup, allowPrivate: false });
+    const r = await deliverRaw(
+      "https://hook.example.test/x",
+      { a: 1 },
+      { lookup, allowPrivate: false }
+    );
     assert.equal(r.success, false);
     assert.equal(r.status, 0);
     assert.match(r.error ?? "", /private|block/i);
@@ -87,17 +95,18 @@ describe("deliverRaw — DNS rebinding is classified by the RESOLVED address", (
 describe("deliverWebhook — a guard block is terminal (no retry, no oracle)", () => {
   it("does not retry a target that resolves to a private ip: exactly one resolution, status 0", async () => {
     const { lookup, calls } = countingLookup("10.1.2.3");
-    const r = await deliverWebhook(
-      "https://hook.example.test/x",
-      payload,
-      "whsec_test",
-      3,
-      { lookup, allowPrivate: false }
-    );
+    const r = await deliverWebhook("https://hook.example.test/x", payload, "whsec_test", 3, {
+      lookup,
+      allowPrivate: false,
+    });
     assert.equal(r.success, false);
     assert.equal(r.status, 0);
     assert.match(r.error ?? "", /private|block/i);
-    assert.equal(calls(), 1, "blocked delivery must not be retried (4 resolutions would be an oracle)");
+    assert.equal(
+      calls(),
+      1,
+      "blocked delivery must not be retried (4 resolutions would be an oracle)"
+    );
   });
 
   it("does not retry metadata even under the private opt-in", async () => {

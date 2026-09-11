@@ -286,8 +286,8 @@ Panele tuneli endpointów (Cloudflare, Tailscale, ngrok) można pokazywać lub u
 
 ## Tagi obrazów
 
-| Obraz                    | Tag      | Rozmiar | Opis                       |
-| ------------------------ | -------- | ------- | -------------------------- |
+| Obraz                            | Tag      | Rozmiar | Opis                       |
+| -------------------------------- | -------- | ------- | -------------------------- |
 | `ghcr.io/lmprado-dz23/omniroute` | `latest` | ~250MB  | Najnowsze stabilne wydanie |
 | `ghcr.io/lmprado-dz23/omniroute` | `3.8.0`  | ~250MB  | Bieżąca wersja             |
 

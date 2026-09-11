@@ -82,11 +82,15 @@ describe("connectServer — the URL is validated at write time, nothing is inser
     ]) {
       await assert.rejects(
         servers.connectServer("bad", url, "key", { allowPrivate: false }),
-        (e: unknown) => e instanceof Error && /block|private|metadata|invalid|scheme|credential/i.test(e.message),
+        (e: unknown) =>
+          e instanceof Error && /block|private|metadata|invalid|scheme|credential/i.test(e.message),
         url
       );
     }
-    const rows = core.getDbInstance().prepare("SELECT COUNT(*) AS n FROM community_servers").get() as { n: number };
+    const rows = core
+      .getDbInstance()
+      .prepare("SELECT COUNT(*) AS n FROM community_servers")
+      .get() as { n: number };
     assert.equal(rows.n, 0, "a rejected URL must never be persisted");
   });
 
@@ -98,16 +102,22 @@ describe("connectServer — the URL is validated at write time, nothing is inser
   });
 
   it("accepts a public https server, and a private one only under the opt-in", async () => {
-    const pub = await servers.connectServer("pub", "https://federation.example", "key", { allowPrivate: false });
+    const pub = await servers.connectServer("pub", "https://federation.example", "key", {
+      allowPrivate: false,
+    });
     assert.equal(pub.url, "https://federation.example");
-    const lan = await servers.connectServer("lan", "http://192.168.0.10:8080", "key", { allowPrivate: true });
+    const lan = await servers.connectServer("lan", "http://192.168.0.10:8080", "key", {
+      allowPrivate: true,
+    });
     assert.equal(lan.status, "connected");
   });
 });
 
 describe("syncLeaderboard / pushScore / healthCheck — blocked by the RESOLVED address, no oracle", () => {
   it("syncLeaderboard: public hostname resolving to metadata is blocked (even with opt-in), status=error, URL-free message", async () => {
-    const s = await servers.connectServer("meta-sync", "https://federation.example", "key", { allowPrivate: false });
+    const s = await servers.connectServer("meta-sync", "https://federation.example", "key", {
+      allowPrivate: false,
+    });
     const { lookup, calls } = countingLookup("169.254.169.254");
     const r = await servers.syncLeaderboard(s.id, { lookup, allowPrivate: true });
     assert.equal(r.synced, 0);
@@ -116,11 +126,16 @@ describe("syncLeaderboard / pushScore / healthCheck — blocked by the RESOLVED 
     assert.equal(calls(), 1, "a blocked target must be resolved once and never retried");
     const row = readServerRow(s.id);
     assert.equal(row?.status, "error");
-    assert.ok(row?.error_message && !/federation\.example|169\.254/.test(row.error_message), "no URL/ip in the stored error");
+    assert.ok(
+      row?.error_message && !/federation\.example|169\.254/.test(row.error_message),
+      "no URL/ip in the stored error"
+    );
   });
 
   it("syncLeaderboard: private resolved address is blocked when the opt-in is off", async () => {
-    const s = await servers.connectServer("priv-sync", "https://federation.example", "key", { allowPrivate: false });
+    const s = await servers.connectServer("priv-sync", "https://federation.example", "key", {
+      allowPrivate: false,
+    });
     const { lookup } = countingLookup("10.1.2.3");
     const r = await servers.syncLeaderboard(s.id, { lookup, allowPrivate: false });
     assert.equal(r.synced, 0);
@@ -128,7 +143,9 @@ describe("syncLeaderboard / pushScore / healthCheck — blocked by the RESOLVED 
   });
 
   it("pushScore: metadata target is blocked before any request", async () => {
-    const s = await servers.connectServer("meta-push", "https://federation.example", "key", { allowPrivate: false });
+    const s = await servers.connectServer("meta-push", "https://federation.example", "key", {
+      allowPrivate: false,
+    });
     const { lookup, calls } = countingLookup("169.254.169.254");
     const r = await servers.pushScore(s.id, "k1", 10, { lookup, allowPrivate: true });
     assert.equal(r.success, false);
@@ -137,7 +154,9 @@ describe("syncLeaderboard / pushScore / healthCheck — blocked by the RESOLVED 
   });
 
   it("healthCheck: blocked target reports unhealthy without a request", async () => {
-    const s = await servers.connectServer("meta-health", "https://federation.example", "key", { allowPrivate: false });
+    const s = await servers.connectServer("meta-health", "https://federation.example", "key", {
+      allowPrivate: false,
+    });
     const { lookup } = countingLookup("169.254.169.254");
     const r = await servers.healthCheck(s.id, { lookup, allowPrivate: true });
     assert.equal(r.healthy, false);
@@ -193,7 +212,14 @@ describe("federation over a live loopback server — redirects never followed, p
           return;
         }
         res.writeHead(200, { "Content-Type": "application/json", Connection: "close" });
-        res.end(JSON.stringify({ entries: [{ apiKeyId: "k-a", score: 7 }, { apiKeyId: "k-b", score: 9 }] }));
+        res.end(
+          JSON.stringify({
+            entries: [
+              { apiKeyId: "k-a", score: 7 },
+              { apiKeyId: "k-b", score: 9 },
+            ],
+          })
+        );
       });
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -216,7 +242,10 @@ describe("federation over a live loopback server — redirects never followed, p
     assert.equal(requestCount, 1, "the redirect hop must NOT be fetched");
     const row = readServerRow(s.id);
     assert.equal(row?.status, "error");
-    assert.ok(row?.error_message && !row.error_message.includes("127.0.0.1"), "no URL in the stored error");
+    assert.ok(
+      row?.error_message && !row.error_message.includes("127.0.0.1"),
+      "no URL in the stored error"
+    );
   });
 
   it("syncLeaderboard rejects a malformed payload and upserts nothing", async () => {
@@ -237,7 +266,10 @@ describe("federation over a live loopback server — redirects never followed, p
     assert.deepEqual(r.errors, []);
     const scores = readScores().filter((x) => x.api_key_id === "k-valid");
     assert.deepEqual(scores, [{ api_key_id: "k-valid", score: 42 }]);
-    assert.equal(readScores().some((x) => ["k-nan", "k-inf", ""].includes(x.api_key_id)), false);
+    assert.equal(
+      readScores().some((x) => ["k-nan", "k-inf", ""].includes(x.api_key_id)),
+      false
+    );
   });
 
   it("syncLeaderboard delivers and merges a valid remote leaderboard (functional regression guard)", async () => {

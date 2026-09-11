@@ -8,10 +8,7 @@ import crypto from "crypto";
 import { decrypt, encryptSensitive } from "./db/encryption";
 import { arePrivateProviderUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
 import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
-import {
-  hardenedWebhookFetch,
-  type WebhookLookupFn,
-} from "@/shared/network/hardenedWebhookFetch";
+import { hardenedWebhookFetch, type WebhookLookupFn } from "@/shared/network/hardenedWebhookFetch";
 import type { WebhookEvent } from "./webhooks/eventDescriptions";
 
 export type { WebhookEvent };

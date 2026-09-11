@@ -38,7 +38,10 @@ const GUARDED_SINKS = [
 ];
 
 /** The hardened clients themselves: raw undici only, never the global fetch. */
-const HARDENED_CLIENTS = ["src/shared/network/hardenedWebhookFetch.ts", "src/shared/network/guardedFetch.ts"];
+const HARDENED_CLIENTS = [
+  "src/shared/network/hardenedWebhookFetch.ts",
+  "src/shared/network/guardedFetch.ts",
+];
 
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");

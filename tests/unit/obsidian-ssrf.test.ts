@@ -28,13 +28,17 @@ import {
 import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
 import type { WebhookLookupFn } from "@/shared/network/hardenedWebhookFetch";
 
-const lookupTo = (address: string): WebhookLookupFn => async () => [{ address, family: 4 }];
+const lookupTo =
+  (address: string): WebhookLookupFn =>
+  async () => [{ address, family: 4 }];
 
 const isGuardError = (e: unknown) => e instanceof OutboundUrlGuardError;
 
 describe("obsidian client — blocked targets (no socket, no retry)", () => {
   it("blocks the cloud-metadata literal even under the private opt-in, without retrying", async () => {
-    const client = createObsidianClient("k", "http://169.254.169.254:27123", { allowPrivate: true });
+    const client = createObsidianClient("k", "http://169.254.169.254:27123", {
+      allowPrivate: true,
+    });
     const start = Date.now();
     await assert.rejects(client.checkStatus(), isGuardError);
     // The retry loop sleeps 200ms+400ms between attempts; a guard decision must not enter it.
@@ -58,7 +62,9 @@ describe("obsidian client — blocked targets (no socket, no retry)", () => {
   });
 
   it("sync client: blocks the cloud-metadata literal", async () => {
-    const sync = createSyncServerClient("tok", "http://169.254.169.254:27781", { allowPrivate: true });
+    const sync = createSyncServerClient("tok", "http://169.254.169.254:27781", {
+      allowPrivate: true,
+    });
     await assert.rejects(sync.getStatus(), isGuardError);
   });
 
@@ -74,7 +80,13 @@ describe("obsidian client — blocked targets (no socket, no retry)", () => {
 describe("obsidian client — admitted loopback target keeps the existing behaviour", () => {
   let server: Server;
   let base = "";
-  let hits: Array<{ method: string; url: string; auth?: string; contentType?: string; body: string }> = [];
+  let hits: Array<{
+    method: string;
+    url: string;
+    auth?: string;
+    contentType?: string;
+    body: string;
+  }> = [];
   let mode: "ok" | "text" | "redirect" | "401" | "404" | "500" | "sync-ok" | "sync-500" = "ok";
 
   before(async () => {
@@ -109,7 +121,9 @@ describe("obsidian client — admitted loopback target keeps the existing behavi
             return res.end("# hello");
           case "sync-ok":
             res.writeHead(200, { "Content-Type": "application/json" });
-            return res.end(JSON.stringify({ ok: true, pulled: 1, pushed: 2, deleted: 0, conflicts: 0 }));
+            return res.end(
+              JSON.stringify({ ok: true, pulled: 1, pushed: 2, deleted: 0, conflicts: 0 })
+            );
           case "sync-500":
             res.writeHead(500, { "Content-Type": "text/plain" });
             return res.end("sync exploded");
@@ -180,7 +194,10 @@ describe("obsidian client — admitted loopback target keeps the existing behavi
   it("404 → ObsidianNotFoundError (no retry)", async () => {
     reset("404");
     const client = createObsidianClient("k", base, { allowPrivate: true });
-    await assert.rejects(client.readNote("missing.md"), (e: unknown) => e instanceof ObsidianNotFoundError);
+    await assert.rejects(
+      client.readNote("missing.md"),
+      (e: unknown) => e instanceof ObsidianNotFoundError
+    );
     assert.equal(hits.length, 1);
   });
 
@@ -216,6 +233,9 @@ describe("obsidian client — admitted loopback target keeps the existing behavi
     assert.equal(hits[0].auth, "Bearer sync-tok");
 
     reset("sync-500");
-    await assert.rejects(sync.getStatus(), (e: unknown) => e instanceof Error && /Sync server 500: sync exploded/.test(e.message));
+    await assert.rejects(
+      sync.getStatus(),
+      (e: unknown) => e instanceof Error && /Sync server 500: sync exploded/.test(e.message)
+    );
   });
 });

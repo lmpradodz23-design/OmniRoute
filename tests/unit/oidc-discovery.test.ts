@@ -102,11 +102,18 @@ describe("assertOidcEndpointUrl — what an endpoint must be before it sees a co
       () => assertOidcEndpointUrl("https://10.0.0.5/token", { allowPrivate: false }),
       (e: unknown) => e instanceof OidcEndpointError && e.reason === "private_without_optin"
     );
-    assert.equal(assertOidcEndpointUrl("https://10.0.0.5/token", { allowPrivate: true }).hostname, "10.0.0.5");
+    assert.equal(
+      assertOidcEndpointUrl("https://10.0.0.5/token", { allowPrivate: true }).hostname,
+      "10.0.0.5"
+    );
   });
 
   it("rejects embedded credentials and non-http schemes", () => {
-    for (const raw of ["https://user:pass@idp.example/token", "ftp://idp.example/token", "not a url"]) {
+    for (const raw of [
+      "https://user:pass@idp.example/token",
+      "ftp://idp.example/token",
+      "not a url",
+    ]) {
       assert.throws(
         () => assertOidcEndpointUrl(raw, { allowPrivate: true }),
         (e: unknown) => e instanceof OidcEndpointError && e.reason === "invalid_url",
@@ -116,7 +123,10 @@ describe("assertOidcEndpointUrl — what an endpoint must be before it sees a co
   });
 
   it("accepts a normal public https endpoint", () => {
-    assert.equal(assertOidcEndpointUrl("https://idp.example/token", { allowPrivate: false }).href, "https://idp.example/token");
+    assert.equal(
+      assertOidcEndpointUrl("https://idp.example/token", { allowPrivate: false }).href,
+      "https://idp.example/token"
+    );
   });
 });
 
@@ -148,7 +158,9 @@ describe("discoverOidcEndpoints — the configured issuer itself is validated fi
   });
 
   it("admits a loopback http issuer (dev IdP) under the opt-in and fetches discovery with allowPrivate", async () => {
-    const eps = await discoverOidcEndpoints("http://127.0.0.1:8080/realms/dev/", { allowPrivate: true });
+    const eps = await discoverOidcEndpoints("http://127.0.0.1:8080/realms/dev/", {
+      allowPrivate: true,
+    });
     assert.equal(eps.source, "conventional");
     assert.equal(eps.authorizationEndpoint, "http://127.0.0.1:8080/realms/dev/authorize");
     assert.equal(calls.length, 1);
@@ -185,13 +197,20 @@ describe("discoverOidcEndpoints — the discovery document is trusted only when 
     });
     const eps = await discoverOidcEndpoints(ISSUER, { allowPrivate: false });
     assert.equal(eps.source, "conventional");
-    assert.equal(eps.tokenEndpoint, `${ISSUER}/token`, "an unverified document must not name the token endpoint");
+    assert.equal(
+      eps.tokenEndpoint,
+      `${ISSUER}/token`,
+      "an unverified document must not name the token endpoint"
+    );
   });
 
   it("ignores a document whose issuer differs from the configured one (mix-up / substitution)", async () => {
     handler = () => ({
       status: 200,
-      body: discoveryDoc({ issuer: "https://other.example", token_endpoint: "https://attacker.example/token" }),
+      body: discoveryDoc({
+        issuer: "https://other.example",
+        token_endpoint: "https://attacker.example/token",
+      }),
     });
     const eps = await discoverOidcEndpoints(ISSUER, { allowPrivate: false });
     assert.equal(eps.source, "conventional");
@@ -226,21 +245,38 @@ describe("discoverOidcEndpoints — the discovery document is trusted only when 
   });
 
   it("replaces an http (non-loopback) token_endpoint from a verified document with the conventional one", async () => {
-    handler = () => ({ status: 200, body: discoveryDoc({ token_endpoint: "http://attacker.example/token" }) });
+    handler = () => ({
+      status: 200,
+      body: discoveryDoc({ token_endpoint: "http://attacker.example/token" }),
+    });
     const eps = await discoverOidcEndpoints(ISSUER, { allowPrivate: false });
     assert.equal(eps.source, "discovery");
-    assert.equal(eps.tokenEndpoint, `${ISSUER}/token`, "client_secret must never be posted over plain http");
-    assert.equal(eps.authorizationEndpoint, `${ISSUER}/oauth/authorize`, "valid siblings are still taken");
+    assert.equal(
+      eps.tokenEndpoint,
+      `${ISSUER}/token`,
+      "client_secret must never be posted over plain http"
+    );
+    assert.equal(
+      eps.authorizationEndpoint,
+      `${ISSUER}/oauth/authorize`,
+      "valid siblings are still taken"
+    );
   });
 
   it("replaces a metadata endpoint from a verified document with the conventional one", async () => {
-    handler = () => ({ status: 200, body: discoveryDoc({ jwks_uri: "https://169.254.169.254/jwks" }) });
+    handler = () => ({
+      status: 200,
+      body: discoveryDoc({ jwks_uri: "https://169.254.169.254/jwks" }),
+    });
     const eps = await discoverOidcEndpoints(ISSUER, { allowPrivate: true });
     assert.equal(eps.jwksUri, `${ISSUER}/jwks`);
   });
 
   it("replaces a private endpoint from a verified document when the opt-in is off, keeps it when on", async () => {
-    handler = () => ({ status: 200, body: discoveryDoc({ token_endpoint: "https://10.0.0.5/token" }) });
+    handler = () => ({
+      status: 200,
+      body: discoveryDoc({ token_endpoint: "https://10.0.0.5/token" }),
+    });
     const off = await discoverOidcEndpoints(ISSUER, { allowPrivate: false });
     assert.equal(off.tokenEndpoint, `${ISSUER}/token`);
     const on = await discoverOidcEndpoints(ISSUER, { allowPrivate: true });
@@ -248,7 +284,10 @@ describe("discoverOidcEndpoints — the discovery document is trusted only when 
   });
 
   it("replaces an endpoint with embedded credentials", async () => {
-    handler = () => ({ status: 200, body: discoveryDoc({ token_endpoint: "https://u:p@idp.example/token" }) });
+    handler = () => ({
+      status: 200,
+      body: discoveryDoc({ token_endpoint: "https://u:p@idp.example/token" }),
+    });
     const eps = await discoverOidcEndpoints(ISSUER, { allowPrivate: false });
     assert.equal(eps.tokenEndpoint, `${ISSUER}/token`);
   });
@@ -257,7 +296,9 @@ describe("discoverOidcEndpoints — the discovery document is trusted only when 
 describe("postOidcTokenRequest — the token endpoint is re-validated and posted through the transport", () => {
   it("rejects an http (non-loopback) token endpoint before any network call", async () => {
     await assert.rejects(
-      postOidcTokenRequest("http://idp.example/token", new URLSearchParams({ a: "1" }), { allowPrivate: false }),
+      postOidcTokenRequest("http://idp.example/token", new URLSearchParams({ a: "1" }), {
+        allowPrivate: false,
+      }),
       (e: unknown) => e instanceof OidcEndpointError && e.reason === "https_required"
     );
     assert.equal(calls.length, 0);
@@ -265,7 +306,9 @@ describe("postOidcTokenRequest — the token endpoint is re-validated and posted
 
   it("rejects a metadata token endpoint even with the opt-in", async () => {
     await assert.rejects(
-      postOidcTokenRequest("https://169.254.169.254/token", new URLSearchParams(), { allowPrivate: true }),
+      postOidcTokenRequest("https://169.254.169.254/token", new URLSearchParams(), {
+        allowPrivate: true,
+      }),
       (e: unknown) => e instanceof OidcEndpointError && e.reason === "metadata"
     );
     assert.equal(calls.length, 0);
@@ -288,7 +331,9 @@ describe("postOidcTokenRequest — the token endpoint is re-validated and posted
 
   it("surfaces a non-2xx token response as ok:false without throwing", async () => {
     handler = () => ({ status: 400, body: "bad request" });
-    const r = await postOidcTokenRequest(`${ISSUER}/token`, new URLSearchParams(), { allowPrivate: false });
+    const r = await postOidcTokenRequest(`${ISSUER}/token`, new URLSearchParams(), {
+      allowPrivate: false,
+    });
     assert.equal(r.ok, false);
     assert.equal(r.status, 400);
   });

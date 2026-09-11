@@ -36,7 +36,8 @@ let route: (hit: Hit) => Reply = () => HEALTH_OK;
 
 /** Health answers ok; every other path gets `reply`. Mirrors the old mockHealthOkThen(). */
 function healthOkThen(reply: Reply | ((hit: Hit) => Reply)) {
-  route = (hit) => (hit.url.endsWith("/health") ? HEALTH_OK : typeof reply === "function" ? reply(hit) : reply);
+  route = (hit) =>
+    hit.url.endsWith("/health") ? HEALTH_OK : typeof reply === "function" ? reply(hit) : reply;
 }
 
 const nonHealth = () => hits.find((h) => !h.url.endsWith("/health"))!;
@@ -48,7 +49,12 @@ beforeAll(async () => {
       raw += c;
     });
     req.on("end", () => {
-      const hit: Hit = { method: req.method ?? "", url: req.url ?? "", headers: req.headers, body: raw };
+      const hit: Hit = {
+        method: req.method ?? "",
+        url: req.url ?? "",
+        headers: req.headers,
+        body: raw,
+      };
       hits.push(hit);
       const reply = route(hit);
       const send = () => {
@@ -100,7 +106,9 @@ function createBackend(configOverrides: Record<string, unknown> = {}) {
   });
 }
 
-const lookupTo = (address: string): WebhookLookupFn => async () => [{ address, family: 4 }];
+const lookupTo =
+  (address: string): WebhookLookupFn =>
+  async () => [{ address, family: 4 }];
 
 describe("GenericMemoryBackend", () => {
   let backend: GenericMemoryBackend;
@@ -389,7 +397,9 @@ describe("GenericMemoryBackend", () => {
         options: { filter: { lang: "en" } },
       });
 
-      expect(nonHealth().url).toContain(encodeURIComponent(JSON.stringify({ filter: { lang: "en" } })));
+      expect(nonHealth().url).toContain(
+        encodeURIComponent(JSON.stringify({ filter: { lang: "en" } }))
+      );
     });
   });
 

@@ -392,16 +392,16 @@ Wszystkie **19** strategii — łącz i dopasowuj na każdym kroku komba:
 
 > Ta sama aplikacja, Twoja maszyna, Twoje zasady. Od globalnej instalacji przez npm po Twój telefon za pomocą Termux.
 
-| Platforma                 | Instalacja                               | Najważniejsze cechy                                                           |
-| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- |
-| 📦 **npm (globalnie)**    | `npm install -g omniroute`               | Jedno polecenie, dowolny system operacyjny                                    |
-| 🐳 **Docker**             | `docker run … ghcr.io/lmprado-dz23/omniroute`    | Wielonatywność architektur **AMD64 + ARM64**                                  |
-| 🖥️ **Desktop (Electron)** | `npm run electron:build`                 | Natywne okno + zasobnik systemowy (system tray) — **Windows / macOS / Linux** |
-| 💪 **ARM**                | natywnie `arm64`                         | Raspberry Pi, serwery ARM, Apple Silicon                                      |
-| 📱 **Android (Termux)**   | `pkg install nodejs && npx -y omniroute` | Działa **na Twoim telefonie**, 24/7, bez roota                                |
-| 📲 **PWA**                | "Dodaj do ekranu głównego"               | Pełny ekran, offline, instalacja z poziomu przeglądarki                       |
-| 🧩 **Wtyczka OpenCode**   | `@omniroute/opencode-provider`           | Natywna integracja z OpenCode                                                 |
-| 🛠️ **Ze źródeł**          | `npm install && npm run dev`             | Modyfikuj kod, współtwórz projekt                                             |
+| Platforma                 | Instalacja                                    | Najważniejsze cechy                                                           |
+| ------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------- |
+| 📦 **npm (globalnie)**    | `npm install -g omniroute`                    | Jedno polecenie, dowolny system operacyjny                                    |
+| 🐳 **Docker**             | `docker run … ghcr.io/lmprado-dz23/omniroute` | Wielonatywność architektur **AMD64 + ARM64**                                  |
+| 🖥️ **Desktop (Electron)** | `npm run electron:build`                      | Natywne okno + zasobnik systemowy (system tray) — **Windows / macOS / Linux** |
+| 💪 **ARM**                | natywnie `arm64`                              | Raspberry Pi, serwery ARM, Apple Silicon                                      |
+| 📱 **Android (Termux)**   | `pkg install nodejs && npx -y omniroute`      | Działa **na Twoim telefonie**, 24/7, bez roota                                |
+| 📲 **PWA**                | "Dodaj do ekranu głównego"                    | Pełny ekran, offline, instalacja z poziomu przeglądarki                       |
+| 🧩 **Wtyczka OpenCode**   | `@omniroute/opencode-provider`                | Natywna integracja z OpenCode                                                 |
+| 🛠️ **Ze źródeł**          | `npm install && npm run dev`                  | Modyfikuj kod, współtwórz projekt                                             |
 
 <sub>📖 [Podręcznik Docker](../../../docs/guides/DOCKER_GUIDE.md) · [Desktop](../../../electron/README.md) · [Termux](../../../docs/guides/TERMUX_GUIDE.md) · [PWA](../../../docs/guides/PWA_GUIDE.md) · [OpenCode](../../../docs/frameworks/OPENCODE.md)</sub>
 

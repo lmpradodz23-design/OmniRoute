@@ -54,7 +54,10 @@ export async function GET(request: Request) {
     authEndpoint = (await discoverOidcEndpoints(issuer)).authorizationEndpoint;
   } catch (error) {
     if (error instanceof OidcEndpointError) {
-      return NextResponse.json({ error: `OIDC issuer rejected: ${error.message}` }, { status: 400 });
+      return NextResponse.json(
+        { error: `OIDC issuer rejected: ${error.message}` },
+        { status: 400 }
+      );
     }
     throw error;
   }

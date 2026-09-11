@@ -388,16 +388,16 @@ Combo: "always-on"                         策略: priority
 
 > 同一套应用，你的机器，你的规则。从全局 `npm install` 到**你的手机**（通过 Termux），无所不跑。
 
-| 平台                     | 安装方式                                 | 亮点                                              |
-| ------------------------ | ---------------------------------------- | ------------------------------------------------- |
-| 📦 **npm（全局）**       | `npm install -g omniroute`               | 一行命令，任意 OS                                 |
-| 🐳 **Docker**            | `docker run … ghcr.io/lmprado-dz23/omniroute`    | 多架构 **AMD64 + ARM64**                          |
-| 🖥️ **桌面（Electron）**  | `npm run electron:build`                 | 原生窗口 + 系统托盘 — **Windows / macOS / Linux** |
-| 💪 **ARM**               | 原生 `arm64`                             | 树莓派、ARM 服务器、Apple Silicon                 |
-| 📱 **Android（Termux）** | `pkg install nodejs && npx -y omniroute` | **在手机上** 7×24 运行，无需 Root                 |
-| 📲 **PWA**               | "添加到主屏幕"                           | 全屏、离线、可从浏览器安装                        |
-| 🧩 **OpenCode 插件**     | `@omniroute/opencode-provider`           | 原生 OpenCode 集成                                |
-| 🛠️ **源码构建**          | `npm install && npm run dev`             | 动手改造，贡献代码                                |
+| 平台                     | 安装方式                                      | 亮点                                              |
+| ------------------------ | --------------------------------------------- | ------------------------------------------------- |
+| 📦 **npm（全局）**       | `npm install -g omniroute`                    | 一行命令，任意 OS                                 |
+| 🐳 **Docker**            | `docker run … ghcr.io/lmprado-dz23/omniroute` | 多架构 **AMD64 + ARM64**                          |
+| 🖥️ **桌面（Electron）**  | `npm run electron:build`                      | 原生窗口 + 系统托盘 — **Windows / macOS / Linux** |
+| 💪 **ARM**               | 原生 `arm64`                                  | 树莓派、ARM 服务器、Apple Silicon                 |
+| 📱 **Android（Termux）** | `pkg install nodejs && npx -y omniroute`      | **在手机上** 7×24 运行，无需 Root                 |
+| 📲 **PWA**               | "添加到主屏幕"                                | 全屏、离线、可从浏览器安装                        |
+| 🧩 **OpenCode 插件**     | `@omniroute/opencode-provider`                | 原生 OpenCode 集成                                |
+| 🛠️ **源码构建**          | `npm install && npm run dev`                  | 动手改造，贡献代码                                |
 
 <sub>📖 [Docker 指南](../../guides/DOCKER_GUIDE.md) · [桌面端](../../electron/README.md) · [Termux](../../guides/TERMUX_GUIDE.md) · [PWA](../../guides/PWA_GUIDE.md) · [OpenCode](../../frameworks/OPENCODE.md)</sub>
 

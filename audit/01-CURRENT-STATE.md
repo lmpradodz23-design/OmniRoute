@@ -4,33 +4,33 @@ Data: 2026-09-09 · Missão: `omniroute-final-user-readiness-v3.8.51`
 
 ## Identidade do checkout (verificada)
 
-| Item | Valor |
-|---|---|
-| Diretório | `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port` |
+| Item                 | Valor                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| Diretório            | `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`                     |
 | Repositório canônico | `https://github.com/LMPrado-DZ23/OmniRoute` (renomeado de `lmpradodz23-design`; mesmo repo) |
-| `origin` | `LMPrado-DZ23/OmniRoute` (corrigido nesta missão por rename não-destrutivo) |
-| `upstream` | `diegosouzapw/OmniRoute` (só para comparação; sem permissão de push) |
-| Branch de trabalho | `fix/final-user-readiness` (criada de `release/v3.8.51`) |
-| HEAD inicial | `2a156c73812d45119d5a06a2f55d611280442860` |
-| Working tree | limpo (`git status --short` vazio) no início da missão |
-| Node / npm | v24.16.0 / 11.13.0 |
-| Produto | `omniroute` **3.8.51** (`package.json`) |
+| `origin`             | `LMPrado-DZ23/OmniRoute` (corrigido nesta missão por rename não-destrutivo)                 |
+| `upstream`           | `diegosouzapw/OmniRoute` (só para comparação; sem permissão de push)                        |
+| Branch de trabalho   | `fix/final-user-readiness` (criada de `release/v3.8.51`)                                    |
+| HEAD inicial         | `2a156c73812d45119d5a06a2f55d611280442860`                                                  |
+| Working tree         | limpo (`git status --short` vazio) no início da missão                                      |
+| Node / npm           | v24.16.0 / 11.13.0                                                                          |
+| Produto              | `omniroute` **3.8.51** (`package.json`)                                                     |
 
 O SHA `b345c7f6cd4e…` é a base da auditoria anterior; **não** é o HEAD atual e não foi forçado.
 
 ## Inventário
 
-| Métrica | Valor |
-|---|---|
-| Migrations SQL (`src/lib/db/migrations`) | 170 |
-| Rotas API (`src/app/api/**/route.ts`) | 697 |
-| Arquivos de teste unitário (`tests/unit`) | 4335 |
-| Scripts npm | 190 |
-| Workflows GitHub Actions | 26 |
-| `next.config.mjs` | `ignoreBuildErrors: true` (L383) — erros TS não bloqueiam o build |
-| Electron | `electron/` (main.js, preload.js, loginManager.js, processTree.js, lib/ipcOriginGuard.js, …) |
-| Docker | `Dockerfile`, `Dockerfile.bun`, `docker-compose.yml`, `docker-compose.prod.yml` |
-| Top-level | `@omniroute/ audit/ bin/ changelog.d/ config/ contrib/ docker/ docs/ electron/ examples/ images/ open-sse/ packages/ public/ scripts/ skills/ src/ tests/` |
+| Métrica                                   | Valor                                                                                                                                                      |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migrations SQL (`src/lib/db/migrations`)  | 170                                                                                                                                                        |
+| Rotas API (`src/app/api/**/route.ts`)     | 697                                                                                                                                                        |
+| Arquivos de teste unitário (`tests/unit`) | 4335                                                                                                                                                       |
+| Scripts npm                               | 190                                                                                                                                                        |
+| Workflows GitHub Actions                  | 26                                                                                                                                                         |
+| `next.config.mjs`                         | `ignoreBuildErrors: true` (L383) — erros TS não bloqueiam o build                                                                                          |
+| Electron                                  | `electron/` (main.js, preload.js, loginManager.js, processTree.js, lib/ipcOriginGuard.js, …)                                                               |
+| Docker                                    | `Dockerfile`, `Dockerfile.bun`, `docker-compose.yml`, `docker-compose.prod.yml`                                                                            |
+| Top-level                                 | `@omniroute/ audit/ bin/ changelog.d/ config/ contrib/ docker/ docs/ electron/ examples/ images/ open-sse/ packages/ public/ scripts/ skills/ src/ tests/` |
 
 ## O que já está integrado em `release/v3.8.51` (missão anterior, COMPLETED)
 
@@ -53,13 +53,13 @@ Estes itens serão **revalidados** nesta missão (Fase 1), não presumidos.
 
 ## Peculiaridades de ambiente (afetam como testar, não o produto)
 
-| Sintoma | Causa | Como lidar |
-|---|---|---|
-| Turbopack: `Symlink [project]/node_modules is invalid` | `node_modules` é junction para `../OmniRoute/node_modules` | `OMNIROUTE_USE_TURBOPACK=0` (webpack) — build passa |
-| `generate-agent-skills.mjs` dry-run reporta `Generated: 1` (cli-tunnel) e sai com 2 | CRLF no working tree Windows vs LF gerado | `git diff --stat` vazio ⇒ falso drift; CI Linux verde |
-| `npx.cmd` → `spawnSync EINVAL` | shim quebrado neste host | invocar `node ./node_modules/<pkg>/bin/...` |
-| Servidor sobe na 20128 mesmo com `OMNIROUTE_PORT` | porta é `DASHBOARD_PORT`/`PORT`; API Bridge sempre pede 20128 | usar `DASHBOARD_PORT` e garantir 20128 livre, ou aceitar bridge desabilitado |
-| EPERM em teardown de alguns testes | Windows file locking | passam em Linux CI; `--test-concurrency=1` reduz |
+| Sintoma                                                                             | Causa                                                         | Como lidar                                                                   |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Turbopack: `Symlink [project]/node_modules is invalid`                              | `node_modules` é junction para `../OmniRoute/node_modules`    | `OMNIROUTE_USE_TURBOPACK=0` (webpack) — build passa                          |
+| `generate-agent-skills.mjs` dry-run reporta `Generated: 1` (cli-tunnel) e sai com 2 | CRLF no working tree Windows vs LF gerado                     | `git diff --stat` vazio ⇒ falso drift; CI Linux verde                        |
+| `npx.cmd` → `spawnSync EINVAL`                                                      | shim quebrado neste host                                      | invocar `node ./node_modules/<pkg>/bin/...`                                  |
+| Servidor sobe na 20128 mesmo com `OMNIROUTE_PORT`                                   | porta é `DASHBOARD_PORT`/`PORT`; API Bridge sempre pede 20128 | usar `DASHBOARD_PORT` e garantir 20128 livre, ou aceitar bridge desabilitado |
+| EPERM em teardown de alguns testes                                                  | Windows file locking                                          | passam em Linux CI; `--test-concurrency=1` reduz                             |
 
 ## Autorizações desta missão
 

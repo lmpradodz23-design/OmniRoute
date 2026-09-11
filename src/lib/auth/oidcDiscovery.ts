@@ -51,7 +51,10 @@ export interface OidcTransportOptions {
   maxBodyBytes: number;
 }
 
-export type OidcTransport = (url: URL, options: OidcTransportOptions) => Promise<OidcTransportResult>;
+export type OidcTransport = (
+  url: URL,
+  options: OidcTransportOptions
+) => Promise<OidcTransportResult>;
 
 const DISCOVERY_TIMEOUT_MS = 5_000;
 const TOKEN_TIMEOUT_MS = 10_000;
@@ -79,10 +82,7 @@ export const oidcDiscoveryInternals: { transport: OidcTransport } = {
 };
 
 export type OidcEndpointRejection =
-  | "invalid_url"
-  | "metadata"
-  | "https_required"
-  | "private_without_optin";
+  "invalid_url" | "metadata" | "https_required" | "private_without_optin";
 
 export class OidcEndpointError extends Error {
   readonly reason: OidcEndpointRejection;

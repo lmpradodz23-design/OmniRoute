@@ -118,14 +118,17 @@ export class CodexCloudAgent extends CloudAgentBase {
     message: string,
     credentials: AgentCredentials
   ): Promise<CloudAgentActivity> {
-    const response = await this.agentFetch(`${this.baseUrl}/codex/cloud/tasks/${externalId}/followup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${credentials.apiKey}`,
-      },
-      body: JSON.stringify({ message }),
-    });
+    const response = await this.agentFetch(
+      `${this.baseUrl}/codex/cloud/tasks/${externalId}/followup`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${credentials.apiKey}`,
+        },
+        body: JSON.stringify({ message }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text();

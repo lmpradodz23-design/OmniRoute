@@ -46,7 +46,8 @@ const MAX_IP_LITERAL_LENGTH = 110;
 // the guard used to fall through to "public" for anything that was not a canonical literal.
 // URL-based callers never see these (WHATWG normalizes them to `127.0.0.1`); a raw-config caller
 // must fail closed. Every quantifier is bounded (AGENTS.md → "Regex Security (ReDoS)").
-const NON_CANONICAL_IPV4_RE = /^(?:0x[0-9a-f]{1,8}|\d{1,10})(?:\.(?:0x[0-9a-f]{1,8}|\d{1,10})){0,3}$/;
+const NON_CANONICAL_IPV4_RE =
+  /^(?:0x[0-9a-f]{1,8}|\d{1,10})(?:\.(?:0x[0-9a-f]{1,8}|\d{1,10})){0,3}$/;
 
 /** Pure-JS `node:net#isIP`: 4, 6, or 0 when the string is not an IP literal. */
 export function ipVersion(host: string): 0 | 4 | 6 {

@@ -1087,8 +1087,8 @@ volumes:
   omniroute-data:
 ```
 
-| Image                    | Tag      | Size   | Description           |
-| ------------------------ | -------- | ------ | --------------------- |
+| Image                            | Tag      | Size   | Description           |
+| -------------------------------- | -------- | ------ | --------------------- |
 | `ghcr.io/lmprado-dz23/omniroute` | `latest` | ~250MB | Latest stable release |
 | `ghcr.io/lmprado-dz23/omniroute` | `3.6.2`  | ~250MB | Current version       |
 

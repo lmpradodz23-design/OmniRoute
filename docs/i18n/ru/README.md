@@ -333,16 +333,16 @@ Combo: "always-on"                         strategy: priority
 
 </div>
 
-| Платформа                 | Установка                                | Плюсы                          |
-| ------------------------- | ---------------------------------------- | ------------------------------ |
-| 📦 **npm (global)**       | `npm install -g omniroute`               | Одна команда, любая ОС         |
-| 🐳 **Docker**             | `docker run … ghcr.io/lmprado-dz23/omniroute`    | **AMD64 + ARM64**              |
-| 🖥️ **Desktop (Electron)** | `npm run electron:build`                 | Окно + tray — Win/macOS/Linux  |
-| 💪 **ARM**                | native `arm64`                           | Pi, ARM servers, Apple Silicon |
-| 📱 **Android (Termux)**   | `pkg install nodejs && npx -y omniroute` | На телефоне 24/7, без root     |
-| 📲 **PWA**                | «Add to Home Screen»                     | Fullscreen, offline            |
-| 🧩 **OpenCode plugin**    | `@omniroute/opencode-provider`           | Нативная интеграция            |
-| 🛠️ **Из исходников**      | `npm install && npm run dev`             | Хакинг и контрибьют            |
+| Платформа                 | Установка                                     | Плюсы                          |
+| ------------------------- | --------------------------------------------- | ------------------------------ |
+| 📦 **npm (global)**       | `npm install -g omniroute`                    | Одна команда, любая ОС         |
+| 🐳 **Docker**             | `docker run … ghcr.io/lmprado-dz23/omniroute` | **AMD64 + ARM64**              |
+| 🖥️ **Desktop (Electron)** | `npm run electron:build`                      | Окно + tray — Win/macOS/Linux  |
+| 💪 **ARM**                | native `arm64`                                | Pi, ARM servers, Apple Silicon |
+| 📱 **Android (Termux)**   | `pkg install nodejs && npx -y omniroute`      | На телефоне 24/7, без root     |
+| 📲 **PWA**                | «Add to Home Screen»                          | Fullscreen, offline            |
+| 🧩 **OpenCode plugin**    | `@omniroute/opencode-provider`                | Нативная интеграция            |
+| 🛠️ **Из исходников**      | `npm install && npm run dev`                  | Хакинг и контрибьют            |
 
 <sub>📖 [Docker](../../guides/DOCKER_GUIDE.md) · [Desktop](../../../electron/README.md) · [Termux](../../guides/TERMUX_GUIDE.md) · [PWA](../../guides/PWA_GUIDE.md) · [OpenCode](../../frameworks/OPENCODE.md)</sub>
 

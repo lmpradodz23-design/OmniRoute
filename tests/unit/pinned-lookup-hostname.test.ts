@@ -28,10 +28,14 @@ describe("pinnedLookup — honours both dns.lookup callback shapes", () => {
 
   it("answers the `all: true` form with an array", () => {
     let got: unknown;
-    pinnedLookup(pinned)("host.example.test", { all: true }, (err: Error | null, address: unknown) => {
-      assert.equal(err, null);
-      got = address;
-    });
+    pinnedLookup(pinned)(
+      "host.example.test",
+      { all: true },
+      (err: Error | null, address: unknown) => {
+        assert.equal(err, null);
+        got = address;
+      }
+    );
     assert.deepEqual(got, [{ address: "127.0.0.1", family: 4 }]);
   });
 

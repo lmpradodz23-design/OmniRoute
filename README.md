@@ -1227,21 +1227,21 @@ Métricas canônicas em 2026-08-24: **1.029 vídeos únicos** · **11.132.922 vi
 
 > Everything in one place — the upstream community channels, the original author, and this fork's issue tracker.
 
-| Channel                                    | Where / how                                                                                                               |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| 🍴 **This fork**                           | [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute) — releases, issues, container image        |
-| 💼 **LinkedIn** — original author          | [linkedin.com/in/diegosouzapw](https://www.linkedin.com/in/diegosouzapw/)                                                 |
-| 🐙 **GitHub** — original author            | [@diegosouzapw](https://github.com/diegosouzapw) · [upstream repository](https://github.com/LMPrado-DZ23/OmniRoute)       |
-| 💬 **Discord**                             | [discord.gg/U47eFqAXCn](https://discord.gg/U47eFqAXCn)                                                                    |
-| ✈️ **Telegram**                            | [t.me/omnirouteOficial](https://t.me/omnirouteOficial)                                                                    |
-| 🟢 **WhatsApp — 🌍 Global**                | [join the group](https://chat.whatsapp.com/FvuCbrpZmQ6I85n2vW5QIC?s=cl&p=a&mlu=4)                                         |
-| 🟢 **WhatsApp — 🇧🇷 Brasil**                | [entrar no grupo](https://chat.whatsapp.com/KWgatljAjmbELQory59Oti?s=cl&p=a&mlu=4)                                        |
-| 🌍 **Website**                             | [omniroute.online](https://omniroute.online)                                                                              |
-| 🌍 **🌍StHub OmniRoute Community (free)**  | [portal sthub](https://portal.sthub.com.br/communities/groups/st-hub/channels/Omniroute-World-8kRjmK)                     |
-| 📦 **Source code**                         | [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)                                            |
-| 🐛 **Report a bug**                        | [open an issue](https://github.com/LMPrado-DZ23/OmniRoute/issues) — attach `npm run system-info` output                   |
-| 🤝 **Contribute**                          | [CONTRIBUTING.md](CONTRIBUTING.md) · [Branching & Release Model](docs/ops/BRANCHING_MODEL.md) · pick a `good first issue` |
-| 💚 **Support the original author**         | [Ways to support ↑](#-support-omniroute) · [GitHub Sponsors](https://github.com/sponsors/diegosouzapw)                    |
+| Channel                                   | Where / how                                                                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 🍴 **This fork**                          | [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute) — releases, issues, container image        |
+| 💼 **LinkedIn** — original author         | [linkedin.com/in/diegosouzapw](https://www.linkedin.com/in/diegosouzapw/)                                                 |
+| 🐙 **GitHub** — original author           | [@diegosouzapw](https://github.com/diegosouzapw) · [upstream repository](https://github.com/LMPrado-DZ23/OmniRoute)       |
+| 💬 **Discord**                            | [discord.gg/U47eFqAXCn](https://discord.gg/U47eFqAXCn)                                                                    |
+| ✈️ **Telegram**                           | [t.me/omnirouteOficial](https://t.me/omnirouteOficial)                                                                    |
+| 🟢 **WhatsApp — 🌍 Global**               | [join the group](https://chat.whatsapp.com/FvuCbrpZmQ6I85n2vW5QIC?s=cl&p=a&mlu=4)                                         |
+| 🟢 **WhatsApp — 🇧🇷 Brasil**               | [entrar no grupo](https://chat.whatsapp.com/KWgatljAjmbELQory59Oti?s=cl&p=a&mlu=4)                                        |
+| 🌍 **Website**                            | [omniroute.online](https://omniroute.online)                                                                              |
+| 🌍 **🌍StHub OmniRoute Community (free)** | [portal sthub](https://portal.sthub.com.br/communities/groups/st-hub/channels/Omniroute-World-8kRjmK)                     |
+| 📦 **Source code**                        | [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)                                            |
+| 🐛 **Report a bug**                       | [open an issue](https://github.com/LMPrado-DZ23/OmniRoute/issues) — attach `npm run system-info` output                   |
+| 🤝 **Contribute**                         | [CONTRIBUTING.md](CONTRIBUTING.md) · [Branching & Release Model](docs/ops/BRANCHING_MODEL.md) · pick a `good first issue` |
+| 💚 **Support the original author**        | [Ways to support ↑](#-support-omniroute) · [GitHub Sponsors](https://github.com/sponsors/diegosouzapw)                    |
 
 </div>
 

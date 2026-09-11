@@ -382,16 +382,16 @@ Result: 4 fallback layers reduce downtime; upstream availability is not guarante
 
 > 相同的應用程式，您的機器，您的規則。從全域 npm 安裝到透過 Termux **在手機上**執行。
 
-| 平台                     | 安裝方式                                     | 亮點                                            |
-| ------------------------ | -------------------------------------------- | ----------------------------------------------- |
-| 📦 **npm（全域）**       | `npm install -g omniroute`                   | 一條命令，任何作業系統                          |
-| 🐳 **Docker**            | `docker run … ghcr.io/lmprado-dz23/omniroute`        | 多架構 **AMD64 + ARM64**                        |
-| 🖥️ **桌面（Electron）**  | `npm run electron:build`                     | 原生視窗 + 系統匣 — **Windows / macOS / Linux** |
-| 💪 **ARM**               | 原生 `arm64`                                 | Raspberry Pi、ARM 伺服器、Apple Silicon         |
-| 📱 **Android（Termux）** | `pkg install nodejs-lts && npx -y omniroute` | **在手機上**執行，24/7，無需 root               |
-| 📲 **PWA**               | "新增到主畫面"                               | 全螢幕、離線、可從瀏覽器安裝                    |
-| 🧩 **OpenCode 插件**     | `@omniroute/opencode-provider`               | 原生 OpenCode 整合                              |
-| 🛠️ **從原始碼建構**      | `npm install && npm run dev`                 | 參與開發                                        |
+| 平台                     | 安裝方式                                      | 亮點                                            |
+| ------------------------ | --------------------------------------------- | ----------------------------------------------- |
+| 📦 **npm（全域）**       | `npm install -g omniroute`                    | 一條命令，任何作業系統                          |
+| 🐳 **Docker**            | `docker run … ghcr.io/lmprado-dz23/omniroute` | 多架構 **AMD64 + ARM64**                        |
+| 🖥️ **桌面（Electron）**  | `npm run electron:build`                      | 原生視窗 + 系統匣 — **Windows / macOS / Linux** |
+| 💪 **ARM**               | 原生 `arm64`                                  | Raspberry Pi、ARM 伺服器、Apple Silicon         |
+| 📱 **Android（Termux）** | `pkg install nodejs-lts && npx -y omniroute`  | **在手機上**執行，24/7，無需 root               |
+| 📲 **PWA**               | "新增到主畫面"                                | 全螢幕、離線、可從瀏覽器安裝                    |
+| 🧩 **OpenCode 插件**     | `@omniroute/opencode-provider`                | 原生 OpenCode 整合                              |
+| 🛠️ **從原始碼建構**      | `npm install && npm run dev`                  | 參與開發                                        |
 
 <sub>📖 [Docker Guide](../../guides/DOCKER_GUIDE.md) · [Desktop](../../electron/README.md) · [Termux](../../guides/TERMUX_GUIDE.md) · [PWA](../../guides/PWA_GUIDE.md) · [OpenCode](../../frameworks/OPENCODE.md)</sub>
 

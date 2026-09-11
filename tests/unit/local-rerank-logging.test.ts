@@ -86,9 +86,33 @@ test.describe("Local rerank provider logging and fallback", () => {
     const now = new Date().toISOString();
     // "vram" mounts under /v1 (→ /v1/rerank); "infinity" has no /v1 (→ /v1/rerank then /rerank);
     // "meta" points at cloud metadata and must never be reached.
-    await createProviderNode({ id: "vram", name: "vram", type: "openai", prefix: "vram", baseUrl: `${base}/v1`, createdAt: now, updatedAt: now });
-    await createProviderNode({ id: "infinity", name: "infinity", type: "openai", prefix: "infinity", baseUrl: base, createdAt: now, updatedAt: now });
-    await createProviderNode({ id: "meta", name: "meta", type: "openai", prefix: "meta", baseUrl: "http://169.254.169.254/v1", createdAt: now, updatedAt: now });
+    await createProviderNode({
+      id: "vram",
+      name: "vram",
+      type: "openai",
+      prefix: "vram",
+      baseUrl: `${base}/v1`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await createProviderNode({
+      id: "infinity",
+      name: "infinity",
+      type: "openai",
+      prefix: "infinity",
+      baseUrl: base,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await createProviderNode({
+      id: "meta",
+      name: "meta",
+      type: "openai",
+      prefix: "meta",
+      baseUrl: "http://169.254.169.254/v1",
+      createdAt: now,
+      updatedAt: now,
+    });
     for (const provider of ["vram", "infinity", "meta"]) {
       await createProviderConnection({
         id: `conn-${provider}-1`,
@@ -128,7 +152,10 @@ test.describe("Local rerank provider logging and fallback", () => {
     });
 
   test("successfully logs local rerank calls and attaches metadata headers", async () => {
-    const res = await POST(rerankRequest("vram/BAAI/bge-reranker-v2-m3", ["doc1", "doc2"]), {} as Record<string, unknown>);
+    const res = await POST(
+      rerankRequest("vram/BAAI/bge-reranker-v2-m3", ["doc1", "doc2"]),
+      {} as Record<string, unknown>
+    );
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("x-omniroute-provider"), "vram");
     assert.equal(res.headers.get("x-omniroute-model"), "BAAI/bge-reranker-v2-m3");
@@ -148,7 +175,9 @@ test.describe("Local rerank provider logging and fallback", () => {
     await waitForCallLogSaves(15000);
 
     const logs = (await getCallLogs({ limit: 10 })) as unknown as CallLogRow[];
-    const logEntry = logs.find((l) => l.model === "vram/BAAI/bge-reranker-v2-m3" && l.status === 200);
+    const logEntry = logs.find(
+      (l) => l.model === "vram/BAAI/bge-reranker-v2-m3" && l.status === 200
+    );
     assert.ok(logEntry, "Expected call log entry for local rerank");
     assert.equal(logEntry.provider, "vram");
 
@@ -168,7 +197,10 @@ test.describe("Local rerank provider logging and fallback", () => {
 
   test("falls back from /v1/rerank to /rerank when local provider returns 404", async () => {
     mode = "fallback";
-    const res = await POST(rerankRequest("infinity/bge-reranker-large", ["doc1"], "search"), {} as Record<string, unknown>);
+    const res = await POST(
+      rerankRequest("infinity/bge-reranker-large", ["doc1"], "search"),
+      {} as Record<string, unknown>
+    );
     assert.equal(res.status, 200);
     assert.deepEqual(
       hits.map((h) => h.url),
@@ -178,7 +210,10 @@ test.describe("Local rerank provider logging and fallback", () => {
 
   test("records error call log when local provider returns 500", async () => {
     mode = "500";
-    const res = await POST(rerankRequest("vram/BAAI/bge-reranker-v2-m3", ["doc1"]), {} as Record<string, unknown>);
+    const res = await POST(
+      rerankRequest("vram/BAAI/bge-reranker-v2-m3", ["doc1"]),
+      {} as Record<string, unknown>
+    );
     assert.equal(res.status, 500);
 
     await waitForCallLogSaves(15000);
@@ -206,7 +241,10 @@ test.describe("Local rerank provider logging and fallback", () => {
 
   test("S-6: a redirect from the local provider is never followed", async () => {
     mode = "redirect";
-    const res = await POST(rerankRequest("vram/BAAI/bge-reranker-v2-m3", ["doc1"]), {} as Record<string, unknown>);
+    const res = await POST(
+      rerankRequest("vram/BAAI/bge-reranker-v2-m3", ["doc1"]),
+      {} as Record<string, unknown>
+    );
     assert.equal(res.status, 400);
     const body = (await res.json()) as { error: { message: string } };
     assert.match(body.error.message, /blocked by the outbound guard/i);

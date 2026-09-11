@@ -23,15 +23,22 @@ const lookupTo = (address: string, family: 4 | 6 = 4): WebhookLookupFn => {
 describe("guardedFetch — blocked before any socket, classified by the resolved address", () => {
   it("blocks a public hostname that RESOLVES to cloud metadata even with the opt-in", async () => {
     await assert.rejects(
-      guardedFetch("https://svc.example.test/x", { lookup: lookupTo("169.254.169.254"), allowPrivate: true }),
+      guardedFetch("https://svc.example.test/x", {
+        lookup: lookupTo("169.254.169.254"),
+        allowPrivate: true,
+      }),
       (e: unknown) => e instanceof OutboundUrlGuardError && /metadata/i.test((e as Error).message)
     );
   });
 
   it("blocks a public hostname that RESOLVES to a private ip when the opt-in is off", async () => {
     await assert.rejects(
-      guardedFetch("https://svc.example.test/x", { lookup: lookupTo("10.1.2.3"), allowPrivate: false }),
-      (e: unknown) => e instanceof OutboundUrlGuardError && /private|block/i.test((e as Error).message)
+      guardedFetch("https://svc.example.test/x", {
+        lookup: lookupTo("10.1.2.3"),
+        allowPrivate: false,
+      }),
+      (e: unknown) =>
+        e instanceof OutboundUrlGuardError && /private|block/i.test((e as Error).message)
     );
   });
 
@@ -46,7 +53,11 @@ describe("guardedFetch — blocked before any socket, classified by the resolved
     const ac = new AbortController();
     ac.abort();
     await assert.rejects(
-      guardedFetch("http://127.0.0.1:9/x", { allowPrivate: true, signal: ac.signal, timeoutMs: 2000 })
+      guardedFetch("http://127.0.0.1:9/x", {
+        allowPrivate: true,
+        signal: ac.signal,
+        timeoutMs: 2000,
+      })
     );
   });
 });
@@ -96,7 +107,11 @@ describe("guardedFetch — live loopback server", () => {
           }, 400);
           return;
         }
-        res.writeHead(200, { "Content-Type": "application/json", "X-Custom": "hdr", Connection: "close" });
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "X-Custom": "hdr",
+          Connection: "close",
+        });
         res.end(JSON.stringify({ ok: true, echo: raw || null }));
       });
     });
@@ -115,7 +130,8 @@ describe("guardedFetch — live loopback server", () => {
     requestCount = 0;
     await assert.rejects(
       guardedFetch(`${base}/start`, { allowPrivate: true, timeoutMs: 3000 }),
-      (e: unknown) => e instanceof OutboundUrlGuardError && /redirect blocked/i.test((e as Error).message)
+      (e: unknown) =>
+        e instanceof OutboundUrlGuardError && /redirect blocked/i.test((e as Error).message)
     );
     assert.equal(requestCount, 1, "the redirect target must NOT be fetched");
   });
@@ -169,7 +185,11 @@ describe("guardedFetch — live loopback server", () => {
   it("honors the caller's signal for the body, not just the headers", async () => {
     mode = "slowbody";
     const ac = new AbortController();
-    const res = await guardedFetch(`${base}/slow`, { allowPrivate: true, timeoutMs: 3000, signal: ac.signal });
+    const res = await guardedFetch(`${base}/slow`, {
+      allowPrivate: true,
+      timeoutMs: 3000,
+      signal: ac.signal,
+    });
     assert.equal(res.status, 200);
     setTimeout(() => ac.abort(), 50);
     await assert.rejects(res.text(), "an aborted caller signal must abort the body read");

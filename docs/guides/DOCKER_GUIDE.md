@@ -474,8 +474,8 @@ Endpoint tunnel panels (Cloudflare, Tailscale, ngrok) can be shown or hidden fro
 
 ## Image Tags
 
-| Image                    | Tag      | Size   | Description                                          |
-| ------------------------ | -------- | ------ | ---------------------------------------------------- |
+| Image                            | Tag      | Size   | Description                                          |
+| -------------------------------- | -------- | ------ | ---------------------------------------------------- |
 | `ghcr.io/lmprado-dz23/omniroute` | `latest` | ~250MB | Highest **published** stable SemVer (not git `main`) |
 | `ghcr.io/lmprado-dz23/omniroute` | `3.8.0`  | ~250MB | Pin this class of tag for GitOps                     |
 
