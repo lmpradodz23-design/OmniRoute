@@ -6,12 +6,12 @@
 - **diretório:** `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`
 - **branch de trabalho:** `fix/final-user-readiness` (criada de `release/v3.8.51`)
 - **HEAD inicial:** `2a156c73812d45119d5a06a2f55d611280442860`
-- **HEAD atual:** `fd6d9f61c` (79 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
-- **estado:** EXECUTING — **Fases 1, 3, 7, 8 concluídas; Fase 5 (onboarding U1–U4, U8) concluída; Fase 2 higiene concluída; Fase 2 confiabilidade R-1…R-9, R-12…R-14 concluídas (R-5/R-8 verificados no código)**; próximo: R-10/R-11 (verificação), R-20 progressivo (bin/cli 5 erros TS), poda de suppressions ESLint → Fase 4 → Fase 5 restante → Fase 6 → Fase 9 → CANDIDATE_COMPLETED
-- **iteração:** 9
+- **HEAD atual:** `b10267d8d` (96 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
+- **estado:** EXECUTING — **Fases 1, 2, 3, 4, 7, 8 concluídas; Fase 5 concluída exceto U5 (`confirm()` nativos) e docs pt-BR "primeiro uso"; E-5 pendente.** Próximo: Fase 6 (compatibilidade com instância isolada), depois Fase 9 + entregáveis + CANDIDATE_COMPLETED.
+- **iteração:** 10
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-11 — R-7 commitado (`fd6d9f61c`); `02`/`03` atualizados (R-2…R-9, R-12…R-14, E-6/E-8/E-9)
-- **último_progresso_real:** 2026-09-11 — R-2 (transações + artefato órfão), achado novo (chaves importadas de JSON sem `key_hash`), R-3 (retry SQLITE_BUSY), R-12 (grupo de processo + `server.pid`), R-6 (shutdown para schedulers), R-9 (MCP por sessão), R-4 (tolerância condicional), R-14 (sandbox/cap/shutdown do browser pool), R-7 (`AbortSignal.any`)
+- **último_heartbeat:** 2026-09-11 — Fase 5 lote 2 commitado (`1a083e3bb`…`b10267d8d`); `02`/`04` atualizados
+- **último_progresso_real:** 2026-09-11 — I1, M1, A2 (onboarding), A1, U6, U7/J13, J17, J2, I3 corrigidos (RED-first, um problema por commit); Fase 4 (guardrails mandatórios fail-closed, redação de cookies/CLI token); R-11, R-17, R-20 (bin/cli), poda ESLint (`npm run lint` = 0)
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` = junction para o checkout irmão (nunca `npm install` sem `--package-lock-only`)
 
 ## Autorizações (desta missão)
@@ -47,17 +47,21 @@
 | 2 R-14/E-8          | sandbox Chromium mantido; cap de contextos LRU; pool fechado no shutdown                                                                                                                                                              | `07d626b10`                                                                         |
 | 2 R-7               | `mergeAbortSignals` via `AbortSignal.any` (sem vazamento de listeners)                                                                                                                                                                | `fd6d9f61c`                                                                         |
 | 2 R-5/R-8/R-13      | verificados no código (holdback em `streamRecovery.ts`; watchdog `STREAM_IDLE_TIMEOUT_MS`; `ownerOnlyFile.js` 0o600) — sem mudança                                                                                                    | —                                                                                   |
+| 2 R-10/R-11/R-17    | R-10 verificado (`callerId` na auditoria MCP); R-11 `omniroute_x_search` com `mcpFetchTimeoutSignal`; R-17 provedor desconhecido nunca vai para o endpoint OpenAI                                                                     |
+| 2 R-20 / lint       | `bin/cli` limpo sob `open-sse/tsconfig.json` (0 erros); 104 suppressions podadas → `npm run lint` exit 0                                                                                                                              |
+| 4 guardrails/PII    | credencial/PII/prompt-injection `mandatory` (não desligáveis por body/header) e **fail-closed**; paridade dos 3 endpoints via `handleChat`; redação de cookies/`x-omniroute-cli-token` no safety net; OTEL sem conteúdo               |
+| 5 lote 2            | I1, M1, A2 (onboarding), A1, U6, U7/J13, J17 (`ERASE`/`--yes`), J2 (`did-fail-load`), I3 (tray en/pt)                                                                                                                                 |
 
 ## Tarefa atual
 
-Ordem 12/13 do plano — fechar a Fase 2: verificar R-10 (`callerId` na auditoria MCP — commit `482511918` da Fase 1 deve cobrir) e R-11 (helper `fetchTimeout` em `server.ts`); R-20 progressivo: corrigir os 5 erros TS de `bin/cli/*.mjs` que o `open-sse/tsconfig.json` reporta e manter baselines (api 289, open-sse 0); poda de suppressions ESLint (`--prune-suppressions`).
+Fase 5 restante (U5 `ConfirmModal`, docs pt-BR "primeiro uso em 5 passos", E-5) e depois ordem 16 — Fase 6 compatibilidade com instância isolada (bind 127.0.0.1, porta livre, `DATA_DIR` temporário): `/v1/models`, `/v1/chat/completions` (stream/não-stream), `/v1/messages` (formato Anthropic, SSE), `/v1/responses`, cancelamento (abort → upstream abortado), `usage`, MCP HTTP; Codex/Claude Code via config gerada (sem credenciais reais: provedor mock/local).
 
 ## Tarefas pendentes (ordem do plano)
 
-- [ ] 12 · Fase 2: R-10/R-11 verificação; R-15…R-19 (LOW) avaliar custo/benefício e registrar.
-- [ ] 13 · Fase 2 tipagem: R-20 progressivo (bin/cli); poda de suppressions ESLint.
-- [ ] 14 · Fase 4 guardrails/PII fail-closed; paridade `/v1/chat/completions`, `/v1/messages`, `/v1/responses`.
-- [ ] 15 · Fase 5 restante: U5, U6, U7, J2, J13, J17, A1, A2, M1, I1–I3 + docs pt-BR "primeiro uso"; E-5 (snapshot pré-update no Electron — ver `ROLLBACK.md` §2.3).
+- [x] 12 · Fase 2: R-10/R-11 verificados/corrigidos; R-17 corrigido; R-15/R-16/R-18/R-19 registrados em `02` (IMPROVEMENT/aceito com justificativa).
+- [x] 13 · Fase 2 tipagem: R-20 `bin/cli` (0 erros); suppressions podadas (`npm run lint` = 0). Remoção de `ignoreBuildErrors` continua progressiva (baselines travam regressão).
+- [x] 14 · Fase 4 guardrails/PII fail-closed; paridade dos três endpoints verificada; logs/telemetria sem segredos.
+- [~] 15 · Fase 5: U6, U7/J13, J2, J17, A1, A2 (onboarding), M1, I1, I3 **concluídos**; restam U5 (29 `confirm()` → `ConfirmModal`), docs pt-BR "primeiro uso em 5 passos", E-5 (snapshot pré-update — ver `ROLLBACK.md` §2.3).
 - [ ] 16 · Fase 6 compatibilidade (Codex, Claude Code, SDKs, MCP, SSE, cancelamento, usage) com instância isolada.
 - [ ] 17 · Fase 9 matriz de testes + empacotamento → `TEST_MATRIX.md`; lint completo (`npm run lint` com suppressions).
 - [ ] 18 · CANDIDATE_COMPLETED → 3 auditorias independentes → `FINAL_THREE_AGENT_REVIEW.md` → fix loop → COMPLETED → (autorização condicional) push/PR/GHCR.
@@ -67,8 +71,9 @@ Ordem 12/13 do plano — fechar a Fase 2: verificar R-10 (`callerId` na auditori
 
 - Todas as falhas do checkpoint anterior corrigidas; 63/63 suites #8618 religadas (UI 363/364 → budget ajustado; MCP 51/51).
 - `tests/unit/db-adapters/driverFactory.test.ts`: 29/29 testes passam, mas o processo aborta na saída com `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c` — libuv/Windows no teardown (`--test-force-exit` + handles nativos); **BLOQUEADO POR AMBIENTE** (não ocorre em Linux/CI). Provado igual com e sem as mudanças (stash).
-- `tsc -p open-sse/tsconfig.json`: 0 erros em `open-sse/`, **5 em `bin/cli/*.mjs`** (api.mjs:188 ×3, backup.mjs:298, sqlite.mjs:9 `bun:sqlite`) — pré-existentes, alvo do R-20.
-- Gate `eslint` completo: suppressions não usadas → `npm run lint` sai 2 até `--prune-suppressions` (ordem 13).
+- `tsc -p open-sse/tsconfig.json`: **0 erros** (inclusive `bin/cli` — R-20 `dbcfe1952`).
+- Gate `eslint` completo: **`npm run lint` exit 0** após poda (`0a2291354`).
+- `scripts/i18n/check-translation-drift.mjs`: FAIL pré-existente (espelhos de docs `[pl]` etc. desatualizados — provado por stash; não é gate do release; `check-ui-keys-coverage` PASS 41/41 ≥ 80%).
 - Produto: números/moeda formatados com o locale do navegador, não com o locale da UI (registrar em `04` como IMPROVEMENT, baixo).
 
 ## Blockers
@@ -80,20 +85,21 @@ Ordem 12/13 do plano — fechar a Fase 2: verificar R-10 (`callerId` na auditori
 
 ## Gates verificados até aqui (exit code real)
 
-| Gate                        | Comando                                                                                                                              | Resultado                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Testes focados por commit   | node:test / vitest por arquivo                                                                                                       | PASS em cada commit (RED observado antes de cada correção)                                |
-| UI vitest completo          | `vitest run --config vitest.config.ts` (sem exclusões)                                                                               | 363/364 arquivos · 2363/2364 testes (única falha = timeout de transform, budget ajustado) |
-| MCP vitest completo         | `vitest run --config vitest.mcp.config.ts`                                                                                           | 51/51 · 468/468                                                                           |
-| Regressões por área         | migrations/backup 61+54; api-keys/registered/reorder 106; call-logs 46; electron 92; executors/stream 110; MCP transport 8 + 32      | PASS                                                                                      |
-| ESLint (arquivos tocados)   | `eslint --max-warnings=0 --suppressions-location config/quality/eslint-suppressions.json --pass-on-unpruned-suppressions <arquivos>` | 0                                                                                         |
-| Prettier (arquivos tocados) | `prettier --write`                                                                                                                   | aplicado                                                                                  |
-| api-typecheck baseline      | `scratchpad/_apitc.mjs` (mesmo parser/diff do `check-api-typecheck.mjs`, que não consegue spawnar `tsc` no Windows)                  | 289 = baseline, 0 regressões                                                              |
-| tsc core / open-sse         | `tsc -p tsconfig.typecheck-core.json` / `tsc -p open-sse/tsconfig.json`                                                              | 0 / 0 fora de `bin/`                                                                      |
-| test-discovery              | `node scripts/check/check-test-discovery.mjs`                                                                                        | OK (0 órfãos novos)                                                                       |
-| docs-sync                   | `node scripts/check/check-docs-sync.mjs`                                                                                             | PASS                                                                                      |
-| Dependency scan (prod)      | `npm audit --omit=dev --json`                                                                                                        | 0 critical · 0 high · 3 moderate (cadeia `adm-zip`/onnxruntime, aceita)                   |
-| Secret scan local           | gitleaks                                                                                                                             | **NOT_RUN** (binário ausente)                                                             |
+| Gate                        | Comando                                                                                                                                                                                                                       | Resultado                                                                                 |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Testes focados por commit   | node:test / vitest por arquivo                                                                                                                                                                                                | PASS em cada commit (RED observado antes de cada correção)                                |
+| UI vitest completo          | `vitest run --config vitest.config.ts` (sem exclusões)                                                                                                                                                                        | 363/364 arquivos · 2363/2364 testes (única falha = timeout de transform, budget ajustado) |
+| MCP vitest completo         | `vitest run --config vitest.mcp.config.ts`                                                                                                                                                                                    | 51/51 · 468/468                                                                           |
+| Regressões por área         | migrations/backup 61+54; api-keys/registered/reorder 106; call-logs 46; electron 137; executors/stream 110; MCP transport 8 + 32; UI vitest 264 arquivos/1484 testes (tests/unit/ui + sidebar); suites node de componentes 67 | PASS                                                                                      |
+| ESLint (arquivos tocados)   | `eslint --max-warnings=0 --suppressions-location config/quality/eslint-suppressions.json --pass-on-unpruned-suppressions <arquivos>`                                                                                          | 0                                                                                         |
+| ESLint completo             | `npm run lint`                                                                                                                                                                                                                | 0 (após poda `0a2291354`)                                                                 |
+| Prettier (arquivos tocados) | `prettier --write`                                                                                                                                                                                                            | aplicado                                                                                  |
+| api-typecheck baseline      | `scratchpad/_apitc.mjs` (mesmo parser/diff do `check-api-typecheck.mjs`, que não consegue spawnar `tsc` no Windows)                                                                                                           | 289 = baseline, 0 regressões                                                              |
+| tsc core / open-sse         | `tsc -p tsconfig.typecheck-core.json` / `tsc -p open-sse/tsconfig.json`                                                                                                                                                       | 0 / 0 fora de `bin/`                                                                      |
+| test-discovery              | `node scripts/check/check-test-discovery.mjs`                                                                                                                                                                                 | OK (0 órfãos novos)                                                                       |
+| docs-sync                   | `node scripts/check/check-docs-sync.mjs`                                                                                                                                                                                      | PASS                                                                                      |
+| Dependency scan (prod)      | `npm audit --omit=dev --json`                                                                                                                                                                                                 | 0 critical · 0 high · 3 moderate (cadeia `adm-zip`/onnxruntime, aceita)                   |
+| Secret scan local           | gitleaks                                                                                                                                                                                                                      | **NOT_RUN** (binário ausente)                                                             |
 
 ## Processos / portas
 
@@ -108,9 +114,9 @@ Ordem 12/13 do plano — fechar a Fase 2: verificar R-10 (`callerId` na auditori
 
 ## Próxima ação
 
-1. Commit `docs(audit): checkpoint — Fase 2 confiabilidade R-2…R-14` (este arquivo + `02` + `03`).
-2. R-10/R-11 verificação; R-20: `bin/cli` 5 erros; `--prune-suppressions`.
-3. Fase 4 (guardrails/PII fail-closed; paridade dos três endpoints).
+1. Commit `docs(audit): checkpoint — Fase 4 e Fase 5 (lote 2)` (este arquivo + `02` + `04`).
+2. Fase 5 restante: U5 (`ConfirmModal` nos 29 `confirm()`), docs pt-BR "primeiro uso em 5 passos", E-5.
+3. Fase 6 compatibilidade com instância isolada (ordem 16); Fase 9 `TEST_MATRIX.md` + empacotamento; entregáveis; CANDIDATE_COMPLETED → 3 auditores.
 
 ## Instruções de retomada
 
