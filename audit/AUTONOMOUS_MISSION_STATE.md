@@ -6,12 +6,12 @@
 - **diretório:** `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`
 - **branch de trabalho:** `fix/final-user-readiness` (criada de `release/v3.8.51`)
 - **HEAD inicial:** `2a156c73812d45119d5a06a2f55d611280442860`
-- **HEAD atual:** `b10267d8d` (96 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
-- **estado:** EXECUTING — **Fases 1, 2, 3, 4, 7, 8 concluídas; Fase 5 concluída exceto U5 (`confirm()` nativos) e docs pt-BR "primeiro uso"; E-5 pendente.** Próximo: Fase 6 (compatibilidade com instância isolada), depois Fase 9 + entregáveis + CANDIDATE_COMPLETED.
-- **iteração:** 10
+- **HEAD atual:** `a09c69198` (114 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
+- **estado:** EXECUTING — **Fases 1–8 concluídas (5 e 6 fechadas nesta iteração).** Próximo: Fase 9 (matriz de gates → `TEST_MATRIX.md`, build, empacotamento), entregáveis, CANDIDATE_COMPLETED → 3 auditores.
+- **iteração:** 11
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-11 — Fase 5 lote 2 commitado (`1a083e3bb`…`b10267d8d`); `02`/`04` atualizados
-- **último_progresso_real:** 2026-09-11 — I1, M1, A2 (onboarding), A1, U6, U7/J13, J17, J2, I3 corrigidos (RED-first, um problema por commit); Fase 4 (guardrails mandatórios fail-closed, redação de cookies/CLI token); R-11, R-17, R-20 (bin/cli), poda ESLint (`npm run lint` = 0)
+- **último_heartbeat:** 2026-09-11 — Fase 6 commitada (`bdc34c38e`, `a09c69198`); `02`/`04` atualizados
+- **último_progresso_real:** 2026-09-11 — Fase 5 fechada (U5 `ConfirmModal`, docs pt-BR, E-5 snapshot pré-update); infra de testes Windows (fileURLToPath, teardowns SQLite, CRLF); Fase 6: suíte de compatibilidade com instância isolada 8/8 e correção do cancelamento (R-21)
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` = junction para o checkout irmão (nunca `npm install` sem `--package-lock-only`)
 
 ## Autorizações (desta missão)
@@ -51,18 +51,21 @@
 | 2 R-20 / lint       | `bin/cli` limpo sob `open-sse/tsconfig.json` (0 erros); 104 suppressions podadas → `npm run lint` exit 0                                                                                                                              |
 | 4 guardrails/PII    | credencial/PII/prompt-injection `mandatory` (não desligáveis por body/header) e **fail-closed**; paridade dos 3 endpoints via `handleChat`; redação de cookies/`x-omniroute-cli-token` no safety net; OTEL sem conteúdo               |
 | 5 lote 2            | I1, M1, A2 (onboarding), A1, U6, U7/J13, J17 (`ERASE`/`--yes`), J2 (`did-fail-load`), I3 (tray en/pt)                                                                                                                                 |
+| 5 fechamento        | U5 (`useConfirmDialog` + provider, 35 sites), docs pt-BR (quick start 5 passos, Claude Code, Codex), E-5 (snapshot pré-update)                                                                                                        |
+| 2 infra Windows     | `fileURLToPath` em 10 suítes (8 não abriam o arquivo), teardowns SQLite (2), CRLF/raiz falsa em asserções (2)                                                                                                                         |
+| 6 compatibilidade   | `tests/e2e/compat-isolated.test.ts` 8/8 (models, chat JSON/SSE, messages, responses, cancelamento, erros tipados, MCP HTTP); R-21 corrigido                                                                                           |
 
 ## Tarefa atual
 
-Fase 5 restante (U5 `ConfirmModal`, docs pt-BR "primeiro uso em 5 passos", E-5) e depois ordem 16 — Fase 6 compatibilidade com instância isolada (bind 127.0.0.1, porta livre, `DATA_DIR` temporário): `/v1/models`, `/v1/chat/completions` (stream/não-stream), `/v1/messages` (formato Anthropic, SSE), `/v1/responses`, cancelamento (abort → upstream abortado), `usage`, MCP HTTP; Codex/Claude Code via config gerada (sem credenciais reais: provedor mock/local).
+Ordem 17 — Fase 9: executar sequencialmente os gates e registrar exit codes em `audit/TEST_MATRIX.md` (lint, format, typecheck ×3, unit shards, integration, security, authz/MCP matrizes, migrations+rollback, electron unit+package, build, pack, install-upgrade smoke, dependency scan; secret scan/semgrep = NOT_RUN sem binário), artefatos com SHA-256; depois entregáveis e CANDIDATE_COMPLETED.
 
 ## Tarefas pendentes (ordem do plano)
 
 - [x] 12 · Fase 2: R-10/R-11 verificados/corrigidos; R-17 corrigido; R-15/R-16/R-18/R-19 registrados em `02` (IMPROVEMENT/aceito com justificativa).
 - [x] 13 · Fase 2 tipagem: R-20 `bin/cli` (0 erros); suppressions podadas (`npm run lint` = 0). Remoção de `ignoreBuildErrors` continua progressiva (baselines travam regressão).
 - [x] 14 · Fase 4 guardrails/PII fail-closed; paridade dos três endpoints verificada; logs/telemetria sem segredos.
-- [~] 15 · Fase 5: U6, U7/J13, J2, J17, A1, A2 (onboarding), M1, I1, I3 **concluídos**; restam U5 (29 `confirm()` → `ConfirmModal`), docs pt-BR "primeiro uso em 5 passos", E-5 (snapshot pré-update — ver `ROLLBACK.md` §2.3).
-- [ ] 16 · Fase 6 compatibilidade (Codex, Claude Code, SDKs, MCP, SSE, cancelamento, usage) com instância isolada.
+- [x] 15 · Fase 5 (concluída — ver `04`): U6, U7/J13, J2, J17, A1, A2 (onboarding), M1, I1, I3 **concluídos**; restam U5 (29 `confirm()` → `ConfirmModal`), docs pt-BR "primeiro uso em 5 passos", E-5 (snapshot pré-update — ver `ROLLBACK.md` §2.3).
+- [x] 16 · Fase 6 compatibilidade: `npm run test:compat` (instância isolada + mock upstream) 8/8; cancelamento corrigido (R-21). E2E autenticado real contra provedor pago = `BLOCKED_BY_EXTERNAL_DEPENDENCY` (credencial + custo).
 - [ ] 17 · Fase 9 matriz de testes + empacotamento → `TEST_MATRIX.md`; lint completo (`npm run lint` com suppressions).
 - [ ] 18 · CANDIDATE_COMPLETED → 3 auditorias independentes → `FINAL_THREE_AGENT_REVIEW.md` → fix loop → COMPLETED → (autorização condicional) push/PR/GHCR.
 - [ ] Entregáveis: `FINAL_REPORT`, `TEST_MATRIX`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`, `RELEASE_READINESS` (`ROLLBACK` ✔).
@@ -73,6 +76,8 @@ Fase 5 restante (U5 `ConfirmModal`, docs pt-BR "primeiro uso em 5 passos", E-5) 
 - `tests/unit/db-adapters/driverFactory.test.ts`: 29/29 testes passam, mas o processo aborta na saída com `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c` — libuv/Windows no teardown (`--test-force-exit` + handles nativos); **BLOQUEADO POR AMBIENTE** (não ocorre em Linux/CI). Provado igual com e sem as mudanças (stash).
 - `tsc -p open-sse/tsconfig.json`: **0 erros** (inclusive `bin/cli` — R-20 `dbcfe1952`).
 - Gate `eslint` completo: **`npm run lint` exit 0** após poda (`0a2291354`).
+- `tests/unit/executor-devin-cli*.test.ts` + `chatcore-reasoning-cache-write-guard.test.ts`: 14 falhas pré-existentes no Windows (`DEVIN_AGENTIC_HOME must be an absolute path inside the bridge sandbox`, arquivo temporário ausente) — idênticas com e sem as mudanças da missão (provado por stash); classificar/corrigir na Fase 9 se for bug de caminho Windows.
+- Ambiente: `node_modules` é junction → Turbopack recusa (`Symlink [project]/node_modules is invalid`); dev server dos E2E roda com `OMNIROUTE_USE_TURBOPACK=0` (webpack). Não afeta checkouts normais.
 - `scripts/i18n/check-translation-drift.mjs`: FAIL pré-existente (espelhos de docs `[pl]` etc. desatualizados — provado por stash; não é gate do release; `check-ui-keys-coverage` PASS 41/41 ≥ 80%).
 - Produto: números/moeda formatados com o locale do navegador, não com o locale da UI (registrar em `04` como IMPROVEMENT, baixo).
 
@@ -114,9 +119,9 @@ Fase 5 restante (U5 `ConfirmModal`, docs pt-BR "primeiro uso em 5 passos", E-5) 
 
 ## Próxima ação
 
-1. Commit `docs(audit): checkpoint — Fase 4 e Fase 5 (lote 2)` (este arquivo + `02` + `04`).
-2. Fase 5 restante: U5 (`ConfirmModal` nos 29 `confirm()`), docs pt-BR "primeiro uso em 5 passos", E-5.
-3. Fase 6 compatibilidade com instância isolada (ordem 16); Fase 9 `TEST_MATRIX.md` + empacotamento; entregáveis; CANDIDATE_COMPLETED → 3 auditores.
+1. Commit `docs(audit): checkpoint — Fases 5 e 6 concluídas` (este arquivo + `02` + `04`).
+2. Fase 9: matriz de gates com exit codes reais → `audit/TEST_MATRIX.md`; build + pack + install-upgrade smoke; artefatos com SHA-256.
+3. Entregáveis (`FINAL_REPORT`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`, `RELEASE_READINESS`) → CANDIDATE_COMPLETED → 3 auditores independentes.
 
 ## Instruções de retomada
 
