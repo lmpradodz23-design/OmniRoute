@@ -108,6 +108,14 @@ async function stopBackgroundWork(): Promise<void> {
           m.autoRefreshDaemon.stop()
         ),
     ],
+    // R-14: close pooled Chromium contexts/browsers so a SIGTERM never leaves them behind.
+    [
+      "browser pool",
+      () =>
+        import("@omniroute/open-sse/services/browserPool.ts").then((m) =>
+          m.shutdownPool("process-shutdown")
+        ),
+    ],
   ];
   for (const [name, stop] of builtIns) await stopQuietly(name, stop);
 
