@@ -18,13 +18,28 @@ import { createHmac } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const POLL_INTERVAL_MS = 2_000;
 const BOOT_DEADLINE_MS = 240_000;
 const MAX_SERVER_OUTPUT_CHARS = 1_000_000;
 const SQLJS_STARTUP_MARKER = "Pre-initializing sql.js WASM";
 const DEFAULT_CLI_SALT = "omniroute-cli-auth-v1";
+
+// Windows: npm is `npm.cmd`, which Node refuses to spawn without a shell since the
+// CVE-2024-27980 fix (EINVAL). Every npm argument here is a fixed literal or a path we
+// built ourselves; under the shell they are quoted, never interpolated from user input.
+const NPM =
+  process.platform === "win32"
+    ? {
+        file: "npm.cmd",
+        shell: true,
+        args: (list) =>
+          list.map((value) =>
+            /[\s"]/.test(String(value)) ? `"${String(value).replace(/"/g, '\\"')}"` : value
+          ),
+      }
+    : { file: "npm", shell: false, args: (list) => list };
 
 // Dependency-based packaging (#11242): the tarball can never contain a node_modules
 // path (files[] has "!**/node_modules/**" and check:pack-artifact fails on the
@@ -422,17 +437,23 @@ async function main() {
   let shutdownConfirmed = false; // process group confirmed stopped → safe to rm the workspace
   try {
     log(`packing v${expectedVersion}…`);
-    const packOut = execFileSync("npm", ["pack", "--json", "--pack-destination", tmp], {
-      cwd: ROOT,
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-    });
+    const packOut = execFileSync(
+      NPM.file,
+      NPM.args(["pack", "--json", "--pack-destination", tmp]),
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+        shell: NPM.shell,
+      }
+    );
     const tarball = path.join(tmp, pickTarball(packOut));
     log(`installing ${path.basename(tarball)} into a clean prefix (postinstall runs for real)…`);
     const prefix = path.join(tmp, "prefix");
-    execFileSync("npm", ["install", "-g", "--prefix", prefix, tarball], {
+    execFileSync(NPM.file, NPM.args(["install", "-g", "--prefix", prefix, tarball]), {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
+      shell: NPM.shell,
     });
     const packageRoot = path.join(prefix, "lib", "node_modules", "omniroute");
     const missingSqlJsFiles = findMissingSqlJsRuntimeFiles(packageRoot);
@@ -562,8 +583,7 @@ async function main() {
 }
 
 const isDirectRun =
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirectRun) {
   main().catch((e) => {
     console.error("[pack-boot] fatal:", e.message);

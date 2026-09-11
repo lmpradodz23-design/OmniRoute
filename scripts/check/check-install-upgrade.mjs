@@ -35,7 +35,22 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+// Windows: npm is `npm.cmd`, which Node refuses to spawn without a shell since the
+// CVE-2024-27980 fix (EINVAL). Every npm argument here is a fixed literal or a path we
+// built ourselves; under the shell they are quoted, never interpolated from user input.
+const NPM =
+  process.platform === "win32"
+    ? {
+        file: "npm.cmd",
+        shell: true,
+        args: (list) =>
+          list.map((value) =>
+            /[\s"]/.test(String(value)) ? `"${String(value).replace(/"/g, '\\"')}"` : value
+          ),
+      }
+    : { file: "npm", shell: false, args: (list) => list };
 import { DatabaseSync } from "node:sqlite";
 
 const BOOT_DEADLINE_MS = 180_000;
@@ -274,9 +289,9 @@ function npmInstallInto(prefix, spec, label = spec) {
   // parent's, so the ENOSPC warnings scrolled past in CI without the script ever seeing
   // them. spawnSync hands both streams back.
   const run = spawnSync(
-    "npm",
-    ["install", "-g", "--prefix", prefix, "--no-audit", "--no-fund", spec],
-    { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 }
+    NPM.file,
+    NPM.args(["install", "-g", "--prefix", prefix, "--no-audit", "--no-fund", spec]),
+    { encoding: "utf8", maxBuffer: 512 * 1024 * 1024, shell: NPM.shell }
   );
   const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
   // Keep the install log visible, but a truncated package emits thousands of identical
@@ -325,14 +340,20 @@ let workDirForMessages = os.tmpdir();
 
 function resolvePreviousVersion(current, explicit) {
   if (explicit) return explicit;
-  const out = execFileSync("npm", ["view", "omniroute", "dist-tags.latest"], { encoding: "utf8" });
+  const out = execFileSync(NPM.file, NPM.args(["view", "omniroute", "dist-tags.latest"]), {
+    encoding: "utf8",
+    shell: NPM.shell,
+  });
   const latest = out.trim();
   if (!latest) throw new Error("could not resolve omniroute@latest from npm");
   if (latest === current) {
     // The version under test is already published (re-run of a shipped release): step back
     // to the highest published version strictly below it.
     const all = JSON.parse(
-      execFileSync("npm", ["view", "omniroute", "versions", "--json"], { encoding: "utf8" })
+      execFileSync(NPM.file, NPM.args(["view", "omniroute", "versions", "--json"]), {
+        encoding: "utf8",
+        shell: NPM.shell,
+      })
     );
     const stable = all.filter((v) => !/-(rc|alpha|beta|pre|next)/.test(v) && v !== current);
     return stable[stable.length - 1];
@@ -373,11 +394,16 @@ async function main() {
     // only "packing…" then a timeout, which reads like a hang and is not.
     const packStarted = Date.now();
     log(`packing v${version}…`);
-    const packOut = execFileSync("npm", ["pack", "--json", "--pack-destination", tmp], {
-      cwd: ROOT,
-      encoding: "utf8",
-      maxBuffer: 128 * 1024 * 1024,
-    });
+    const packOut = execFileSync(
+      NPM.file,
+      NPM.args(["pack", "--json", "--pack-destination", tmp]),
+      {
+        shell: NPM.shell,
+        cwd: ROOT,
+        encoding: "utf8",
+        maxBuffer: 128 * 1024 * 1024,
+      }
+    );
     const tarball = path.join(tmp, pickTarball(packOut));
     const packMb = (fs.statSync(tarball).size / 1024 / 1024).toFixed(1);
     log(`packed in ${Math.round((Date.now() - packStarted) / 1000)}s (${packMb} MB)`);
@@ -540,10 +566,7 @@ async function main() {
 
 // Only run the (expensive) gate when invoked directly — importing this module for the pure
 // helper above must not pack, install or boot anything.
-if (
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)
-) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error(`[install-upgrade] crashed: ${err?.message ?? err}`);
     process.exit(1);
