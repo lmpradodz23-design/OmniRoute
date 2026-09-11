@@ -30,7 +30,11 @@ import {
   addParamToBlocklist,
   isAutoLearnGloballyEnabled,
 } from "@/lib/db/paramFilters";
-import { applyFingerprint, isCliCompatEnabled, stripInternalBodyFields } from "../config/cliFingerprints.ts";
+import {
+  applyFingerprint,
+  isCliCompatEnabled,
+  stripInternalBodyFields,
+} from "../config/cliFingerprints.ts";
 import { supportsClaudeMaxEffort, supportsXHighEffort } from "../config/providerModels.ts";
 import { getThinkingBudgetConfig, ThinkingMode } from "../services/thinkingBudget.ts";
 import {
@@ -225,27 +229,17 @@ export type CountTokensInput = {
   signal?: AbortSignal | null;
 };
 
+/**
+ * A signal that aborts when either source aborts, carrying that source's reason.
+ *
+ * R-7: the previous hand-rolled version subscribed an "abort" listener to each source and
+ * never unsubscribed when the merged request settled normally, so a long-lived source
+ * signal (session/process scoped, reused across requests) accumulated one closure per
+ * request for its lifetime. `AbortSignal.any` tracks dependents through weak references:
+ * a dropped merged signal leaves nothing behind on its sources.
+ */
 export function mergeAbortSignals(primary: AbortSignal, secondary: AbortSignal): AbortSignal {
-  const controller = new AbortController();
-
-  const abortFrom = (source: AbortSignal) => {
-    if (!controller.signal.aborted) {
-      controller.abort(source.reason);
-    }
-  };
-
-  if (primary.aborted) {
-    abortFrom(primary);
-    return controller.signal;
-  }
-  if (secondary.aborted) {
-    abortFrom(secondary);
-    return controller.signal;
-  }
-
-  primary.addEventListener("abort", () => abortFrom(primary), { once: true });
-  secondary.addEventListener("abort", () => abortFrom(secondary), { once: true });
-  return controller.signal;
+  return AbortSignal.any([primary, secondary]);
 }
 
 import {
