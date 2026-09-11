@@ -90,14 +90,20 @@ test("guardrail registry respects disabledGuardrails from context", async () => 
   );
 });
 
-test("resolveDisabledGuardrails merges api key, body metadata, and headers", () => {
-  const disabled = resolveDisabledGuardrails({
-    apiKeyInfo: { disabledGuardrails: ["pii-masker"] },
-    body: { metadata: { disabledGuardrails: ["prompt_injection"] } },
-    headers: { "x-omniroute-disabled-guardrails": "custom-rule" },
-  });
+test("resolveDisabledGuardrails merges api key, body metadata, and headers — except mandatory guardrails from the request", () => {
+  const disabled = resolveDisabledGuardrails(
+    {
+      apiKeyInfo: { disabledGuardrails: ["pii-masker"] },
+      body: { metadata: { disabledGuardrails: ["prompt_injection"] } },
+      headers: { "x-omniroute-disabled-guardrails": "custom-rule" },
+    },
+    { log: { warn() {}, debug() {}, info() {}, error() {} } }
+  );
 
-  assert.deepEqual(disabled, ["pii-masker", "prompt-injection", "custom-rule"]);
+  // pii-masker: operator per-key policy — honoured even though it is mandatory.
+  // prompt_injection: requested by the BODY — a mandatory guardrail, refused (Fase 4).
+  // custom-rule: optional, header-disableable.
+  assert.deepEqual(disabled, ["pii-masker", "custom-rule"]);
 });
 
 test("prompt injection guardrail blocks suspicious content in block mode", async () => {

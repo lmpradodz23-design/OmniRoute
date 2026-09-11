@@ -189,6 +189,7 @@ export class PIIMaskerGuardrail extends BaseGuardrail {
     super("pii-masker", {
       enabled: options.enabled,
       priority: options.priority ?? 10,
+      mandatory: true,
     });
   }
 

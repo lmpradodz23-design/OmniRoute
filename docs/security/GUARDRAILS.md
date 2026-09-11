@@ -15,9 +15,13 @@ between OmniRoute and upstream providers. Each guardrail can inspect (and
 optionally reject, transform, or annotate) request payloads (`preCall`) and
 upstream responses (`postCall`).
 
-The system is **fail-open**: if a guardrail throws while executing, the registry
-records the error and continues with the next guardrail rather than failing the
-request. Blocking is an explicit decision (`block: true`), never an accident.
+Optional guardrails (the media bridges, custom rules) are **fail-open**: if one
+throws while executing, the registry records the error and continues with the
+next guardrail rather than failing the request. The **mandatory** security
+guardrails — `credential-masker`, `pii-masker`, `prompt-injection` — are
+**fail-closed**: an error rejects the request/response, and the request body or
+headers cannot switch them off (see "Disabling Guardrails Per-Request").
+Blocking by content is always an explicit decision (`block: true`).
 
 ## Built-in Guardrails
 
@@ -764,6 +768,15 @@ normalized to lowercase kebab-case (`pii_masker` → `pii-masker`). The result
 is passed through `context.disabledGuardrails` to the registry, which skips
 matching guardrails (`skipped: true` in `results`).
 
+**Mandatory guardrails cannot be disabled by the request.** `credential-masker`,
+`pii-masker` and `prompt-injection` are constructed with `mandatory: true`: a
+body or header entry naming one of them is dropped and logged
+(`request tried to disable mandatory guardrail(s) …; ignored`). Only the
+operator's per-key policy (`apiKeyInfo.disabledGuardrails`, set in the
+dashboard) can skip them. Custom guardrails opt in with
+`super(name, { mandatory: true })`; `guardrailRegistry.mandatoryNames()` lists
+the current set.
+
 ## Execution Order
 
 For each request flowing through `src/sse/handlers/chat.ts` and
@@ -784,7 +797,13 @@ For each request flowing through `src/sse/handlers/chat.ts` and
    response.
 
 Guardrails that throw are recorded with `error: <message>` and logged via
-`logger.warn`, but the chain continues — fail-open by design.
+`logger.warn`. An **optional** guardrail (media bridges, custom rules) then
+lets the chain continue — fail-open by design, so an optional enrichment can
+never take the request down. A **mandatory** guardrail fails **closed**: the
+request (pre-call) or response (post-call) is rejected with
+`guardrail <name> unavailable (fail-closed)`, because a security control that
+cannot run must not let the payload through unchecked. A request abort remains
+the deliberate exception for both.
 
 ## Configuration
 

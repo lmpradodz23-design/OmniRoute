@@ -2,6 +2,7 @@ import {
   BaseGuardrail,
   type GuardrailContext,
   type GuardrailExecutionResult,
+  type GuardrailLog,
   type GuardrailResult,
 } from "./base";
 import { PIIMaskerGuardrail } from "./piiMasker";
@@ -73,15 +74,27 @@ function getGuardrailLogger(context: GuardrailContext) {
   return context.log || console;
 }
 
-export function resolveDisabledGuardrails({
-  apiKeyInfo,
-  body,
-  headers,
-}: {
-  apiKeyInfo?: Record<string, unknown> | null;
-  body?: unknown;
-  headers?: HeadersLike;
-}): string[] {
+/**
+ * Names of guardrails the current request may skip. The operator's per-key policy
+ * (`apiKeyInfo.disabledGuardrails`) is honoured in full; the request-controlled sources
+ * (body `disabledGuardrails`, body `metadata.disabledGuardrails`, the
+ * `x-omniroute-disabled-guardrails` / `x-disabled-guardrails` header) can only name
+ * optional guardrails — an attempt to switch off a mandatory one (credential masker,
+ * PII masker, prompt-injection guard) is dropped and logged. Any caller could otherwise
+ * strip the security controls with one header.
+ */
+export function resolveDisabledGuardrails(
+  {
+    apiKeyInfo,
+    body,
+    headers,
+  }: {
+    apiKeyInfo?: Record<string, unknown> | null;
+    body?: unknown;
+    headers?: HeadersLike;
+  },
+  options: { mandatory?: Iterable<string>; log?: GuardrailLog | Console | null } = {}
+): string[] {
   const bodyRecord = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
   const metadata =
     bodyRecord?.metadata && typeof bodyRecord.metadata === "object"
@@ -95,10 +108,24 @@ export function resolveDisabledGuardrails({
     getHeaderValue(headers, "x-omniroute-disabled-guardrails") ||
     getHeaderValue(headers, "x-disabled-guardrails");
 
-  return [...coerceDisabledGuardrails(apiKeyDisabled)]
-    .concat(coerceDisabledGuardrails(bodyRecord?.disabledGuardrails))
+  const mandatory = new Set(
+    Array.from(options.mandatory ?? guardrailRegistry.mandatoryNames(), (name) =>
+      normalizeGuardrailName(name)
+    )
+  );
+  const requested = coerceDisabledGuardrails(bodyRecord?.disabledGuardrails)
     .concat(coerceDisabledGuardrails(metadata?.disabledGuardrails))
-    .concat(coerceDisabledGuardrails(headerDisabled))
+    .concat(coerceDisabledGuardrails(headerDisabled));
+  const refused = requested.filter((name) => mandatory.has(name));
+  if (refused.length > 0) {
+    (options.log ?? console).warn?.(
+      "GUARDRAIL",
+      `request tried to disable mandatory guardrail(s) ${[...new Set(refused)].join(", ")}; ignored`
+    );
+  }
+
+  return [...coerceDisabledGuardrails(apiKeyDisabled)]
+    .concat(requested.filter((name) => !mandatory.has(name)))
     .filter((value, index, list) => list.indexOf(value) === index);
 }
 
@@ -124,6 +151,11 @@ export class GuardrailRegistry {
 
   list() {
     return [...this.guardrails];
+  }
+
+  /** Names of the registered guardrails that request body/headers may never disable. */
+  mandatoryNames(): string[] {
+    return this.guardrails.filter((g) => g.mandatory).map((g) => normalizeGuardrailName(g.name));
   }
 
   private isDisabled(guardrail: BaseGuardrail, context: GuardrailContext) {
@@ -191,13 +223,26 @@ export class GuardrailRegistry {
         }
         const message = error instanceof Error ? error.message : String(error);
         results.push({
-          blocked: false,
+          blocked: guardrail.mandatory,
           error: message,
           guardrail: guardrail.name,
           modified: false,
           skipped: false,
           stage: "pre",
         });
+        if (guardrail.mandatory) {
+          // A security control that cannot run must not let the payload through unchecked.
+          logger.warn?.("GUARDRAIL", `${guardrail.name} pre-call failed closed`, {
+            error: message,
+          });
+          return {
+            blocked: true,
+            guardrail: guardrail.name,
+            message: `Request rejected: guardrail ${guardrail.name} unavailable (fail-closed)`,
+            payload: currentPayload,
+            results,
+          };
+        }
         logger.warn?.("GUARDRAIL", `${guardrail.name} pre-call failed open`, { error: message });
       }
     }
@@ -267,13 +312,25 @@ export class GuardrailRegistry {
         }
         const message = error instanceof Error ? error.message : String(error);
         results.push({
-          blocked: false,
+          blocked: guardrail.mandatory,
           error: message,
           guardrail: guardrail.name,
           modified: false,
           skipped: false,
           stage: "post",
         });
+        if (guardrail.mandatory) {
+          logger.warn?.("GUARDRAIL", `${guardrail.name} post-call failed closed`, {
+            error: message,
+          });
+          return {
+            blocked: true,
+            guardrail: guardrail.name,
+            message: `Response blocked: guardrail ${guardrail.name} unavailable (fail-closed)`,
+            response: currentResponse,
+            results,
+          };
+        }
         logger.warn?.("GUARDRAIL", `${guardrail.name} post-call failed open`, { error: message });
       }
     }

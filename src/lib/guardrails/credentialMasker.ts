@@ -119,7 +119,11 @@ function redactResponse(
 }
 export class CredentialMaskerGuardrail extends BaseGuardrail {
   constructor(options: { enabled?: boolean; priority?: number } = {}) {
-    super("credential-masker", { enabled: options.enabled, priority: options.priority ?? 95 });
+    super("credential-masker", {
+      enabled: options.enabled,
+      priority: options.priority ?? 95,
+      mandatory: true,
+    });
   }
 
   async preCall(

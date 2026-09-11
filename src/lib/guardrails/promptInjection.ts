@@ -257,6 +257,7 @@ export class PromptInjectionGuardrail extends BaseGuardrail {
     super("prompt-injection", {
       enabled: options.enabled,
       priority: options.priority ?? 20,
+      mandatory: true,
     });
     this.options = options;
   }
