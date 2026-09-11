@@ -27,6 +27,18 @@
  */
 import { Agent, fetch as undiciFetch } from "undici";
 
+type GuardedFetchImpl = typeof undiciFetch;
+let fetchImplForTest: GuardedFetchImpl | null = null;
+
+/**
+ * Test seam (mirrors proxyFetch.setTlsClientForTest): guardedFetch dispatches through undici
+ * with a pinned dispatcher, so suites that stub globalThis.fetch never see its calls. Pass
+ * null to restore the real transport. Never used by production code.
+ */
+export function __setGuardedFetchImplForTest(impl: GuardedFetchImpl | null): void {
+  fetchImplForTest = impl;
+}
+
 import {
   pinnedLookup,
   resolveAndAssertWebhookTarget,
@@ -105,7 +117,7 @@ export async function guardedFetch(
   controller.signal.addEventListener("abort", settle, { once: true });
 
   try {
-    const res = await undiciFetch(target.url, {
+    const res = await (fetchImplForTest ?? undiciFetch)(target.url, {
       method,
       headers,
       body,
