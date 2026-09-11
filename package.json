@@ -10,7 +10,8 @@
   "files": [
     "bin/",
     "dist/",
-    "@omniroute/",
+    "@omniroute/opencode-plugin/",
+    "@omniroute/opencode-provider/",
     "open-sse/",
     "src/domain/",
     "src/lib/",
