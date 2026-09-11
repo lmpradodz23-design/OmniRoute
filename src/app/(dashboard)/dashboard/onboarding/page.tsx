@@ -316,7 +316,7 @@ export default function OnboardingWizard() {
             {currentStep.id === "welcome" && (
               <div className="text-center space-y-4">
                 <p className="text-text-muted">{t("welcomeDesc")}</p>
-                <div className="mt-6 grid grid-cols-3 gap-3 items-stretch">
+                <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3 items-stretch">
                   {[
                     { icon: "swap_horiz", label: t("multiProvider") },
                     { icon: "monitoring", label: t("usageTracking") },
@@ -414,7 +414,7 @@ export default function OnboardingWizard() {
                   </div>
                 )}
                 {!skipSecurity && (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {COMMON_PROVIDERS.map((p) => (
                       <button
                         key={p.id}
