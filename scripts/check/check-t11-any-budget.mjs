@@ -57,7 +57,8 @@ const budget = [
   // STRING literal "any" (`tb.tool_choice === "any"` and `.type === "any"`) to detect
   // forced tool use. The checker strips comments but not strings, and there are zero
   // actual TypeScript `any` types in this file. Budget set to the matched count.
-  { file: "open-sse/executors/base.ts", maxAny: 2 },
+  { file: "open-sse/executors/base.ts", maxAny: 3 }, // 3 = 2 tool_choice "any" string literals + AbortSignal.any() (R-7) — none is a TS type
+
   { file: "open-sse/executors/kiro.ts", maxAny: 0 },
   // 3 FALSE POSITIVES: the word "any" appears in #3104's tool-commit / output-
   // constraint prompt STRINGS ("not any other tool", "any text", "any of these
