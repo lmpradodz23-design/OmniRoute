@@ -6466,7 +6466,10 @@
     "clearConnectionCooldownInProgress": "Clearing…",
     "clearConnectionCooldownTitle": "Clear the cooldown now — use when the quota has already refreshed upstream",
     "connectionCooldownCleared": "Cooldown cleared — connection rejoined routing",
-    "failedClearConnectionCooldown": "Failed to clear cooldown"
+    "failedClearConnectionCooldown": "Failed to clear cooldown",
+    "importFromFileDownloadTemplate": "Baixar modelo CSV",
+    "importFromFileMoreErrors": "+{count} mais",
+    "importFromFileSchemaHint": "As colunas CSV são posicionais: provider, name, apiKey, baseUrl (opcional), priority (opcional). A coluna provider deve ser o id de um provedor gerenciado existente ou o id de um nó compatível com OpenAI/Anthropic já registrado — esta importação não cria novos nós de endpoint."
   },
   "settings": {
     "title": "Configurações",
