@@ -40,7 +40,18 @@ const UPDATE = process.argv.includes("--update");
 
 // Raízes varridas em busca de arquivos de teste.
 const WALK_ROOTS = ["tests", "src", "open-sse", "electron", "bin"];
-const WALK_EXCLUDE = new Set(["node_modules", ".next", "dist", "coverage", ".git"]);
+// dist-electron / .install-upgrade / .build hold COPIES of the tree (packaged app,
+// gate workspaces, standalone) — their test files are not collectable, they are output.
+const WALK_EXCLUDE = new Set([
+  "node_modules",
+  ".next",
+  ".build",
+  "dist",
+  "dist-electron",
+  ".install-upgrade",
+  "coverage",
+  ".git",
+]);
 const TEST_FILE_RE = /\.(test|spec)\.(ts|tsx|mjs)$/;
 
 // Runners REAIS e seus globs. `sources`: arquivos onde `anchor` (default: o próprio
@@ -99,6 +110,8 @@ export const COLLECTORS = [
   { glob: "tests/e2e/system-failover.test.ts", sources: ["package.json"] },
   // Node native runner — test:compat (Fase 6: isolated-instance client compatibility)
   { glob: "tests/e2e/compat-isolated.test.ts", sources: ["package.json"] },
+  // Node native runner — test:compat:ollama (real, free, local provider; skips without Ollama)
+  { glob: "tests/e2e/ollama-real-provider.test.ts", sources: ["package.json"] },
   // vitest.mcp.config.ts — test:vitest
   { glob: "open-sse/mcp-server/__tests__/**/*.test.ts", sources: ["vitest.mcp.config.ts"] },
   { glob: "open-sse/services/autoCombo/__tests__/**/*.test.ts", sources: ["vitest.mcp.config.ts"] },
