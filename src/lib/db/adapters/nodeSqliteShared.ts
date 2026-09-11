@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import type { PreparedStatement, RunResult, SqliteAdapter } from "./types";
+import { runWithBusyRetry } from "./busyRetry";
 
 export interface NodeSqliteDatabaseLike {
   prepare(sql: string): {
@@ -122,12 +123,11 @@ export function createNodeSqliteAdapterFromDatabase(
     }
   }
 
-  function runImmediate(fn: () => void): void {
-    if (transactionDepth > 0) {
-      runSavepoint(fn);
-      return;
-    }
+  // R-3: retry SQLITE_BUSY only at depth 0 — a nested savepoint belongs to the caller's
+  // transaction, which decides whether to replay.
+  const outsideTransaction = () => transactionDepth === 0;
 
+  function runImmediateOnce(fn: () => void): void {
     db.exec("BEGIN IMMEDIATE");
     transactionDepth += 1;
     try {
@@ -141,6 +141,15 @@ export function createNodeSqliteAdapterFromDatabase(
     } finally {
       transactionDepth -= 1;
     }
+  }
+
+  function runImmediate(fn: () => void): void {
+    if (transactionDepth > 0) {
+      runSavepoint(fn);
+      return;
+    }
+    // A failed attempt is fully rolled back above, so the whole block can be replayed.
+    runWithBusyRetry(() => runImmediateOnce(fn), outsideTransaction);
   }
 
   function close() {
@@ -171,7 +180,10 @@ export function createNodeSqliteAdapterFromDatabase(
       const stmt = getCached(sql);
       return {
         run(...params: unknown[]): RunResult {
-          const r = stmt.run(...normalizeBindParams(params));
+          const r = runWithBusyRetry(
+            () => stmt.run(...normalizeBindParams(params)),
+            outsideTransaction
+          );
           return {
             changes: Number(r.changes ?? 0),
             lastInsertRowid: Number(r.lastInsertRowid ?? 0),
@@ -188,7 +200,7 @@ export function createNodeSqliteAdapterFromDatabase(
       };
     },
     exec(sql: string): void {
-      db.exec(sql);
+      runWithBusyRetry(() => db.exec(sql), outsideTransaction);
     },
     pragma(pragmaStr: string, options?: { simple?: boolean }): unknown {
       const sql = `PRAGMA ${pragmaStr}`;
@@ -201,12 +213,18 @@ export function createNodeSqliteAdapterFromDatabase(
     },
     transaction<T>(fn: (...args: unknown[]) => T): (...args: unknown[]) => T {
       return (...args: unknown[]) => {
-        transactionDepth += 1;
-        try {
-          return runSavepoint(fn, ...args);
-        } finally {
-          transactionDepth -= 1;
-        }
+        const topLevel = transactionDepth === 0;
+        const attempt = () => {
+          transactionDepth += 1;
+          try {
+            return runSavepoint(fn, ...args);
+          } finally {
+            transactionDepth -= 1;
+          }
+        };
+        // runSavepoint rolls a failed attempt back to (and releases) its savepoint, so a
+        // top-level BUSY leaves nothing behind and the block can be replayed.
+        return topLevel ? runWithBusyRetry(attempt, outsideTransaction) : attempt();
       };
     },
     immediate(fn: () => void): void {
