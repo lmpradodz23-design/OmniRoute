@@ -30,7 +30,7 @@ const POLICY_IMPORT_TARGET = "src/lib/db/apiKeys";
   function patched(this: unknown, request: string, ...rest: unknown[]) {
     if (request.includes(POLICY_IMPORT_TARGET)) {
       // Resolve to a stub file we create below
-      const stubPath = new URL("./__stub_apiKeys.mjs", import.meta.url).pathname;
+      const stubPath = fileURLToPath(new URL("./__stub_apiKeys.mjs", import.meta.url));
       // @ts-expect-error - rest spread to original
       return originalResolve.call(this, stubPath, ...rest);
     }

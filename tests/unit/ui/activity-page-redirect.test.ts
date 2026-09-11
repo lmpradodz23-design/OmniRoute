@@ -28,26 +28,18 @@ const mockNavigation = {
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const PAGE_PATH = resolve(
-  import.meta.dirname ?? new URL(".", import.meta.url).pathname,
+  import.meta.dirname ?? fileURLToPath(new URL(".", import.meta.url)),
   "../../../src/app/(dashboard)/dashboard/logs/activity/page.tsx"
 );
 
 test("logs/activity/page.tsx contains permanentRedirect('/dashboard/activity')", () => {
   const src = readFileSync(PAGE_PATH, "utf-8");
-  assert.ok(
-    src.includes("permanentRedirect"),
-    "page.tsx must call permanentRedirect"
-  );
-  assert.ok(
-    src.includes("/dashboard/activity"),
-    "page.tsx must redirect to /dashboard/activity"
-  );
-  assert.ok(
-    src.includes(`from "next/navigation"`),
-    "page.tsx must import from next/navigation"
-  );
+  assert.ok(src.includes("permanentRedirect"), "page.tsx must call permanentRedirect");
+  assert.ok(src.includes("/dashboard/activity"), "page.tsx must redirect to /dashboard/activity");
+  assert.ok(src.includes(`from "next/navigation"`), "page.tsx must import from next/navigation");
 });
 
 test("logs/activity/page.tsx does NOT import AuditLogTab anymore", () => {
@@ -68,7 +60,7 @@ test("logs/activity/page.tsx does NOT have 'use client' directive (server compon
 
 test("AuditLogTab.tsx no longer exists (deleted by F4)", () => {
   const AUDIT_LOG_TAB_PATH = resolve(
-    import.meta.dirname ?? new URL(".", import.meta.url).pathname,
+    import.meta.dirname ?? fileURLToPath(new URL(".", import.meta.url)),
     "../../../src/app/(dashboard)/dashboard/logs/AuditLogTab.tsx"
   );
   let exists = false;
@@ -84,7 +76,7 @@ test("AuditLogTab.tsx no longer exists (deleted by F4)", () => {
 // Also confirm ActivityFeedClient exists
 test("activity/ActivityFeedClient.tsx exists", () => {
   const CLIENT_PATH = resolve(
-    import.meta.dirname ?? new URL(".", import.meta.url).pathname,
+    import.meta.dirname ?? fileURLToPath(new URL(".", import.meta.url)),
     "../../../src/app/(dashboard)/dashboard/activity/ActivityFeedClient.tsx"
   );
   let src: string;

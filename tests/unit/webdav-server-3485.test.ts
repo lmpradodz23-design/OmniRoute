@@ -30,14 +30,14 @@ import path from "node:path";
 import http from "node:http";
 import { EventEmitter } from "node:events";
 import { createCipheriv, randomBytes, scryptSync } from "node:crypto";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 const HANDLER_PATH = path.resolve(
-  path.dirname(new URL(import.meta.url).pathname),
+  path.dirname(fileURLToPath(import.meta.url)),
   "../../scripts/dev/webdav-handler.mjs"
 );
 
