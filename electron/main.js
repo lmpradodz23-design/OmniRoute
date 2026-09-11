@@ -34,7 +34,13 @@ const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 const { hasEncryptedCredentials } = require("./sqlite-inspection");
 const { loginManager } = require("./loginManager");
-const { killProcessTree } = require("./processTree");
+const {
+  killProcessTree,
+  serverSpawnOptions,
+  writeServerPidFile,
+  removeServerPidFile,
+  reapOrphanServer,
+} = require("./processTree");
 const { resolveServerEntry } = require("./lib/resolveServerEntry");
 const { resolveDarwinHelperExecutable } = require("./lib/resolveNodeHelper");
 const { resolveRemoteServerUrl, isValidHttpUrl } = require("./lib/resolveRemoteServerUrl");
@@ -340,6 +346,8 @@ function installUpdate() {
     // grandchildren) keeps omniroute.exe locked and the updater fails with "file in use".
     killProcessTree(nextServer, { signal: "SIGTERM" });
     nextServer = null;
+    removeServerPidFile(serverPidFilePath);
+    serverPidFilePath = null;
   }
   autoUpdater.quitAndInstall();
 }
@@ -853,10 +861,18 @@ function startNextServer() {
   console.log("[Electron] Server NODE_OPTIONS:", serverNodeOptions);
   sendToRenderer("server-status", { status: "starting", port: serverPort });
 
+  // R-12: a previous main process that died (crash, SIGKILL, updater) may have left its
+  // detached server running. Reap it — only after verifying the recorded pid is still
+  // our server — before binding a new one to the same DATA_DIR and port.
+  const serverPidFile = path.join(dataDir, "server.pid");
+  reapOrphanServer(serverPidFile);
+
   // Fix #10: Use pipe instead of inherit for logging & readiness detection
   // windowsHide prevents a visible console window from spawning alongside the GUI app.
   // shell: false avoids launching via a shell wrapper which can flash a terminal on macOS.
+  // serverSpawnOptions: own process group on POSIX so killProcessTree reaches grandchildren.
   nextServer = spawn(nodeExecutable, [serverScript], {
+    ...serverSpawnOptions(process.platform),
     cwd: NEXT_SERVER_PATH,
     env: {
       ...serverEnv,
@@ -879,6 +895,23 @@ function startNextServer() {
     windowsHide: true,
     shell: false,
   });
+
+  // R-12: record the pid so a later launch can reap this server if we die first.
+  if (nextServer.pid) {
+    serverPidFilePath = serverPidFile;
+    try {
+      writeServerPidFile(serverPidFile, {
+        pid: nextServer.pid,
+        execPath: nodeExecutable,
+        script: serverScript,
+      });
+    } catch (err) {
+      console.warn(
+        "[Electron] Could not write server.pid:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
 
   // Capture server output for logging
   nextServer.stdout?.on("data", (data) => {
@@ -915,16 +948,24 @@ function startNextServer() {
     console.log("[Electron] Server exited with code:", code);
     sendToRenderer("server-status", { status: "stopped", port: serverPort });
     nextServer = null;
+    removeServerPidFile(serverPidFilePath);
+    serverPidFilePath = null;
   });
 }
+
+// R-12: DATA_DIR/server.pid of the running embedded server (null when none is tracked).
+let serverPidFilePath = null;
 
 function stopNextServer() {
   if (nextServer) {
     // #3347: kill the whole tree, not just the direct child. On Windows the server
     // (omniroute.exe-as-node) spawns grandchildren that a bare SIGTERM leaves alive,
-    // holding a lock on omniroute.exe and blocking updates.
+    // holding a lock on omniroute.exe and blocking updates. On POSIX the server runs in
+    // its own process group (serverSpawnOptions), so the group signal reaches them too.
     killProcessTree(nextServer, { signal: "SIGTERM" });
     nextServer = null;
+    removeServerPidFile(serverPidFilePath);
+    serverPidFilePath = null;
   }
 }
 
