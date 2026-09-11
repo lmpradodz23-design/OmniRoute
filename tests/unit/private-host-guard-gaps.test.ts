@@ -65,6 +65,39 @@ describe("canonical private-host guard — non-canonical IPv4 spellings fail clo
   }
 });
 
+describe("canonical private-host guard — uncompressed IPv6 spellings (final audit B-1)", () => {
+  // The `startsWith("::")` shortcut only sees the compressed spelling. Written out in full the
+  // very same loopback / IPv4-mapped addresses reached the IPv6 branch and were classified
+  // PUBLIC. WHATWG `URL` compresses them, so URL callers were safe, but every raw-string caller
+  // (provider registry, relay config) was not — and a defence-in-depth guard must not depend
+  // on which spelling it is handed.
+  for (const host of [
+    "0:0:0:0:0:ffff:127.0.0.1",
+    "0:0:0:0:0:ffff:7f00:1",
+    "0000:0000:0000:0000:0000:ffff:7f00:0001",
+    "0:0:0:0:0:0:0:1",
+    "0:0:0:0:0:0:127.0.0.1",
+    "0:0:0:0:0:0:0:0",
+    "64:ff9b::7f00:1", // NAT64 → 127.0.0.1
+    "64:ff9b::a9fe:a9fe", // NAT64 → 169.254.169.254
+    "64:ff9b::192.168.1.1",
+  ]) {
+    it(`blocks ${host}`, () => {
+      assert.equal(isPrivateHost(host), true);
+    });
+    it(`relay guard blocks ${host} too`, () => {
+      assert.equal(isPrivateRelayHostname(host), true);
+    });
+  }
+
+  for (const host of ["64:ff9b::808:808", "64:ff9b::8.8.8.8", "2001:db8:0:0:0:0:0:1"]) {
+    it(`still allows ${host}`, () => {
+      assert.equal(isPrivateHost(host), false);
+      assert.equal(isPrivateRelayHostname(host), false);
+    });
+  }
+});
+
 describe("canonical private-host guard — previously-correct behaviour is unchanged", () => {
   for (const host of [
     "localhost",
@@ -131,6 +164,9 @@ describe("canonical guard and relay guard agree (drift guard)", () => {
     "127.0.0.1",
     "::1",
     "::ffff:127.0.0.1",
+    "0:0:0:0:0:ffff:7f00:1",
+    "64:ff9b::7f00:1",
+    "64:ff9b::808:808",
     "10.0.0.1",
     "192.168.1.1",
     "172.16.0.1",
