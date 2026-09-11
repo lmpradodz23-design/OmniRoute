@@ -120,6 +120,17 @@ test("next config declares Turbopack aliases, runtime assets and server external
     tracingExcludes.some((p) => p.includes(".claude")),
     "outputFileTracingExcludes should exclude .claude worktrees"
   );
+  // The install-upgrade gate keeps installed trees, SQLite databases and tarballs under
+  // .install-upgrade/ inside the repo; tracing pulled them into the standalone bundle and
+  // a build aborted with ENOENT when the gate removed its workspace mid-copy.
+  assert.ok(
+    tracingExcludes.includes("**/.install-upgrade/**"),
+    "outputFileTracingExcludes should exclude the install-upgrade gate workspaces"
+  );
+  assert.ok(
+    tracingExcludes.includes("**/dist-electron/**"),
+    "outputFileTracingExcludes should exclude the Electron packaging output"
+  );
 
   for (const packageName of [
     "thread-stream",

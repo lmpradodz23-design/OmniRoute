@@ -321,6 +321,13 @@ const nextConfig = {
       "**/.tmp/**",
       "**/electron/**",
       "**/docs/**",
+      // Disposable gate workspaces that live INSIDE the repository. `check:install-upgrade`
+      // leaves ~12 GB of installed trees, SQLite databases and tarballs under
+      // .install-upgrade/; a `next build` that ran after (or during) the gate traced them
+      // into the standalone bundle — and aborted with ENOENT when the gate deleted its
+      // workspace mid-copy ("copyfile .install-upgrade/.../db_backups/...sqlite").
+      "**/.install-upgrade/**",
+      "**/dist-electron/**",
     ],
   },
   serverExternalPackages: [
