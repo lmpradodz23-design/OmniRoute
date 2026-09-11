@@ -364,6 +364,7 @@ export default function OnboardingWizard() {
                     <input
                       type="password"
                       placeholder={t("enterPassword")}
+                      aria-label={t("enterPassword")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
@@ -373,6 +374,7 @@ export default function OnboardingWizard() {
                     <input
                       type="password"
                       placeholder={t("confirmPasswordPlaceholder")}
+                      aria-label={t("confirmPasswordPlaceholder")}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
@@ -438,6 +440,7 @@ export default function OnboardingWizard() {
                     <input
                       type="password"
                       placeholder={t("apiKeyRequired")}
+                      aria-label={t("apiKeyRequired")}
                       value={providerKey}
                       onChange={(e) => setProviderKey(e.target.value)}
                       className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -445,6 +448,7 @@ export default function OnboardingWizard() {
                     <input
                       type="text"
                       placeholder={t("customUrlOptional")}
+                      aria-label={t("customUrlOptional")}
                       value={providerUrl}
                       onChange={(e) => setProviderUrl(e.target.value)}
                       className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
