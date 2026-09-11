@@ -28,6 +28,91 @@ declare global {
     | undefined;
   var __omnirouteRequestShutdown: ((signal: string) => Promise<void>) | undefined;
   var __omnirouteCustomServerOwnsShutdown: boolean | undefined;
+  var __omnirouteShutdownHooks: Map<string, ShutdownHook> | undefined;
+}
+
+export type ShutdownHook = () => void | Promise<void>;
+
+/** Per-step budget while stopping background work; a stuck stopper must not block exit. */
+const STOP_STEP_TIMEOUT_MS = 5_000;
+
+function getShutdownHooks(): Map<string, ShutdownHook> {
+  // On globalThis so HMR module instances and the custom server share one registry.
+  return (globalThis.__omnirouteShutdownHooks ??= new Map());
+}
+
+/**
+ * Register teardown for a module-owned timer/worker (R-6). Runs at the START of graceful
+ * shutdown — before requests drain and before the database closes — so no background job
+ * fires into a closing process. Idempotent per `name`; returns an unregister handle that
+ * only removes the hook it registered.
+ */
+export function registerShutdownHook(name: string, hook: ShutdownHook): () => void {
+  getShutdownHooks().set(name, hook);
+  return () => {
+    if (getShutdownHooks().get(name) === hook) getShutdownHooks().delete(name);
+  };
+}
+
+export function unregisterShutdownHook(name: string): void {
+  getShutdownHooks().delete(name);
+}
+
+async function stopQuietly(name: string, stop: () => void | Promise<void>): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve().then(stop),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`[Shutdown] ${name} did not stop within ${STOP_STEP_TIMEOUT_MS}ms.`);
+          resolve();
+        }, STOP_STEP_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (err) {
+    console.warn(`[Shutdown] ${name} failed to stop:`, (err as Error).message);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Stop every background scheduler before draining (R-6): the job registry (budget reset,
+ * log export, token health, cache cleanup), the backup schedule, proxy health / free-proxy
+ * sync, the credential auto-refresh daemon, then the hooks modules registered for their
+ * own timers. Each step is guarded and time-boxed; nothing here may keep the process up.
+ */
+async function stopBackgroundWork(): Promise<void> {
+  const registry = (globalThis as { __omnirouteJobRegistry?: { dispose(): void } })
+    .__omnirouteJobRegistry;
+  if (registry) await stopQuietly("job registry", () => registry.dispose());
+
+  const builtIns: Array<[string, () => Promise<void>]> = [
+    [
+      "backup schedule job",
+      () => import("@/lib/jobs/backupScheduleJob").then((m) => m.stopBackupScheduleJob()),
+    ],
+    [
+      "proxy health check",
+      () => import("@/lib/proxyHealth/scheduler").then((m) => m.stopProxyHealthCheck()),
+    ],
+    [
+      "free-proxy auto-sync",
+      () => import("@/lib/freeProxyProviders/scheduler").then((m) => m.stopFreeProxyAutoSync()),
+    ],
+    [
+      "auto-refresh daemon",
+      () =>
+        import("@omniroute/open-sse/services/autoRefreshDaemon").then((m) =>
+          m.autoRefreshDaemon.stop()
+        ),
+    ],
+  ];
+  for (const [name, stop] of builtIns) await stopQuietly(name, stop);
+
+  for (const [name, hook] of [...getShutdownHooks()]) await stopQuietly(`hook ${name}`, hook);
+  console.log("[Shutdown] Background schedulers stopped.");
 }
 
 function getShutdownState() {
@@ -175,6 +260,9 @@ export function requestGracefulShutdown(signal: string): Promise<void> {
   state.shutdownPromise = (async () => {
     console.log(`\n[Shutdown] Received ${signal}. Draining ${state.activeRequests} request(s)...`);
 
+    // R-6: stop background work first so no scheduler fires into the drain window or
+    // touches the database after cleanup() closes it.
+    await stopBackgroundWork();
     await waitForDrain();
     await cleanup();
 
