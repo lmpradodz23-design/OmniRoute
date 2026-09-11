@@ -76,10 +76,16 @@ banco, aplicar §1 **antes** de subir a anterior.
 `electron-updater` roda com `autoDownload=false`: nada é instalado sem clique. Para reverter,
 desinstalar e instalar o instalador da release anterior em
 `https://github.com/LMPrado-DZ23/OmniRoute/releases`. `userData` (banco, `server.env`,
-credenciais) é preservado. **Gap conhecido (E-5, Fase 5):** o updater ainda não grava um
-snapshot próprio antes de trocar a versão; o snapshot pré-migração de §1 cobre o banco, mas
-não uma versão nova que corrompa configuração sem migrar — mitigação: `omniroute backup
-create` antes de aceitar a atualização.
+credenciais) é preservado. **E-5 (corrigido na Fase 5):** antes de `quitAndInstall` — tanto
+pelo botão do painel (IPC `install-update`) quanto pelo clique na notificação — o processo
+principal grava um instantâneo em `<DATA_DIR>/db_backups/pre-update-<versão-atual>-<ts>/`
+com `storage.sqlite` (+ `-wal`/`-shm`), `server.env`, `.env`, `electron-preferences.json` e
+um `manifest.json` (`fromVersion`, `toVersion`, `createdAt`, `files`); os 3 mais recentes
+são mantidos. Falha no instantâneo é registrada no log e **não** bloqueia a atualização (o
+usuário já confirmou o clique). **Restaurar:** sair do OmniRoute (bandeja → Sair), instalar
+a release anterior, copiar os arquivos do diretório `pre-update-*` de volta para o
+`DATA_DIR` e reabrir. Complementa o snapshot pré-migração de §1 (`electron/lib/
+preUpdateSnapshot.js`; `tests/unit/electron-pre-update-snapshot-e5.test.ts`).
 
 ### 2.4 Código-fonte (checkout)
 

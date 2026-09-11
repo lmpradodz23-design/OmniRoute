@@ -58,6 +58,7 @@ const {
 const { buildReadinessUrl, waitForServer } = require("./lib/serverReadiness");
 const { createLoadFailureRecovery } = require("./lib/loadFailure");
 const { createTrayTranslator } = require("./lib/trayStrings");
+const { createPreUpdateSnapshot } = require("./lib/preUpdateSnapshot");
 const { shouldStartHidden, showOrCreateWindow } = require("./lib/windowLifecycle");
 const {
   CLOSE_BEHAVIOR_KEEP_LOADED,
@@ -99,6 +100,9 @@ let isServerStopped = false;
 let remoteServerPromptWindow = null;
 let keepAliveWithoutWindows = false;
 let lastRendererUrl = null;
+// E-5: data dir the embedded server was started with, and the version waiting to install.
+let serverDataDir = null;
+let pendingUpdateVersion = null;
 
 // ── Remote Server Mode ──────────────────────────────────────
 // Lets the desktop shell attach to an already-running OmniRoute server (e.g. a
@@ -297,6 +301,7 @@ function setupAutoUpdater() {
   autoUpdater.on("update-downloaded", (info) => {
     sendToRenderer("update-status", { status: "downloaded", version: info.version });
     console.log("[Electron] Update downloaded:", info.version);
+    pendingUpdateVersion = info.version;
 
     if (Notification.isSupported()) {
       const notification = new Notification({
@@ -304,7 +309,7 @@ function setupAutoUpdater() {
         body: tt("updateReadyBody", { version: info.version }),
       });
       notification.on("click", () => {
-        autoUpdater.quitAndInstall();
+        installUpdate();
       });
       notification.show();
     }
@@ -350,6 +355,23 @@ function installUpdate() {
     nextServer = null;
     removeServerPidFile(serverPidFilePath);
     serverPidFilePath = null;
+  }
+  // E-5: restore point before the application is replaced (DB + WAL/SHM + server.env +
+  // .env + preferences → DATA_DIR/db_backups/pre-update-<version>-<ts>/, last 3 kept).
+  const snapshot = createPreUpdateSnapshot({
+    dataDir: serverDataDir || resolveDataDir(null, process.env),
+    fromVersion: app.getVersion(),
+    toVersion: pendingUpdateVersion,
+  });
+  if (snapshot.error) {
+    console.warn(
+      "[Electron] Pre-update snapshot FAILED (continuing with the update):",
+      snapshot.error
+    );
+  } else {
+    console.log(
+      `[Electron] Pre-update snapshot written to ${snapshot.dir} (${snapshot.copied.length} files)`
+    );
   }
   autoUpdater.quitAndInstall();
 }
@@ -806,6 +828,7 @@ function startNextServer() {
   const preferredEnvPath = getPreferredEnvFilePath(process.env);
   const preferredEnv = preferredEnvPath ? parseEnvFile(preferredEnvPath) : {};
   const dataDir = resolveDataDir(null, { ...preferredEnv, ...process.env });
+  serverDataDir = dataDir;
   const serverEnvPath = path.join(dataDir, "server.env");
   const persisted = parseEnvFile(serverEnvPath);
   const serverEnv = { ...persisted, ...preferredEnv, ...process.env };

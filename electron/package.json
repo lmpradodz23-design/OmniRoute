@@ -75,6 +75,7 @@
       "lib/serverReadiness.js",
       "lib/loadFailure.js",
       "lib/trayStrings.js",
+      "lib/preUpdateSnapshot.js",
       "lib/windowClosePolicy.js",
       "assets/remoteServerPrompt.html",
       "package.json",
