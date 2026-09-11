@@ -427,6 +427,48 @@ function ensureColumn(db: SqliteAdapter, tableName: string, columnName: string, 
   }
 }
 
+const ALTER_ADD_COLUMN_RE =
+  /ALTER\s+TABLE\s+["'`[]?([A-Za-z0-9_]+)["'`\]]?\s+ADD\s+(?:COLUMN\s+)?["'`[]?([A-Za-z0-9_]+)["'`\]]?/gi;
+
+/** Every `table.column` a plain-SQL migration adds via ALTER TABLE ... ADD COLUMN. */
+export function expectedAddedColumns(sql: string): Array<{ table: string; column: string }> {
+  const out: Array<{ table: string; column: string }> = [];
+  for (const match of sql.matchAll(ALTER_ADD_COLUMN_RE)) {
+    out.push({ table: match[1], column: match[2] });
+  }
+  return out;
+}
+
+/**
+ * R-4 final-state probe behind the "duplicate column name" tolerance: the columns the
+ * file still has to add. Empty means the whole file is already applied; a non-empty list
+ * means the migration is genuinely partial. Handler-managed versions (032/041/042) are
+ * judged by the idempotency probe; a file that adds no column at all is unverifiable and
+ * is reported as such (fail closed).
+ */
+function missingAddedColumns(
+  db: SqliteAdapter,
+  migration: { version: string; name: string; path: string }
+): string[] {
+  if (
+    migration.version === "032" ||
+    (migration.version === "041" && migration.name === "compression_receipts") ||
+    migration.version === "042"
+  ) {
+    return isSchemaAlreadyApplied(db, migration) ? [] : ["(handler-managed schema incomplete)"];
+  }
+  let expected: Array<{ table: string; column: string }>;
+  try {
+    expected = expectedAddedColumns(fs.readFileSync(migration.path, "utf-8"));
+  } catch {
+    return ["(migration file unreadable)"];
+  }
+  if (expected.length === 0) return ["(no ADD COLUMN statement found to verify)"];
+  return expected
+    .filter(({ table, column }) => !hasColumn(db, table, column))
+    .map(({ table, column }) => `${table}.${column}`);
+}
+
 function isSchemaAlreadyApplied(
   db: SqliteAdapter,
   migration: { version: string; name: string }
@@ -1088,10 +1130,14 @@ export function runMigrations(
       console.log(`[Migration] Applied: ${migration.version}_${migration.name}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      if (
-        message.includes("duplicate column name") &&
-        !atomicPhysicalReplays.has(migration.version)
-      ) {
+      // R-4: "duplicate column name" is only proof that ONE column pre-existed. Tolerate
+      // it (marker-only) solely when every column the file adds is present — a file whose
+      // first ALTER collided while its second never ran is partial, not applied.
+      const missingColumns =
+        message.includes("duplicate column name") && !atomicPhysicalReplays.has(migration.version)
+          ? missingAddedColumns(db, migration)
+          : null;
+      if (missingColumns && missingColumns.length === 0) {
         const applyMarkerOnly = db.transaction(() => {
           db.prepare(
             "INSERT OR IGNORE INTO _omniroute_migrations (version, name) VALUES (?, ?)"
@@ -1103,6 +1149,11 @@ export function runMigrations(
           `[Migration] Applied (column pre-exists): ${migration.version}_${migration.name}`
         );
       } else {
+        if (missingColumns && err instanceof Error) {
+          err.message =
+            `${err.message}; ${migration.version}_${migration.name} is only partially applied ` +
+            `— still missing: ${missingColumns.join(", ")}`;
+        }
         console.error(`[Migration] FAILED: ${migration.version}_${migration.name} — ${message}`);
         if (preMigrationBackup) {
           // The per-file transaction already rolled this migration back; what the operator
