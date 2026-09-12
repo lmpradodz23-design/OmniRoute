@@ -75,6 +75,111 @@ function getGuardrailLogger(context: GuardrailContext) {
 }
 
 /**
+ * Disable requests under the CALLER's control — body `disabledGuardrails`, body
+ * `metadata.disabledGuardrails` and the `x-omniroute-disabled-guardrails` /
+ * `x-disabled-guardrails` header — normalized and concatenated in that order.
+ */
+function collectRequestedDisabledGuardrails(body: unknown, headers: HeadersLike): string[] {
+  const bodyRecord = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
+  const metadata =
+    bodyRecord?.metadata && typeof bodyRecord.metadata === "object"
+      ? (bodyRecord.metadata as Record<string, unknown>)
+      : null;
+  const headerDisabled =
+    getHeaderValue(headers, "x-omniroute-disabled-guardrails") ||
+    getHeaderValue(headers, "x-disabled-guardrails");
+
+  return coerceDisabledGuardrails(bodyRecord?.disabledGuardrails)
+    .concat(coerceDisabledGuardrails(metadata?.disabledGuardrails))
+    .concat(coerceDisabledGuardrails(headerDisabled));
+}
+
+type GuardrailStage = GuardrailExecutionResult["stage"];
+
+function skippedExecution(
+  guardrail: BaseGuardrail,
+  stage: GuardrailStage
+): GuardrailExecutionResult {
+  return {
+    blocked: false,
+    guardrail: guardrail.name,
+    modified: false,
+    skipped: true,
+    stage,
+  };
+}
+
+/** Appends the guardrail's verdict to `results` and logs it as blocked / modified / passed. */
+function recordGuardrailExecution(
+  results: GuardrailExecutionResult[],
+  logger: GuardrailLog | Console,
+  guardrail: BaseGuardrail,
+  stage: GuardrailStage,
+  result: GuardrailResult<unknown> | undefined,
+  modified: boolean
+): GuardrailExecutionResult {
+  const meta = result?.meta || null;
+  const execution: GuardrailExecutionResult = {
+    blocked: result?.block === true,
+    guardrail: guardrail.name,
+    message: result?.message,
+    meta,
+    modified,
+    skipped: false,
+    stage,
+  };
+  results.push(execution);
+
+  logger.debug?.(
+    "GUARDRAIL",
+    `${guardrail.name} ${stage}-call ${execution.blocked ? "blocked" : modified ? "modified" : "passed"}`,
+    meta || undefined
+  );
+
+  return execution;
+}
+
+/**
+ * A guardrail threw: a caller abort propagates as-is; otherwise the failure is recorded and a
+ * mandatory guardrail fails CLOSED — the returned verdict tells the pipeline to stop — while an
+ * optional one fails open (`null`) and the pipeline carries on.
+ */
+function handleGuardrailFailure(
+  results: GuardrailExecutionResult[],
+  logger: GuardrailLog | Console,
+  guardrail: BaseGuardrail,
+  stage: GuardrailStage,
+  error: unknown,
+  context: GuardrailContext
+): { blocked: true; guardrail: string; message: string } | null {
+  if (context.signal?.aborted) {
+    throw new Error("Guardrail processing aborted");
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  results.push({
+    blocked: guardrail.mandatory,
+    error: message,
+    guardrail: guardrail.name,
+    modified: false,
+    skipped: false,
+    stage,
+  });
+  if (guardrail.mandatory) {
+    // A security control that cannot run must not let the payload through unchecked.
+    logger.warn?.("GUARDRAIL", `${guardrail.name} ${stage}-call failed closed`, {
+      error: message,
+    });
+    return {
+      blocked: true,
+      guardrail: guardrail.name,
+      message: `${stage === "pre" ? "Request rejected" : "Response blocked"}: guardrail ${guardrail.name} unavailable (fail-closed)`,
+    };
+  }
+  logger.warn?.("GUARDRAIL", `${guardrail.name} ${stage}-call failed open`, { error: message });
+  return null;
+}
+
+/**
  * Names of guardrails the current request may skip. The operator's per-key policy
  * (`apiKeyInfo.disabledGuardrails`) is honoured in full; the request-controlled sources
  * (body `disabledGuardrails`, body `metadata.disabledGuardrails`, the
@@ -95,27 +200,17 @@ export function resolveDisabledGuardrails(
   },
   options: { mandatory?: Iterable<string>; log?: GuardrailLog | Console | null } = {}
 ): string[] {
-  const bodyRecord = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
-  const metadata =
-    bodyRecord?.metadata && typeof bodyRecord.metadata === "object"
-      ? (bodyRecord.metadata as Record<string, unknown>)
-      : null;
   const apiKeyDisabled =
     apiKeyInfo && typeof apiKeyInfo === "object"
       ? (apiKeyInfo as Record<string, unknown>).disabledGuardrails
       : undefined;
-  const headerDisabled =
-    getHeaderValue(headers, "x-omniroute-disabled-guardrails") ||
-    getHeaderValue(headers, "x-disabled-guardrails");
+  const requested = collectRequestedDisabledGuardrails(body, headers);
 
   const mandatory = new Set(
     Array.from(options.mandatory ?? guardrailRegistry.mandatoryNames(), (name) =>
       normalizeGuardrailName(name)
     )
   );
-  const requested = coerceDisabledGuardrails(bodyRecord?.disabledGuardrails)
-    .concat(coerceDisabledGuardrails(metadata?.disabledGuardrails))
-    .concat(coerceDisabledGuardrails(headerDisabled));
   const refused = requested.filter((name) => mandatory.has(name));
   if (refused.length > 0) {
     (options.log ?? console).warn?.(
@@ -172,40 +267,25 @@ export class GuardrailRegistry {
 
     for (const guardrail of this.guardrails) {
       if (!guardrail.enabled || this.isDisabled(guardrail, context)) {
-        results.push({
-          blocked: false,
-          guardrail: guardrail.name,
-          modified: false,
-          skipped: true,
-          stage: "pre",
-        });
+        results.push(skippedExecution(guardrail, "pre"));
         continue;
       }
 
       try {
         const result = asGuardrailResult(await guardrail.preCall(currentPayload, context));
         const modified = result?.modifiedPayload !== undefined;
-        const meta = result?.meta || null;
 
         if (modified) {
           currentPayload = result?.modifiedPayload as TPayload;
         }
 
-        const execution: GuardrailExecutionResult = {
-          blocked: result?.block === true,
-          guardrail: guardrail.name,
-          message: result?.message,
-          meta,
-          modified,
-          skipped: false,
-          stage: "pre",
-        };
-        results.push(execution);
-
-        logger.debug?.(
-          "GUARDRAIL",
-          `${guardrail.name} pre-call ${execution.blocked ? "blocked" : modified ? "modified" : "passed"}`,
-          meta || undefined
+        const execution = recordGuardrailExecution(
+          results,
+          logger,
+          guardrail,
+          "pre",
+          result,
+          modified
         );
 
         if (execution.blocked) {
@@ -218,32 +298,10 @@ export class GuardrailRegistry {
           };
         }
       } catch (error) {
-        if (context.signal?.aborted) {
-          throw new Error("Guardrail processing aborted");
+        const failure = handleGuardrailFailure(results, logger, guardrail, "pre", error, context);
+        if (failure) {
+          return { ...failure, payload: currentPayload, results };
         }
-        const message = error instanceof Error ? error.message : String(error);
-        results.push({
-          blocked: guardrail.mandatory,
-          error: message,
-          guardrail: guardrail.name,
-          modified: false,
-          skipped: false,
-          stage: "pre",
-        });
-        if (guardrail.mandatory) {
-          // A security control that cannot run must not let the payload through unchecked.
-          logger.warn?.("GUARDRAIL", `${guardrail.name} pre-call failed closed`, {
-            error: message,
-          });
-          return {
-            blocked: true,
-            guardrail: guardrail.name,
-            message: `Request rejected: guardrail ${guardrail.name} unavailable (fail-closed)`,
-            payload: currentPayload,
-            results,
-          };
-        }
-        logger.warn?.("GUARDRAIL", `${guardrail.name} pre-call failed open`, { error: message });
       }
     }
 
@@ -261,40 +319,25 @@ export class GuardrailRegistry {
 
     for (const guardrail of this.guardrails) {
       if (!guardrail.enabled || this.isDisabled(guardrail, context)) {
-        results.push({
-          blocked: false,
-          guardrail: guardrail.name,
-          modified: false,
-          skipped: true,
-          stage: "post",
-        });
+        results.push(skippedExecution(guardrail, "post"));
         continue;
       }
 
       try {
         const result = asGuardrailResult(await guardrail.postCall(currentResponse, context));
         const modified = result?.modifiedResponse !== undefined;
-        const meta = result?.meta || null;
 
         if (modified) {
           currentResponse = result?.modifiedResponse as TResponse;
         }
 
-        const execution: GuardrailExecutionResult = {
-          blocked: result?.block === true,
-          guardrail: guardrail.name,
-          message: result?.message,
-          meta,
-          modified,
-          skipped: false,
-          stage: "post",
-        };
-        results.push(execution);
-
-        logger.debug?.(
-          "GUARDRAIL",
-          `${guardrail.name} post-call ${execution.blocked ? "blocked" : modified ? "modified" : "passed"}`,
-          meta || undefined
+        const execution = recordGuardrailExecution(
+          results,
+          logger,
+          guardrail,
+          "post",
+          result,
+          modified
         );
 
         if (execution.blocked) {
@@ -307,31 +350,10 @@ export class GuardrailRegistry {
           };
         }
       } catch (error) {
-        if (context.signal?.aborted) {
-          throw new Error("Guardrail processing aborted");
+        const failure = handleGuardrailFailure(results, logger, guardrail, "post", error, context);
+        if (failure) {
+          return { ...failure, response: currentResponse, results };
         }
-        const message = error instanceof Error ? error.message : String(error);
-        results.push({
-          blocked: guardrail.mandatory,
-          error: message,
-          guardrail: guardrail.name,
-          modified: false,
-          skipped: false,
-          stage: "post",
-        });
-        if (guardrail.mandatory) {
-          logger.warn?.("GUARDRAIL", `${guardrail.name} post-call failed closed`, {
-            error: message,
-          });
-          return {
-            blocked: true,
-            guardrail: guardrail.name,
-            message: `Response blocked: guardrail ${guardrail.name} unavailable (fail-closed)`,
-            response: currentResponse,
-            results,
-          };
-        }
-        logger.warn?.("GUARDRAIL", `${guardrail.name} post-call failed open`, { error: message });
       }
     }
 

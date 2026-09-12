@@ -9,34 +9,16 @@ import SessionInfoCard from "./SessionInfoCard";
 import AuthzSection from "./AuthzSection";
 import { useTranslations } from "next-intl";
 import { presentApiError, type PresentedApiError } from "@/shared/utils/apiErrorPresentation";
+import { ErrorNotice, type StatusNotice } from "./ErrorNotice";
+import SecurityPasswordForm from "./SecurityPasswordForm";
 
-type StatusNotice = { type: "" | "error" | "success"; message: string; detail?: string | null };
-
-/** U4: friendly headline (role=alert) with the technical server text behind "details". */
-function ErrorNotice({
-  error,
-  showDetailsLabel,
-  tone = "error",
-}: {
-  error: PresentedApiError | StatusNotice;
-  showDetailsLabel: string;
-  tone?: "error" | "success";
-}) {
-  if (!error.message) return null;
-  return (
-    <div
-      role={tone === "error" ? "alert" : "status"}
-      className={`text-sm ${tone === "error" ? "text-red-500" : "text-green-500"}`}
-    >
-      <p>{error.message}</p>
-      {tone === "error" && error.detail ? (
-        <details className="mt-1 text-xs text-text-muted">
-          <summary className="cursor-pointer">{showDetailsLabel}</summary>
-          <code className="block mt-1 break-all">{error.detail}</code>
-        </details>
-      ) : null}
-    </div>
-  );
+/** Response body as JSON, or `null` when there is none / it does not parse. */
+async function readBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 export default function SecurityTab() {
@@ -66,13 +48,6 @@ export default function SecurityTab() {
     typeof tc.has !== "function" || tc.has(key) ? tc(key) : null;
   const describeError = (body: unknown, fallback: string, status?: number) =>
     presentApiError(body, { translate: translateApiError, fallback, status });
-  const readBody = async (res: Response): Promise<unknown> => {
-    try {
-      return await res.json();
-    } catch {
-      return null;
-    }
-  };
 
   useEffect(() => {
     fetch("/api/settings")
@@ -231,6 +206,8 @@ export default function SecurityTab() {
   };
 
   const blockedProviders: string[] = settings.blockedProviders || [];
+  // Stored policy, or the inline "enable login" prompt in progress (U3).
+  const loginRequired = settings.requireLogin === true || enablingLogin;
 
   return (
     <div className="flex flex-col gap-6">
@@ -250,10 +227,8 @@ export default function SecurityTab() {
               <p className="text-sm text-text-muted">{t("requireLoginDesc")}</p>
             </div>
             <Toggle
-              checked={settings.requireLogin === true || enablingLogin}
-              onChange={() =>
-                updateRequireLogin(!(settings.requireLogin === true || enablingLogin))
-              }
+              checked={loginRequired}
+              onChange={() => updateRequireLogin(!loginRequired)}
               disabled={loading}
             />
           </div>
@@ -301,73 +276,17 @@ export default function SecurityTab() {
             </div>
           </Modal>
 
-          {(settings.requireLogin === true || enablingLogin) && (
-            <form
+          {loginRequired && (
+            <SecurityPasswordForm
+              passwords={passwords}
+              onPasswordsChange={setPasswords}
+              passStatus={passStatus}
+              passLoading={passLoading}
+              enablingLogin={enablingLogin}
+              hasPassword={settings.hasPassword}
               onSubmit={handlePasswordChange}
-              className="flex flex-col gap-4 pt-4 border-t border-border/50"
-            >
-              {enablingLogin && (
-                <p role="status" className="text-sm text-amber-600 dark:text-amber-400">
-                  {t("requireLoginNeedsPassword")}
-                </p>
-              )}
-              {settings.hasPassword && (
-                <Input
-                  label={t("currentPassword")}
-                  type="password"
-                  placeholder={t("enterCurrentPassword")}
-                  value={passwords.current}
-                  onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                  required
-                />
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label={t("newPassword")}
-                  type="password"
-                  placeholder={t("enterNewPassword")}
-                  value={passwords.new}
-                  onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                  required
-                />
-                <Input
-                  label={t("confirmPassword")}
-                  type="password"
-                  placeholder={t("confirmPasswordPlaceholder")}
-                  value={passwords.confirm}
-                  onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                  required
-                />
-              </div>
-
-              {passStatus.message && (
-                <ErrorNotice
-                  error={passStatus}
-                  showDetailsLabel={tc("showDetails")}
-                  tone={passStatus.type === "error" ? "error" : "success"}
-                />
-              )}
-
-              <div className="pt-2 flex items-center gap-2">
-                <Button type="submit" variant="primary" loading={passLoading}>
-                  {enablingLogin
-                    ? t("enableLogin")
-                    : settings.hasPassword
-                      ? t("updatePassword")
-                      : t("setPassword")}
-                </Button>
-                {enablingLogin && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => updateRequireLogin(false)}
-                    disabled={passLoading}
-                  >
-                    {tc("cancel")}
-                  </Button>
-                )}
-              </div>
-            </form>
+              onCancelEnableLogin={() => updateRequireLogin(false)}
+            />
           )}
         </div>
       </Card>

@@ -24,6 +24,33 @@ function getProviderBaseUrl(providerSpecificData: unknown): string | undefined {
   return typeof baseUrl === "string" && baseUrl.trim().length > 0 ? baseUrl : undefined;
 }
 
+/** Request facts every translation event of one forwarded send shares. */
+type SendOutcomeContext = {
+  provider: string;
+  body: Record<string, unknown>;
+  sourceFormat: ReturnType<typeof detectFormat>;
+  targetFormat: ReturnType<typeof getTargetFormat>;
+  startedAt: number;
+};
+
+/** Records the outcome of the forwarded send as a translation event (latency measured here). */
+function logSendOutcome(
+  { provider, body, sourceFormat, targetFormat, startedAt }: SendOutcomeContext,
+  status: "success" | "error",
+  statusCode: number
+) {
+  logTranslationEvent({
+    provider,
+    model: body.model || "test-model",
+    sourceFormat,
+    targetFormat,
+    status,
+    statusCode,
+    latency: Date.now() - startedAt,
+    endpoint: "/api/translator/send",
+  });
+}
+
 export async function POST(request) {
   let rawBody;
   try {
@@ -64,16 +91,7 @@ export async function POST(request) {
     ).find(({ candidate, blocked }) => candidate.isActive !== false && !blocked)?.candidate;
 
     if (!connection) {
-      logTranslationEvent({
-        provider,
-        model: body.model || "test-model",
-        sourceFormat,
-        targetFormat,
-        status: "error",
-        statusCode: 400,
-        latency: Date.now() - startedAt,
-        endpoint: "/api/translator/send",
-      });
+      logSendOutcome({ provider, body, sourceFormat, targetFormat, startedAt }, "error", 400);
       return NextResponse.json(
         {
           success: false,
@@ -116,16 +134,7 @@ export async function POST(request) {
       });
     } catch (error) {
       if (error instanceof OutboundUrlGuardError) {
-        logTranslationEvent({
-          provider,
-          model: body.model || "test-model",
-          sourceFormat,
-          targetFormat,
-          status: "error",
-          statusCode: 400,
-          latency: Date.now() - startedAt,
-          endpoint: "/api/translator/send",
-        });
+        logSendOutcome({ provider, body, sourceFormat, targetFormat, startedAt }, "error", 400);
         return NextResponse.json(
           { success: false, error: "Provider base URL blocked by the outbound guard" },
           { status: 400 }
@@ -140,16 +149,11 @@ export async function POST(request) {
         errorText,
         `Provider error: ${response.status} ${response.statusText}`
       );
-      logTranslationEvent({
-        provider,
-        model: body.model || "test-model",
-        sourceFormat,
-        targetFormat,
-        status: "error",
-        statusCode: response.status,
-        latency: Date.now() - startedAt,
-        endpoint: "/api/translator/send",
-      });
+      logSendOutcome(
+        { provider, body, sourceFormat, targetFormat, startedAt },
+        "error",
+        response.status
+      );
       return NextResponse.json(
         {
           success: false,
@@ -162,16 +166,7 @@ export async function POST(request) {
       );
     }
 
-    logTranslationEvent({
-      provider,
-      model: body.model || "test-model",
-      sourceFormat,
-      targetFormat,
-      status: "success",
-      statusCode: 200,
-      latency: Date.now() - startedAt,
-      endpoint: "/api/translator/send",
-    });
+    logSendOutcome({ provider, body, sourceFormat, targetFormat, startedAt }, "success", 200);
 
     // Return streaming response
     return new Response(response.body, {

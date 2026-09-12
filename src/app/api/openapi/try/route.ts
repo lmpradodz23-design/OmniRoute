@@ -8,12 +8,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
-import { isLocalOnlyPath, isAlwaysProtectedPath } from "@/server/authz/routeGuard";
-import { isDocumentedOperation } from "@/lib/openapi/documentedOperations";
-import { getApiKeyById } from "@/lib/db/apiKeys";
-
-/** Methods that change state: the panel must confirm them explicitly (#5 residual). */
-const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+import {
+  attachStoredApiKey,
+  buildForwardFetchOptions,
+  readProxiedResponse,
+  rejectUnproxiableTarget,
+} from "./tryProxyHelpers";
 
 const BLOCKED_FORWARD_HEADERS = new Set([
   "connection",
@@ -92,37 +92,9 @@ export async function POST(request: NextRequest) {
     const upperMethod = method.toUpperCase();
     const pathname = targetUrl.pathname;
 
-    // #5 residual (explicit allowlist): only operations documented in docs/openapi.yaml —
-    // the very catalog the panel renders — can be proxied. A generic /api/ prefix would admit
-    // every undocumented or internal route.
-    if (!isDocumentedOperation(upperMethod, pathname)) {
-      return NextResponse.json(
-        { error: "Target is not a documented OmniRoute endpoint" },
-        { status: 403 }
-      );
-    }
-
-    // #5 residual (mutations): state-changing methods need the operator's explicit confirmation.
-    if (MUTATING_METHODS.has(upperMethod) && !confirmMutation) {
-      return NextResponse.json(
-        { error: "Mutating requests require confirmMutation: true" },
-        { status: 403 }
-      );
-    }
-
-    // #5 (confused deputy — core fix): never let the same-origin self-fetch reach host-sensitive
-    // (LOCAL_ONLY) or always-protected routes. Those rely on the caller's network locality / login,
-    // which the SERVER itself satisfies over loopback — so proxying them would let an authenticated
-    // management caller (or, with requireLogin=false, an anonymous one) drive install/spawn/config
-    // routes reserved for the local host. Blocking the destination closes the escalation while
-    // preserving the feature's legitimate use (an authenticated admin exercising ordinary
-    // management / inference APIs, including mutations, under their own session).
-    if (isLocalOnlyPath(pathname, upperMethod) || isAlwaysProtectedPath(pathname)) {
-      return NextResponse.json(
-        { error: "Target endpoint is not available through Try It" },
-        { status: 403 }
-      );
-    }
+    // #5: documented-operation allowlist, mutation confirmation, LOCAL_ONLY / protected guard.
+    const rejection = rejectUnproxiableTarget(upperMethod, pathname, confirmMutation);
+    if (rejection) return rejection;
 
     const start = performance.now();
 
@@ -132,52 +104,16 @@ export async function POST(request: NextRequest) {
     // deputy; hop-by-hop / host headers and a caller-supplied Cookie are dropped as before.
     const forwardHeaders = buildForwardHeaders(headers as Record<string, string>);
 
-    // #7 (reveal-once): the panel names one of the operator's stored keys instead of
-    // revealing it; the bearer is attached here and never echoed back.
-    const hasExplicitAuthorization = Object.keys(forwardHeaders).some(
-      (key) => key.toLowerCase() === "authorization"
-    );
-    if (apiKeyId && !hasExplicitAuthorization) {
-      const stored = await getApiKeyById(apiKeyId);
-      if (!stored || typeof stored.key !== "string" || !stored.key) {
-        return NextResponse.json({ error: "API key not found" }, { status: 404 });
-      }
-      forwardHeaders["Authorization"] = `Bearer ${stored.key}`;
-    }
+    // #7 (reveal-once): a stored key named by id is attached server-side, never echoed back.
+    const missingKey = await attachStoredApiKey(forwardHeaders, apiKeyId);
+    if (missingKey) return missingKey;
 
-    if (reqBody && !forwardHeaders["Content-Type"]) {
-      forwardHeaders["Content-Type"] = "application/json";
-    }
-
-    const fetchOptions: RequestInit = {
-      method: method.toUpperCase(),
-      headers: forwardHeaders,
-    };
-
-    if (reqBody && method.toUpperCase() !== "GET") {
-      fetchOptions.body = typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody);
-    }
+    const fetchOptions = buildForwardFetchOptions(method, forwardHeaders, reqBody);
 
     const res = await fetch(targetUrl, fetchOptions);
     const latencyMs = Math.round(performance.now() - start);
 
-    // Read response
-    const contentType = res.headers.get("content-type") || "";
-    let responseBody: any;
-
-    if (contentType.includes("application/json")) {
-      responseBody = await res.json();
-    } else {
-      const text = await res.text();
-      // Truncate very large responses
-      responseBody = text.length > 10000 ? text.slice(0, 10000) + "\n... (truncated)" : text;
-    }
-
-    // Collect response headers
-    const responseHeaders: Record<string, string> = {};
-    res.headers.forEach((value, key) => {
-      responseHeaders[key] = value;
-    });
+    const { contentType, responseBody, responseHeaders } = await readProxiedResponse(res);
 
     return NextResponse.json({
       status: res.status,
