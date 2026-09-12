@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { betterSqlite3AliasFor } from "./scripts/build/better-sqlite3-stub-flag.mjs";
 import { mitmManagerAliasFor } from "./scripts/build/mitm-stub-flag.mjs";
 import { normalizeBasePath } from "./scripts/build/normalizeBasePath.mjs";
+import { siblingBuildDirExcludes } from "./scripts/build/siblingBuildDirs.mjs";
 import {
   buildSecurityHeaderRules,
   nonPageRoutePrefixes,
@@ -335,6 +336,11 @@ const nextConfig = {
       "**/.env.*",
       "**/server.env",
       "**/audit/**",
+      // Every OTHER build output under .build/ (verification builds, dev-server caches, the
+      // Electron staging copy, optional packs) — computed at config time so the dist dir being
+      // built is never in the list. A sibling rotated by another process mid-copy aborts
+      // `next build` with ENOENT (verification builds #4 and #7).
+      ...siblingBuildDirExcludes(projectRoot, distDir),
       // NOT "**/.build/**": the route traces list the bundle's OWN chunks under
       // <distDir>/server/chunks, and that glob removed them (build #6 booted with
       // ChunkLoadError: 93 of 22 000 chunks copied). Sibling dist dirs are pruned by
