@@ -6,12 +6,12 @@
 - **diretório:** `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`
 - **branch de trabalho:** `fix/final-user-readiness` (criada de `release/v3.8.51`)
 - **HEAD inicial:** `2a156c73812d45119d5a06a2f55d611280442860`
-- **HEAD atual:** ver `git rev-parse HEAD` (≈150 commits desde `2a156c738`; últimos: gate `check:standalone-boot`, remoção da exclusão `**/.build/**`, `check:standalone-hygiene`, C-05, X-2 contexto)
-- **estado:** RETESTING — fix loop rodada 1 concluído (24 commits): A-1…A-6, B-1, C-01…C-05, C-07, C-11, X-1…X-6 e o onboarding `valid:false` corrigidos; verificação cruzada A ✔ (todos), B ✔ (B-1; X-1/X-2 fechados após as ressalvas), C rodada 2 em andamento. Build #7 + gates `standalone-hygiene`/`standalone-boot` + Electron pack #3 em execução para provar os artefatos.
-- **iteração:** 14
+- **HEAD atual:** `680a47599` (152 commits desde `2a156c738`) + checkpoint final
+- **estado:** **COMPLETED** — critérios do 05 §5 satisfeitos: blockers internos 0; CRITICAL 0 / HIGH 0 (1 CRITICAL e 4 HIGH encontrados no fix loop, todos corrigidos e verificados pelos auditores); lint/typecheck/unit/integration/security/build/pack/install-upgrade/standalone-hygiene/standalone-boot/Electron PASS; functional acceptance (compat isolado 8/8 + Ollama real 7/7 + uso no navegador pelo Auditor C); 3 auditorias independentes + verificação cruzada concluídas. Próximo (autorização condicional do operador de 2026-09-09, reafirmada 2026-09-11): push da branch, PR para `release/v3.8.51`, CI, merge, imagem GHCR pelo workflow — sem npm publish, Docker Hub, Release ou deploy.
+- **iteração:** 15
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-12 — gate de boot do standalone criado após o build #6 revelar `ChunkLoadError` causado pela exclusão `**/.build/**`; exclusão removida; build #7 em andamento
-- **último_progresso_real:** 2026-09-12 — C-03/C-04/C-05/C-07/C-11 commitados; X-2 fechado com contexto na assinatura; X-1 fechado com gate real + prune fatal + denylist; auditores A e B verificaram as correções; dz23-subagents MCP indisponível (resultado malformado)
+- **último_heartbeat:** 2026-09-12 — build #8 + gates `standalone-hygiene`/`standalone-boot` PASS + Electron pack #3 PASS (hashes na matriz §5); COMPLETED declarado
+- **último_progresso_real:** 2026-09-12 — artefatos finais provados (standalone boota; `resources/app` sem segredos); Auditor C rodada 2 verificou C-01…C-07 no produto; D-1/D-3/D-4/D-6 corrigidos
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` **real** (`npm ci` — junction removida em 2026-09-11 porque Turbopack e o standalone a recusavam); worktree baseline `../OmniRoute-v3851-baseline` (HEAD inicial, ainda com junction) só para classificar falhas
 
 ## Autorizações (desta missão)
@@ -57,7 +57,7 @@
 
 ## Tarefa atual
 
-Provar os artefatos finais: build #7 (`.build/next-verify`) → `check:standalone-hygiene` → `check:standalone-boot` → Electron pack #3 → gate no `resources/app`; registrar SHA-256 em `TEST_MATRIX.md` §5; receber a verificação do Auditor C (rodada 2); fechar `FINAL_THREE_AGENT_REVIEW.md` §5, `FINAL_REPORT`, `RELEASE_READINESS`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`; COMPLETED → autorização condicional (push da branch, PR para `release/v3.8.51`, CI, GHCR).
+Publicação autorizada (condicional cumprida): `git push origin fix/final-user-readiness` → `gh pr create` para `release/v3.8.51` → acompanhar `quality.yml`/`semgrep.yml` → merge → `docker-publish.yml` (push em `release/v*`) publica `ghcr.io/lmprado-dz23/omniroute` → verificar a imagem no GHCR → registrar evidência aqui e em `RELEASE_READINESS.md`.
 
 ## Tarefas pendentes (ordem do plano)
 
@@ -67,7 +67,7 @@ Provar os artefatos finais: build #7 (`.build/next-verify`) → `check:standalon
 - [x] 15 · Fase 5 (concluída — ver `04`): U6, U7/J13, J2, J17, A1, A2 (onboarding), M1, I1, I3 **concluídos**; restam U5 (29 `confirm()` → `ConfirmModal`), docs pt-BR "primeiro uso em 5 passos", E-5 (snapshot pré-update — ver `ROLLBACK.md` §2.3).
 - [x] 16 · Fase 6 compatibilidade: `npm run test:compat` (instância isolada + mock upstream) 8/8; cancelamento corrigido (R-21). E2E autenticado real contra provedor pago = `BLOCKED_BY_EXTERNAL_DEPENDENCY` (credencial + custo).
 - [~] 17 · Fase 9: `TEST_MATRIX.md` preenchido com exit codes reais (lint 0, tsc ×3 0, unit 37 433/37 822 com 0 regressões após classificação, integration 27/27 falhas idênticas ao baseline, UI/MCP PASS, build 0, build:cli 0, pack-artifact 0, pack-boot 0, audit 0 crit/0 high). Restam: install-upgrade #2, Electron `--dir`, SHA-256.
-- [~] 18 · CANDIDATE_COMPLETED ✔ → 3 auditorias independentes ✔ (A/B/C) → `FINAL_THREE_AGENT_REVIEW.md` ✔ (rascunho) → fix loop **em andamento** (14/18 achados acionáveis corrigidos) → verificação cruzada → COMPLETED → push/PR/GHCR.
+- [x] 18 · CANDIDATE_COMPLETED ✔ → 3 auditorias independentes ✔ → `FINAL_THREE_AGENT_REVIEW.md` ✔ → fix loop ✔ (24 + 12 commits) → verificação cruzada ✔ (A, B, C rodada 2) → **COMPLETED** ✔ → push/PR/GHCR (em execução, seção Publicação).
 - [ ] Entregáveis: `FINAL_REPORT`, `TEST_MATRIX`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`, `RELEASE_READINESS` (`ROLLBACK` ✔).
 
 ## Falhas pré-existentes — situação
@@ -119,7 +119,7 @@ Provar os artefatos finais: build #7 (`.build/next-verify`) → `check:standalon
 ## Processos / portas
 
 - PID **8488** escuta 20128/20131/20132 = instância de teste do operador (NÃO encerrar).
-- Instâncias da missão: nenhuma persistente. Em execução: `_chain8.sh` (build #7 → gates → Electron pack; porta 20444 do gate de boot) e o agente auditor-C2 (porta 20413). Portas 20411–20441 usadas por gates/agentes anteriores estão livres.
+- Instâncias da missão: nenhuma. Portas 20411–20444 livres; nenhum processo da missão em execução (verificado por `netstat` após cada gate).
 
 ## Riscos
 
@@ -129,9 +129,11 @@ Provar os artefatos finais: build #7 (`.build/next-verify`) → `check:standalon
 
 ## Próxima ação
 
-1. Ler `_gate8_hygiene.txt`, `_gate8_boot.txt`, `_hygiene_electron3.txt` → `TEST_MATRIX.md` §3/§5 (SHA-256 do `OmniRoute.exe` e do standalone).
-2. Consolidar a verificação do Auditor C (rodada 2) em `FINAL_THREE_AGENT_REVIEW.md` §5; se surgir HIGH, novo fix loop.
-3. Fechar entregáveis; estado COMPLETED; executar a autorização condicional (push, PR, CI, GHCR) e registrar evidência; nunca npm publish/Docker Hub/deploy.
+1. Restaurar `tsconfig.json` (reformatado pelo `next build`, sem mudança semântica) e confirmar working tree limpa.
+2. `git push -u origin fix/final-user-readiness`; `gh pr create --base release/v3.8.51` com `scratchpad/_pr_body.md`.
+3. Acompanhar checks do PR (`gh pr checks`); corrigir se algo falhar no CI Linux (as suítes Windows-only não são o gate).
+4. Merge do PR (`gh pr merge --merge`) → `docker-publish.yml` no push em `release/v3.8.51` → verificar `ghcr.io/lmprado-dz23/omniroute` publicado (`gh api` / `docker manifest inspect`).
+5. Registrar evidência (URLs do PR, run IDs, digest da imagem) em `RELEASE_READINESS.md` §3 e aqui; atualizar memória.
 
 ## Instruções de retomada
 
