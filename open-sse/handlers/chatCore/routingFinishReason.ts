@@ -7,22 +7,19 @@
 export function routingFinishReason(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
   const record = body as Record<string, unknown>;
-  const choices = record.choices;
-  if (Array.isArray(choices)) {
-    const first = choices[0];
-    if (first && typeof first === "object") {
-      const fr = (first as Record<string, unknown>).finish_reason;
-      if (typeof fr === "string") return fr;
-    }
-  }
-  const output = record.output;
-  if (Array.isArray(output)) {
-    for (const item of output) {
-      if (item && typeof item === "object") {
-        const fr = (item as Record<string, unknown>).finish_reason;
-        if (typeof fr === "string") return fr;
-      }
-    }
+  const fromChoices = finishReasonOf(Array.isArray(record.choices) ? record.choices[0] : null);
+  if (fromChoices !== null) return fromChoices;
+  if (!Array.isArray(record.output)) return null;
+  for (const item of record.output) {
+    const reason = finishReasonOf(item);
+    if (reason !== null) return reason;
   }
   return null;
+}
+
+/** `finish_reason` of one choice/output item when it is a string, else null. */
+function finishReasonOf(item: unknown): string | null {
+  if (!item || typeof item !== "object") return null;
+  const reason = (item as Record<string, unknown>).finish_reason;
+  return typeof reason === "string" ? reason : null;
 }

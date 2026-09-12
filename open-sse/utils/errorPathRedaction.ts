@@ -346,20 +346,8 @@ function findPathExtensionEnd(value: string, dot: number): number {
   if (end === dot + 1 || (end === maxExtensionEnd && isAsciiAlphaNumeric(value.charCodeAt(end)))) {
     return -1;
   }
-  let hasLetter = false;
-  for (let index = dot + 1; index < end; index++) {
-    if (isAsciiLetter(value.charCodeAt(index))) hasLetter = true;
-  }
-  if (!hasLetter) return -1;
-
-  while (value.charCodeAt(end) === 0x3a) {
-    let coordinateEnd = end + 1;
-    if (!isAsciiDigit(value.charCodeAt(coordinateEnd))) break;
-    while (coordinateEnd < value.length && isAsciiDigit(value.charCodeAt(coordinateEnd))) {
-      coordinateEnd++;
-    }
-    end = coordinateEnd;
-  }
+  if (!rangeHasAsciiLetter(value, dot + 1, end)) return -1;
+  end = skipLineColumnCoordinates(value, end);
 
   if (
     end === value.length ||
@@ -369,6 +357,26 @@ function findPathExtensionEnd(value: string, dot: number): number {
     return end;
   }
   return -1;
+}
+
+function rangeHasAsciiLetter(value: string, start: number, end: number): boolean {
+  for (let index = start; index < end; index++) {
+    if (isAsciiLetter(value.charCodeAt(index))) return true;
+  }
+  return false;
+}
+
+/** Advances past the `:line[:column]` coordinate suffixes that follow an extension (`file.ts:42:9`). */
+function skipLineColumnCoordinates(value: string, end: number): number {
+  while (value.charCodeAt(end) === 0x3a) {
+    let coordinateEnd = end + 1;
+    if (!isAsciiDigit(value.charCodeAt(coordinateEnd))) break;
+    while (coordinateEnd < value.length && isAsciiDigit(value.charCodeAt(coordinateEnd))) {
+      coordinateEnd++;
+    }
+    end = coordinateEnd;
+  }
+  return end;
 }
 
 function findTokenEnd(value: string, start: number): number {
@@ -452,34 +460,55 @@ function remainderContainsFilesystemSeparator(value: string, start: number): boo
     const tokenEnd = findTokenEnd(value, tokenStart);
     const token = value.slice(tokenStart, tokenEnd).toLowerCase();
     const isHttpUrl = token.includes("http://") || token.includes("https://");
-    let separatorIndex = tokenStart;
-    while (
+    const separatorIndex = findSeparatorInToken(value, tokenStart, tokenEnd);
+    if (
+      !isHttpUrl &&
       separatorIndex < tokenEnd &&
-      value.charCodeAt(separatorIndex) !== 0x2f &&
-      value.charCodeAt(separatorIndex) !== 0x5c
+      !isShieldedRouteSeparator(value, tokenStart, tokenEnd, separatorIndex, previousToken)
     ) {
-      separatorIndex++;
+      return true;
     }
-    const precedingSeparatorCode =
-      separatorIndex > tokenStart ? value.charCodeAt(separatorIndex - 1) : -1;
-    const contextIndex =
-      precedingSeparatorCode === 0x27 ||
-      precedingSeparatorCode === 0x22 ||
-      precedingSeparatorCode === 0x60
-        ? separatorIndex - 1
-        : separatorIndex;
-    const isShieldedRoute =
-      separatorIndex < tokenEnd &&
-      value.charCodeAt(separatorIndex) === 0x2f &&
-      !isWindowsAbsolutePathAt(value, separatorIndex) &&
-      (isRouteContextToken(previousToken) ||
-        hasRouteContextBefore(value, contextIndex) ||
-        isPublicApiRouteAt(value, separatorIndex));
-    if (!isHttpUrl && separatorIndex < tokenEnd && !isShieldedRoute) return true;
     previousToken = value.slice(tokenStart, tokenEnd);
     tokenStart = tokenEnd;
   }
   return false;
+}
+
+/** Index of the first `/` or `\\` inside the token, or `tokenEnd` when it has none. */
+function findSeparatorInToken(value: string, tokenStart: number, tokenEnd: number): number {
+  let index = tokenStart;
+  while (index < tokenEnd && value.charCodeAt(index) !== 0x2f && value.charCodeAt(index) !== 0x5c) {
+    index++;
+  }
+  return index;
+}
+
+/**
+ * A `/` that reads as an HTTP route rather than a filesystem separator: route context
+ * before it (previous token, or the text before an opening quote) or a public API route.
+ */
+function isShieldedRouteSeparator(
+  value: string,
+  tokenStart: number,
+  tokenEnd: number,
+  separatorIndex: number,
+  previousToken: string
+): boolean {
+  if (separatorIndex >= tokenEnd || value.charCodeAt(separatorIndex) !== 0x2f) return false;
+  if (isWindowsAbsolutePathAt(value, separatorIndex)) return false;
+  const precedingSeparatorCode =
+    separatorIndex > tokenStart ? value.charCodeAt(separatorIndex - 1) : -1;
+  const contextIndex =
+    precedingSeparatorCode === 0x27 ||
+    precedingSeparatorCode === 0x22 ||
+    precedingSeparatorCode === 0x60
+      ? separatorIndex - 1
+      : separatorIndex;
+  return (
+    isRouteContextToken(previousToken) ||
+    hasRouteContextBefore(value, contextIndex) ||
+    isPublicApiRouteAt(value, separatorIndex)
+  );
 }
 
 function trimPathSpanEnd(value: string, start: number, end: number): number {
@@ -495,6 +524,86 @@ function isClearProseBoundaryToken(value: string, start: number, end: number): b
   );
 }
 
+interface UnquotedPathScan {
+  firstTokenEnd: number;
+  firstTrimmedTokenEnd: number;
+  lastPathTokenEnd: number;
+  resolvedExtensionEnd: number;
+  resolvedCoordinateEnd: number;
+  hasFilesystemEvidence: boolean;
+  hasUnresolvedFragments: boolean;
+}
+
+function resolveUnquotedPathEndpoint(
+  scan: UnquotedPathScan,
+  valueLength: number,
+  acceptFirstTokenPunctuation: boolean,
+  failClosedAmbiguity: boolean
+): number {
+  if (scan.hasUnresolvedFragments) {
+    // A coordinate-terminated stack location (`file.ts:42:9`) is a definite
+    // endpoint: prefer it over failing closed so trailing prose such as
+    // "Authorization: Bearer <secret>" is not swallowed into <path> and can
+    // still be redacted independently by the sensitive-text pass.
+    if (scan.resolvedCoordinateEnd >= 0) return scan.resolvedCoordinateEnd;
+    return failClosedAmbiguity || scan.hasFilesystemEvidence ? valueLength : -1;
+  }
+  if (scan.resolvedExtensionEnd >= 0) return scan.resolvedExtensionEnd;
+  if (scan.hasFilesystemEvidence && scan.lastPathTokenEnd >= 0) return scan.lastPathTokenEnd;
+  if (
+    acceptFirstTokenPunctuation &&
+    scan.firstTrimmedTokenEnd >= 0 &&
+    scan.firstTrimmedTokenEnd < scan.firstTokenEnd
+  ) {
+    return scan.firstTrimmedTokenEnd;
+  }
+  return -1;
+}
+
+/** Folds one token's separator / extension / coordinate evidence into the scan state. */
+function noteUnquotedPathToken(
+  scan: UnquotedPathScan,
+  value: string,
+  tokenStart: number,
+  tokenEnd: number,
+  isFirstToken: boolean
+): void {
+  const extensionEnd = findExtensionEndInToken(value, tokenStart, tokenEnd);
+  const trimmedTokenEnd = trimPathSpanEnd(value, tokenStart, tokenEnd);
+  if (isFirstToken) {
+    scan.firstTokenEnd = tokenEnd;
+    scan.firstTrimmedTokenEnd = trimmedTokenEnd;
+    scan.lastPathTokenEnd = trimmedTokenEnd;
+  }
+  const containsSeparator = tokenContainsPathSeparator(value, tokenStart, tokenEnd);
+  const containsExtensionEvidence = tokenContainsPathExtensionEvidence(value, tokenStart, tokenEnd);
+  if (containsSeparator) {
+    scan.lastPathTokenEnd = trimmedTokenEnd;
+    scan.hasFilesystemEvidence = true;
+    scan.hasUnresolvedFragments = false;
+    scan.resolvedExtensionEnd = extensionEnd >= 0 ? extensionEnd : -1;
+    if (extensionEnd < 0 && containsExtensionEvidence) {
+      scan.resolvedExtensionEnd = trimmedTokenEnd;
+    }
+    if (extensionEnd >= 0 && extensionEndHasLineColumnSuffix(value, extensionEnd)) {
+      scan.resolvedCoordinateEnd = extensionEnd;
+    }
+  } else if (extensionEnd >= 0) {
+    scan.resolvedExtensionEnd = extensionEnd;
+    scan.hasFilesystemEvidence = true;
+    scan.hasUnresolvedFragments = false;
+    if (extensionEndHasLineColumnSuffix(value, extensionEnd)) {
+      scan.resolvedCoordinateEnd = extensionEnd;
+    }
+  } else if (containsExtensionEvidence) {
+    scan.resolvedExtensionEnd = trimmedTokenEnd;
+    scan.hasFilesystemEvidence = true;
+    scan.hasUnresolvedFragments = false;
+  } else if (!isFirstToken) {
+    scan.hasUnresolvedFragments = true;
+  }
+}
+
 function findUnquotedPathEnd(
   value: string,
   start: number,
@@ -502,88 +611,39 @@ function findUnquotedPathEnd(
   acceptEndpointBeforeAnotherAbsolute: boolean,
   failClosedAmbiguity: boolean
 ): number {
+  const scan: UnquotedPathScan = {
+    firstTokenEnd: -1,
+    firstTrimmedTokenEnd: -1,
+    lastPathTokenEnd: -1,
+    resolvedExtensionEnd: -1,
+    resolvedCoordinateEnd: -1,
+    hasFilesystemEvidence: false,
+    hasUnresolvedFragments: false,
+  };
+  const resolveEndpoint = (): number =>
+    resolveUnquotedPathEndpoint(
+      scan,
+      value.length,
+      acceptFirstTokenPunctuation,
+      failClosedAmbiguity
+    );
   let tokenStart = start;
   let isFirstToken = true;
-  let firstTokenEnd = -1;
-  let firstTrimmedTokenEnd = -1;
-  let lastPathTokenEnd = -1;
-  let resolvedExtensionEnd = -1;
-  let resolvedCoordinateEnd = -1;
-  let hasFilesystemEvidence = false;
-  let hasUnresolvedFragments = false;
-
-  const resolveEndpoint = (): number => {
-    if (hasUnresolvedFragments) {
-      // A coordinate-terminated stack location (`file.ts:42:9`) is a definite
-      // endpoint: prefer it over failing closed so trailing prose such as
-      // "Authorization: Bearer <secret>" is not swallowed into <path> and can
-      // still be redacted independently by the sensitive-text pass.
-      if (resolvedCoordinateEnd >= 0) return resolvedCoordinateEnd;
-      return failClosedAmbiguity || hasFilesystemEvidence ? value.length : -1;
-    }
-    if (resolvedExtensionEnd >= 0) return resolvedExtensionEnd;
-    if (hasFilesystemEvidence && lastPathTokenEnd >= 0) return lastPathTokenEnd;
-    if (
-      acceptFirstTokenPunctuation &&
-      firstTrimmedTokenEnd >= 0 &&
-      firstTrimmedTokenEnd < firstTokenEnd
-    ) {
-      return firstTrimmedTokenEnd;
-    }
-    return -1;
-  };
 
   while (tokenStart < value.length) {
     const tokenEnd = findTokenEnd(value, tokenStart);
-    const extensionEnd = findExtensionEndInToken(value, tokenStart, tokenEnd);
-    const trimmedTokenEnd = trimPathSpanEnd(value, tokenStart, tokenEnd);
-
-    if (isFirstToken) {
-      firstTokenEnd = tokenEnd;
-      firstTrimmedTokenEnd = trimmedTokenEnd;
-      lastPathTokenEnd = trimmedTokenEnd;
-      // A prose-looking token may itself be a directory name. It is a safe
-      // boundary only when no later token carries path-separator evidence;
-      // otherwise keep scanning so a filesystem suffix cannot survive.
-    } else if (
+    // A prose-looking token may itself be a directory name. It is a safe
+    // boundary only when no later token carries path-separator evidence;
+    // otherwise keep scanning so a filesystem suffix cannot survive.
+    if (
+      !isFirstToken &&
       isClearProseBoundaryToken(value, tokenStart, tokenEnd) &&
       (!remainderContainsFilesystemSeparator(value, tokenEnd) ||
-        (!failClosedAmbiguity && !hasFilesystemEvidence))
+        (!failClosedAmbiguity && !scan.hasFilesystemEvidence))
     ) {
       return resolveEndpoint();
     }
-
-    const containsSeparator = tokenContainsPathSeparator(value, tokenStart, tokenEnd);
-    const containsExtensionEvidence = tokenContainsPathExtensionEvidence(
-      value,
-      tokenStart,
-      tokenEnd
-    );
-    if (containsSeparator) {
-      lastPathTokenEnd = trimmedTokenEnd;
-      hasFilesystemEvidence = true;
-      hasUnresolvedFragments = false;
-      resolvedExtensionEnd = extensionEnd >= 0 ? extensionEnd : -1;
-      if (extensionEnd < 0 && containsExtensionEvidence) {
-        resolvedExtensionEnd = trimmedTokenEnd;
-      }
-      if (extensionEnd >= 0 && extensionEndHasLineColumnSuffix(value, extensionEnd)) {
-        resolvedCoordinateEnd = extensionEnd;
-      }
-    } else if (extensionEnd >= 0) {
-      resolvedExtensionEnd = extensionEnd;
-      hasFilesystemEvidence = true;
-      hasUnresolvedFragments = false;
-      if (extensionEndHasLineColumnSuffix(value, extensionEnd)) {
-        resolvedCoordinateEnd = extensionEnd;
-      }
-    } else if (containsExtensionEvidence) {
-      resolvedExtensionEnd = trimmedTokenEnd;
-      hasFilesystemEvidence = true;
-      hasUnresolvedFragments = false;
-    } else if (!isFirstToken) {
-      hasUnresolvedFragments = true;
-    }
+    noteUnquotedPathToken(scan, value, tokenStart, tokenEnd, isFirstToken);
 
     let nextTokenStart = tokenEnd;
     while (nextTokenStart < value.length && isWhitespace(value[nextTokenStart])) nextTokenStart++;
@@ -591,7 +651,7 @@ function findUnquotedPathEnd(
     if (isSyntacticallyAbsolutePathAt(value, nextTokenStart)) {
       const endpoint = resolveEndpoint();
       if (endpoint >= 0) return endpoint;
-      return acceptEndpointBeforeAnotherAbsolute ? lastPathTokenEnd : -1;
+      return acceptEndpointBeforeAnotherAbsolute ? scan.lastPathTokenEnd : -1;
     }
 
     tokenStart = nextTokenStart;
