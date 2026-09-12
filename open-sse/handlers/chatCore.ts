@@ -1260,6 +1260,7 @@ export async function handleChatCore({
     apiKeyId: apiKeyInfo?.id ?? undefined,
     cacheDefaultMode: (apiKeyInfo as { cacheDefaultMode?: "legacy" | "bypass" } | null)
       ?.cacheDefaultMode,
+    sourceFormat,
   });
   if (cacheHit) {
     return cacheHit;
@@ -5363,6 +5364,7 @@ export async function handleChatCore({
       apiKeyId: apiKeyInfo?.id ?? undefined,
       usage,
       log,
+      sourceFormat,
     });
 
     // ── Phase 9.2: Save for idempotency ──
@@ -5824,6 +5826,7 @@ export async function handleChatCore({
       apiKeyId: apiKeyInfo?.id ?? undefined,
       streamUsage,
       log,
+      sourceFormat,
     });
 
     // Plugin onStreamComplete hook — fire-and-forget, fail-open (#9571)

@@ -1,8 +1,4 @@
-import {
-  generateSignature,
-  getCachedResponse,
-  isCacheableForRead,
-} from "@/lib/semanticCache";
+import { generateSignature, getCachedResponse, isCacheableForRead } from "@/lib/semanticCache";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { trackPendingRequest } from "@/lib/usageDb";
 import { synthesizeOpenAiSseFromJson } from "../../utils/jsonToSse.ts";
@@ -25,6 +21,7 @@ export async function checkSemanticCache({
   persistAttemptLogs,
   apiKeyId,
   cacheDefaultMode,
+  sourceFormat,
 }: {
   semanticCacheEnabled: boolean;
   // Only the fields this read path actually touches are named; everything else
@@ -42,6 +39,8 @@ export async function checkSemanticCache({
   persistAttemptLogs: (args: unknown) => void;
   apiKeyId?: string | null;
   cacheDefaultMode?: "legacy" | "bypass" | null;
+  /** Client wire format — the cached body is only valid for the same format. */
+  sourceFormat?: string;
 }) {
   // Per-key bypass: skip cache lookup entirely when the API key opts out.
   if (cacheDefaultMode === "bypass") return null;
@@ -51,7 +50,8 @@ export async function checkSemanticCache({
       body.messages ?? body.input,
       body.temperature,
       body.top_p,
-      apiKeyId ?? undefined
+      apiKeyId ?? undefined,
+      sourceFormat
     );
     const cached = getCachedResponse(signature);
     if (cached) {

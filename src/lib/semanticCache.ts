@@ -144,6 +144,11 @@ export function clearMemoryCache(): void {
  * @param {number} temperature
  * @param {number} topP
  * @param {string} [apiKeyId] - API key ID for per-key isolation (prevents cross-user cache hits)
+ * @param {string} [clientFormat] - wire format the CLIENT speaks ("openai", "claude",
+ *   "openai-responses", …). The cache stores the response already translated to the
+ *   client's format, so a hit is only valid for a client of the SAME format: without this
+ *   a /v1/messages (Anthropic-shaped) body was served to a /v1/responses client with the
+ *   same prompt (found by the real-provider E2E). Omitted = "openai" (chat completions).
  * @returns {string} hex signature
  */
 export function generateSignature(
@@ -151,13 +156,15 @@ export function generateSignature(
   conversation,
   temperature = 0,
   topP = 1,
-  apiKeyId?: string
+  apiKeyId?: string,
+  clientFormat?: string
 ) {
   const payload = JSON.stringify({
     model,
     messages: normalizeConversation(conversation),
     temperature,
     top_p: topP,
+    format: clientFormat || DEFAULT_CLIENT_FORMAT,
   });
   const digest = crypto.createHash("sha256").update(payload).digest("hex");
   // Per-key cache isolation (#3740) namespaces the signature with the apiKeyId as a
@@ -169,6 +176,9 @@ export function generateSignature(
   // CodeQL js/insufficient-password-hash on a cache signature.
   return apiKeyId ? `${apiKeyId}.${digest}` : digest;
 }
+
+/** Chat Completions is the historical default client format of the cache. */
+export const DEFAULT_CLIENT_FORMAT = "openai";
 
 function stringifyForSignature(value: unknown): string {
   if (typeof value === "string") return value;
