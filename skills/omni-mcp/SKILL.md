@@ -38,26 +38,34 @@ Run the MCP Review Gate on a candidate
 
 Evaluates one MCP server/package candidate with the deterministic MCP Review Gate
 (discover → quarantine → verify → review → approve → install → enable). The body
-accepts ONLY `candidate` — there is no `prior` field. The underlying engine can compare
-a candidate to a prior approval to detect broadened permissions or carry an approval
-forward, but no endpoint or table persists MCP approvals yet, so accepting a
-caller-supplied prior would let the caller's own claim of a past approval bypass the
-gate it exists to enforce. Until that store exists, every candidate is fail-closed:
-it is always evaluated as new.
+accepts ONLY `candidate` — there is no `prior` field: a caller-supplied prior would let
+the caller assert its own past approval and bypass the gate it exists to enforce.
+
+The prior approval is server-side state. It is loaded from the MCP approval store —
+written only by `POST /api/mcp/review/approve` and revoked by
+`POST /api/mcp/review/revoke` — keyed by the candidate's exact `name` + `source` within
+the tenant. No approval, or a revoked one, means the candidate is evaluated as new.
 
 The verdict is decided by code, not by a model. Permission comparisons are
 case-insensitive (each permission is trimmed and lowercased before matching):
 
 - flagged malicious, or requesting a forbidden permission (`secrets:exfiltrate`,
-  `billing:write`, `keys:read`, matched case-insensitively) → `denied`.
-- otherwise → `review_required` (every candidate takes this branch today, since there is
-  never a prior); `reasons` also flags sensitive permissions (`fs:write`, `fs:delete`,
-  `shell:exec`, `process:spawn`, `net:listen`, `secrets:read`) when present, and
-  `newlyRequested` echoes every declared permission, normalized.
+  `billing:write`, `keys:read`, matched case-insensitively) → `denied`, even when an
+  approval is stored.
+- no active approval → `review_required`; `reasons` also flags sensitive permissions
+  (`fs:write`, `fs:delete`, `shell:exec`, `process:spawn`, `net:listen`,
+  `secrets:read`) when present, and `newlyRequested` echoes every declared permission,
+  normalized.
+- active approval, but the candidate declares a permission the approval did not cover →
+  `review_required`, with exactly those permissions in `newlyRequested`.
+- active approval, no broadened permission, but `publisherVerified` is not explicitly
+  `true` → `review_required` (a missing verification counts as not verified).
+- active approval, no broadened permission and `publisherVerified: true` → `approved`.
+  A different `version` alone does not force re-review.
 
-`state` can in principle also be `approved` (or the read-only pipeline states
-`discovered`/`quarantined`/`verified`) — the engine's full vocabulary — but only
-`denied` and `review_required` are reachable through this route today.
+`state` can in principle also be one of the read-only pipeline states
+`discovered`/`quarantined`/`verified` — the engine's full vocabulary — but only
+`denied`, `review_required` and `approved` are reachable through this route.
 
 Loopback-only by default, like the rest of `/api/mcp/*`: a non-loopback caller is
 accepted only with a manage/admin-scoped API key or an authenticated dashboard session.
@@ -67,6 +75,70 @@ requires `admin` scope. Answers `404` while `MCP_REVIEW_ENABLED` is off.
 
 ```bash
 curl -X POST https://localhost:20128/api/mcp/review \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### POST /api/mcp/review/approve
+
+Record a human approval for an MCP candidate
+
+Records the current human approval for one MCP server/package, keyed by the candidate's
+`name` + `source` within the tenant. This is the only writer of the approval store that
+`POST /api/mcp/review` reads its prior approval from. Approving again replaces the
+stored approval (version, permissions, publisher flag, approver, timestamp) and clears
+any revocation.
+
+Approval cannot override the gate: the submitted candidate is evaluated first, and when
+the verdict is `denied` (flagged malicious, or a forbidden permission such as
+`keys:read`, matched case-insensitively) nothing is stored and the route answers `422`
+with `error.details.code: MCP_REVIEW_DENIED`. A human can release what requires review,
+not what the code forbids — and a forbidden permission added to a candidate later is
+still `denied` by `POST /api/mcp/review` despite the stored approval.
+
+Permissions are stored normalized: trimmed, lowercased, de-duplicated and sorted.
+`approvedBy` is `<auth kind>:<subject id>` taken from the subject the authz pipeline
+stamps on the request after authenticating it (an API key id, an access token id, or
+`dashboard`) — never a credential value. A call that did not pass through that pipeline
+carries no subject and is recorded as `management:unattributed`.
+
+The response `verdict` is the gate re-run against the approval just stored: `approved`
+when `publisherVerified` is `true`, otherwise still `review_required` (a later review
+carries the approval only once the publisher is explicitly verified).
+
+Loopback-only by default, like the rest of `/api/mcp/*`. Requires management
+authentication; on the access-token credential path it requires `admin` scope (every
+method under `/api/mcp`). Answers `404` while `MCP_REVIEW_ENABLED` is off.
+
+
+```bash
+curl -X POST https://localhost:20128/api/mcp/review/approve \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### POST /api/mcp/review/revoke
+
+Revoke the active approval of an MCP server
+
+Revokes the active approval for `name` + `source` within the tenant. Afterwards
+`POST /api/mcp/review` evaluates that candidate as new again (`review_required`). The
+stored row is not deleted: it keeps `revoked_at`/`revoked_by` until a new approval
+replaces it. The revoker is attributed the same way as `approvedBy`.
+
+This is a `POST` on a sub-resource rather than a `DELETE` with a body, because many
+clients and proxies drop DELETE bodies and the server identity (`name` + `source`,
+where `source` may be a URL) does not fit a path segment.
+
+Loopback-only by default, like the rest of `/api/mcp/*`. Requires management
+authentication; on the access-token credential path it requires `admin` scope (every
+method under `/api/mcp`). Answers `404` while `MCP_REVIEW_ENABLED` is off.
+
+
+```bash
+curl -X POST https://localhost:20128/api/mcp/review/revoke \
   -H "Authorization: Bearer $OMNIROUTE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{}'
