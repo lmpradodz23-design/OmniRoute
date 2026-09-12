@@ -64,6 +64,33 @@ Verificação do caminho "from source" executada nesta máquina sobre `release/v
 
 Continua **fora da autorização** e como decisão do operador: `:latest`, as tags `:X.Y.Z` e os instaladores de desktop exigem a tag git `v3.8.51`, que dispara `electron-release.yml` — e nele a perna `publish-npm` roda em push de tag (`github.event_name != 'workflow_dispatch'`), ou seja, **tagear tentaria publicar no npm**, ação proibida. Os instaladores gerados seriam **sem assinatura** (E-4).
 
+### 3.2 Fase 2 integrada (2026-09-12)
+
+**PR #13 mesclado** (`fa7047ca1`, 14/14 checks verdes no HEAD `1ed8bbeef`) — MCP review gate,
+Browser Guard, AG-UI, OTel-lite, reconhecedores brasileiros de CEP e chave PIX, e duas correções
+no fluxo de OAuth. Transplante seletivo de `superpowers-on-v3.8.51`: 18 arquivos novos menos um,
+três flags aditivas, e nenhuma das reversões que aquela branch carregava (identidade do fork,
+rebaixamento do `hono`, remoção de gates). Auditoria adversarial em `audit/FASE2_REVIEW.md`:
+veredito inicial **REPROVADO**, todos os achados corrigidos na causa raiz com teste de regressão.
+
+**PRs #1 e #2 fechados como obsoletos.** Nenhum PR aberto no repositório.
+
+**Imagem republicada** pela run **34704223078** sobre `fa7047ca1`, com o teste de boot passando
+(`/healthz` respondeu; `GET /v1/models` devolveu 401 sem credencial):
+
+- `ghcr.io/lmprado-dz23/omniroute:next` — índice OCI `sha256:ed13e0af270179e12e3a97d6cbe83446ad6ea5d79ad780ee4efb0d5b7be91657`
+- `org.opencontainers.image.revision` = `fa7047ca16ca884f79df94242fa5c2fe5e3e60d4` em linux/amd64 e linux/arm64
+
+**Ciclo de correção desta etapa:** a auditoria reprovou o código como veio, e depois o CI apontou
+mais cinco defeitos que a própria integração introduziu — SQL cru num handler de rota, um byte NUL
+literal num arquivo-fonte, duas regressões de complexidade, uma skill gerada desatualizada e um
+export sem chamador. Todos corrigidos; nenhum contornado.
+
+**Trava de npm:** o PR #11 (`f9ade6f17`) tornou a perna `publish-npm` do `electron-release.yml`
+opt-in por `ENABLE_NPM_PUBLISH`, desligada por padrão. Antes disso uma tag `v3.8.51` tentaria
+publicar de verdade no pacote `omniroute`, que pertence ao upstream: `npm view omniroute@3.8.51`
+é 404 (o upstream está no 3.8.50), então o freio de "versão já publicada" não seguraria.
+
 4. npm: `npm-publish.yml` (gate `repository.url` = fork) — **somente** com autorização explícita adicional.
 5. Electron: build sem assinatura só para smoke interno; instaladores públicos exigem E-4.
 6. Rollback: `audit/ROLLBACK.md` (npm/Docker/Electron/código-fonte + banco).
