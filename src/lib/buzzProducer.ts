@@ -5,11 +5,15 @@
  * uma notificação DURÁVEL no outbox do Buzz. Idempotente (id derivado do run+status+seq), aditivo e
  * best-effort: uma falha do Buzz NUNCA quebra o Loop. Nada conecta aqui — a publicação real fica no
  * flush (gated por BUZZ_HUB_ENABLED). A chave Nostr nunca autoriza ação; isto é só sinalização.
+ *
+ * Enfileirar NÃO cria a identidade Nostr do agente (auditoria B-L2): o `pubkey` gravado é o da
+ * identidade existente ou vazio — a publicação RE-ASSINA o evento com a chave do agente, logo a
+ * autoria de saída é atribuída no publish, não aqui.
  */
-import { getPublicKey, type BuzzEvent } from "@omniroute/open-sse/buzz-bridge/index.ts";
+import type { BuzzEvent } from "@omniroute/open-sse/buzz-bridge/index.ts";
 
 import { enqueueOutbox } from "./db/buzzBridge";
-import { getOrCreateAgentSecretKey } from "./buzzService";
+import { getAgentPubkey } from "./buzzService";
 
 export interface LoopNotice {
   runId: string;
@@ -17,6 +21,15 @@ export interface LoopNotice {
   pattern: string;
   sequenceNumber: number;
   tenantId?: string;
+}
+
+/** Pubkey existente do agente, sem criar identidade nem propagar erro de decifragem. */
+function existingAgentPubkey(): string {
+  try {
+    return getAgentPubkey() ?? "";
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -28,7 +41,7 @@ export function notifyLoopEvent(notice: LoopNotice): boolean {
     const event: BuzzEvent = {
       // id estável → dedup no enqueue (mesma transição não vira dois eventos).
       id: `loop:${notice.runId}:${notice.status}:${notice.sequenceNumber}`,
-      pubkey: getPublicKey(getOrCreateAgentSecretKey()),
+      pubkey: existingAgentPubkey(),
       kind: 1,
       createdAt: 0, // o enqueue carimba um createdAt estável
       tags: [

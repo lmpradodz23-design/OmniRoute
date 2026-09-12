@@ -1,13 +1,24 @@
 /**
- * Repositório do Buzz Bridge — persistência do outbox/inbox (tabelas da migração 175).
+ * Repositório do Buzz Bridge — persistência do outbox/inbox (migrações 175 + 176).
  *
  * Torna a ponte funcional mesmo com o relay AUSENTE: os eventos de saída ficam duráveis no
  * outbox até haver relay + flag ON; os de entrada são deduplicados no inbox. Idempotente.
+ *
+ * Retry (auditoria A-H3): uma entrada `failed` volta a ser elegível depois de um backoff
+ * exponencial com jitter (`next_attempt_at`), até OUTBOX_MAX_ATTEMPTS; a partir daí fica
+ * `failed` em definitivo (visível no painel como falha), sem novas tentativas automáticas.
  */
 import type { BuzzEvent, InboxEntry, OutboxEntry } from "@omniroute/open-sse/buzz-bridge/index.ts";
 
 import { getDbInstance } from "./core";
 import { DEFAULT_TENANT } from "./loopEngine";
+
+/** Tentativas totais (1 inicial + 4 retentativas) antes de uma entrada ficar `failed` definitiva. */
+export const OUTBOX_MAX_ATTEMPTS = 5;
+/** Backoff base (1ª retentativa ≈ 30 s), dobrando a cada falha até o teto. */
+export const OUTBOX_RETRY_BASE_MS = 30_000;
+/** Teto do backoff (30 min). */
+export const OUTBOX_RETRY_MAX_MS = 30 * 60_000;
 
 interface OutboxRow {
   id: string;
@@ -18,6 +29,32 @@ interface OutboxRow {
   event_json: string;
   status: string;
   attempts: number;
+  next_attempt_at: string | null;
+}
+
+function toEntry(row: OutboxRow): OutboxEntry {
+  return {
+    id: row.id,
+    correlationId: row.correlation_id,
+    sequenceNumber: row.sequence_number,
+    taskId: row.task_id ?? undefined,
+    runId: row.run_id ?? undefined,
+    event: JSON.parse(row.event_json),
+    status: row.status as OutboxEntry["status"],
+    attempts: row.attempts,
+    nextAttemptAt: row.next_attempt_at ?? null,
+  };
+}
+
+/**
+ * Atraso até a próxima tentativa após `attempts` falhas: exponencial (base × 2^(n−1)) com
+ * jitter de ±25 % e teto. `random` é injetável para testes determinísticos.
+ */
+export function outboxRetryDelayMs(attempts: number, random: () => number = Math.random): number {
+  const exponent = Math.max(0, Math.min(attempts - 1, 30));
+  const exponential = Math.min(OUTBOX_RETRY_MAX_MS, OUTBOX_RETRY_BASE_MS * 2 ** exponent);
+  const jitter = 0.75 + random() * 0.5;
+  return Math.round(Math.min(OUTBOX_RETRY_MAX_MS, exponential * jitter));
 }
 
 /** Enfileira um evento de saída (idempotente por event.id). Retorna a entrada. Escopado por tenant. */
@@ -60,44 +97,54 @@ export function enqueueOutbox(params: {
   const row = db
     .prepare("SELECT * FROM buzz_outbox WHERE id = ?")
     .get(params.event.id) as OutboxRow;
-  return {
-    id: row.id,
-    correlationId: row.correlation_id,
-    sequenceNumber: row.sequence_number,
-    taskId: row.task_id ?? undefined,
-    runId: row.run_id ?? undefined,
-    event: JSON.parse(row.event_json),
-    status: row.status as OutboxEntry["status"],
-    attempts: row.attempts,
-  };
+  return toEntry(row);
 }
 
-/** Entradas pendentes do outbox do tenant, em ordem de sequência (entrega ordenada). */
-export function pendingOutbox(limit = 100, tenantId: string = DEFAULT_TENANT): OutboxEntry[] {
+/**
+ * Entradas elegíveis para publicação no tenant, em ordem de sequência (entrega ordenada):
+ * `pending`, mais as `failed` com tentativas restantes cujo backoff já venceu em `now`.
+ */
+export function pendingOutbox(
+  limit = 100,
+  tenantId: string = DEFAULT_TENANT,
+  now: number = Date.now()
+): OutboxEntry[] {
   const rows = getDbInstance()
     .prepare(
-      "SELECT * FROM buzz_outbox WHERE tenant_id = ? AND status = 'pending' ORDER BY sequence_number LIMIT ?"
+      `SELECT * FROM buzz_outbox
+       WHERE tenant_id = ?
+         AND (status = 'pending'
+              OR (status = 'failed' AND attempts < ?
+                  AND (next_attempt_at IS NULL OR next_attempt_at <= ?)))
+       ORDER BY sequence_number LIMIT ?`
     )
-    .all(tenantId, limit) as OutboxRow[];
-  return rows.map((row) => ({
-    id: row.id,
-    correlationId: row.correlation_id,
-    sequenceNumber: row.sequence_number,
-    taskId: row.task_id ?? undefined,
-    runId: row.run_id ?? undefined,
-    event: JSON.parse(row.event_json),
-    status: row.status as OutboxEntry["status"],
-    attempts: row.attempts,
-  }));
+    .all(tenantId, OUTBOX_MAX_ATTEMPTS, new Date(now).toISOString(), limit) as OutboxRow[];
+  return rows.map(toEntry);
 }
 
-export function markOutbox(id: string, status: "published" | "failed"): void {
+/**
+ * Marca o resultado de uma tentativa. `failed` incrementa `attempts` e agenda `next_attempt_at`
+ * com backoff exponencial + jitter a partir de `now` (injetável para testes).
+ */
+export function markOutbox(
+  id: string,
+  status: "published" | "failed",
+  now: number = Date.now()
+): void {
   const db = getDbInstance();
-  if (status === "failed") {
-    db.prepare("UPDATE buzz_outbox SET status='failed', attempts=attempts+1 WHERE id=?").run(id);
-  } else {
-    db.prepare("UPDATE buzz_outbox SET status='published' WHERE id=?").run(id);
+  if (status === "published") {
+    db.prepare("UPDATE buzz_outbox SET status='published', next_attempt_at=NULL WHERE id=?").run(
+      id
+    );
+    return;
   }
+  const current = db.prepare("SELECT attempts FROM buzz_outbox WHERE id = ?").get(id) as
+    { attempts: number } | undefined;
+  const attempts = (current?.attempts ?? 0) + 1;
+  const nextAttemptAt = new Date(now + outboxRetryDelayMs(attempts)).toISOString();
+  db.prepare(
+    "UPDATE buzz_outbox SET status='failed', attempts=?, next_attempt_at=? WHERE id=?"
+  ).run(attempts, nextAttemptAt, id);
 }
 
 export interface BuzzCounts {
