@@ -6,7 +6,9 @@
  * fonte única de verdade APENAS de canais, conversas, membros e eventos colaborativos.
  *
  * O OmniRoute permanece plano de controle e dono das políticas. Regras não-negociáveis:
- *  - Uma chave Nostr (`buzz_pubkey`) NÃO autoriza nenhuma ação no OmniRoute.
+ *  - Uma chave Nostr (`buzz_pubkey`) NÃO autoriza nenhuma ação no OmniRoute. O consumidor
+ *    (src/lib/buzzConsumer.ts) apenas deduplica e ARMAZENA eventos verificados; a decisão
+ *    de qualquer efeito é do Policy Engine, fora desta ponte.
  *  - Toda ponte é idempotente (outbox/inbox, sequence_number, correlation_id, dedup).
  *  - Não criar dupla fonte de verdade: estado de tarefas/runs/aprovações vive no OmniRoute.
  *
@@ -28,15 +30,6 @@ export interface BuzzEvent {
   readonly sig?: string;
 }
 
-/** Mapeamento de identidade — o OmniRoute é dono; buzz_pubkey é só um atributo. */
-export interface BuzzIdentityMapping {
-  readonly tenantId: string;
-  readonly workspaceId: string;
-  readonly userId?: string;
-  readonly agentId?: string;
-  readonly buzzPubkey: string;
-}
-
 /** Entrada de saída (OmniRoute → Buzz), aguardando publicação idempotente no relay. */
 export interface OutboxEntry {
   readonly id: string; // id lógico local (dedup)
@@ -47,6 +40,8 @@ export interface OutboxEntry {
   readonly event: BuzzEvent;
   status: "pending" | "published" | "failed";
   attempts: number;
+  /** ISO timestamp antes do qual uma entrada `failed` não é retentada (backoff). */
+  readonly nextAttemptAt?: string | null;
 }
 
 /** Entrada de entrada (Buzz → OmniRoute), aguardando processamento idempotente. */
@@ -59,8 +54,8 @@ export interface InboxEntry {
 
 /**
  * Contrato do adaptador tipado. NÃO há chamadas ao relay espalhadas pelo código —
- * tudo passa por esta interface. Implementações: DisabledBuzzAdapter (flag OFF) e,
- * futuramente, WebSocketBuzzAdapter (quando o relay rodar + flag ON).
+ * tudo passa por esta interface. Implementações: DisabledBuzzAdapter (flag OFF / sem relay)
+ * e WebSocketBuzzAdapter (relay real, flag ON).
  */
 export interface BuzzAdapter {
   readonly enabled: boolean;

@@ -32,6 +32,9 @@ export const SENSITIVE_COLUMNS: readonly SensitiveColumnSet[] = [
   { table: "webhooks", columns: ["secret"] },
   { table: "cloud_agent_credentials", columns: ["api_key_encrypted"] },
   { table: "key_value", columns: ["value"], where: "namespace = 'secrets'" },
+  // Buzz agent Nostr secret key (src/lib/buzzService.ts). Only the secret row: the sibling
+  // `relay_url` row in the same namespace is non-secret configuration.
+  { table: "key_value", columns: ["value"], where: "namespace = 'buzz' AND key = 'agent_sk'" },
 ];
 
 type ScanDb = { prepare: (sql: string) => { all: (...params: unknown[]) => unknown[] } };

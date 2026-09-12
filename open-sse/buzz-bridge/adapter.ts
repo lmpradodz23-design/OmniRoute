@@ -1,17 +1,11 @@
 /**
- * Buzz Bridge — adaptador desabilitado + guarda de autorização.
+ * Buzz Bridge — adaptador desabilitado.
  *
- * Enquanto a flag `buzz_hub` estiver OFF (ou o relay não estiver rodando), usamos o
+ * Enquanto a flag `buzz_hub` estiver OFF (ou nenhum relay válido estiver configurado), usamos o
  * DisabledBuzzAdapter: ele NÃO conecta e NÃO publica — só reporta que está inerte. As
- * entradas ficam no outbox até haver relay + flag ON e o WebSocketBuzzAdapter (futuro).
+ * entradas ficam no outbox até haver relay + flag ON e o WebSocketBuzzAdapter assumir.
  */
-import type {
-  BuzzAdapter,
-  BuzzEvent,
-  BuzzIdentityMapping,
-  BuzzSubscriptionFilter,
-  OutboxEntry,
-} from "./types.ts";
+import type { BuzzAdapter, BuzzEvent, BuzzSubscriptionFilter, OutboxEntry } from "./types.ts";
 
 export class DisabledBuzzAdapter implements BuzzAdapter {
   readonly enabled = false;
@@ -30,26 +24,4 @@ export class DisabledBuzzAdapter implements BuzzAdapter {
   async close(): Promise<void> {
     /* inerte */
   }
-}
-
-/**
- * Regra de segurança inegociável: uma chave Nostr (buzz_pubkey) NUNCA autoriza, por si só,
- * uma ação no OmniRoute. A autorização real vem SEMPRE das políticas/aprovações do OmniRoute
- * para o (tenant, workspace, user/agent) mapeado — nunca do fato de o evento estar assinado.
- *
- * Esta função é deliberadamente fail-closed: ela apenas confirma que existe um mapeamento
- * de identidade; a decisão de permitir o efeito é do Policy Engine, fora daqui.
- */
-export function buzzIdentityIsMapped(
-  mapping: BuzzIdentityMapping | undefined,
-  buzzPubkey: string
-): boolean {
-  if (!mapping) return false;
-  if (!mapping.buzzPubkey || mapping.buzzPubkey !== buzzPubkey) return false;
-  return Boolean(mapping.tenantId && mapping.workspaceId);
-}
-
-/** Uma chave Nostr, sozinha, jamais autoriza. Documenta a regra em código executável. */
-export function nostrKeyAuthorizes(): false {
-  return false;
 }

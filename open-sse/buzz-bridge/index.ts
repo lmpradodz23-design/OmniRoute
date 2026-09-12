@@ -3,10 +3,10 @@
  *
  * Buzz é serviço SEPARADO (relay Nostr). Este módulo é a ponte tipada + idempotente; nada
  * conecta enquanto desabilitado. Configuração e controle ficam no PAINEL ÚNICO do OmniRoute.
+ * A persistência do outbox/inbox vive em src/lib/db/buzzBridge.ts (não há fila in-memory).
  */
 export * from "./types.ts";
-export { Outbox, Inbox } from "./outbox.ts";
-export { DisabledBuzzAdapter, buzzIdentityIsMapped, nostrKeyAuthorizes } from "./adapter.ts";
+export { DisabledBuzzAdapter } from "./adapter.ts";
 export {
   finalizeEvent,
   verifyEvent,
@@ -15,7 +15,25 @@ export {
   type SignedNostrEvent,
   type UnsignedNostrEvent,
 } from "./nostr.ts";
-export { WebSocketBuzzAdapter, type WebSocketBuzzConfig } from "./wsAdapter.ts";
+export {
+  validateBuzzRelayUrl,
+  type BuzzRelayUrlCheck,
+  type BuzzRelayUrlErrorCode,
+} from "./relayUrl.ts";
+export {
+  isWellFormedRelayEvent,
+  MAX_EVENT_CONTENT_BYTES,
+  MAX_EVENT_TAGS,
+  MAX_RELAY_FRAME_BYTES,
+  MAX_TAG_ITEM_CHARS,
+  MAX_TAG_ITEMS,
+} from "./eventShape.ts";
+export {
+  DEFAULT_BUZZ_AUTH_TIMEOUT_MS,
+  DEFAULT_BUZZ_TIMEOUT_MS,
+  WebSocketBuzzAdapter,
+  type WebSocketBuzzConfig,
+} from "./wsAdapter.ts";
 
 import { DisabledBuzzAdapter } from "./adapter.ts";
 import type { BuzzAdapter } from "./types.ts";

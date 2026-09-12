@@ -3,12 +3,38 @@
  * contagens do outbox/inbox. NUNCA expõe a chave secreta. Leitura local (não conecta ao relay).
  *
  * Autenticado (management). Ao contrário do Loop, o status É legível mesmo com a flag OFF —
- * para o painel poder mostrar "desligado" e orientar a ativação. Nada conecta enquanto OFF.
+ * para o painel poder mostrar "desligado" e orientar a ativação. Com a flag OFF a leitura não
+ * cria nem persiste a identidade Nostr (auditoria B-L2); com a flag ON a leitura ativa o hub.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+import {
+  validateBuzzRelayUrl,
+  type BuzzRelayUrlErrorCode,
+} from "@omniroute/open-sse/buzz-bridge/index.ts";
 
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { getBuzzStatus, setBuzzRelayUrl } from "@/lib/buzzService";
+import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+
+// Body of PUT /api/buzz. Shape validated here (T06 route-validation gate); the URL itself
+// goes through validateBuzzRelayUrl (scheme, no credentials, no private/metadata hosts).
+const relayBodySchema = z.strictObject({ relayUrl: z.string().max(2048) });
+
+/**
+ * Corpo de erro tipado das rotas do Buzz. `error` é uma string (o painel exibe `d.error`
+ * diretamente) e `code` é estável para clientes programáticos. Nunca ecoa a URL enviada.
+ */
+export interface BuzzApiErrorBody {
+  error: string;
+  code: BuzzRelayUrlErrorCode | "invalid_body";
+}
+
+function badRequest(code: BuzzApiErrorBody["code"], error: string): Response {
+  const body: BuzzApiErrorBody = { error, code };
+  return NextResponse.json(body, { status: 400 });
+}
 
 export async function GET(req: NextRequest): Promise<Response> {
   const auth = await requireManagementAuth(req);
@@ -21,23 +47,21 @@ export async function GET(req: NextRequest): Promise<Response> {
  *
  * INTENCIONALMENTE não é gated por BUZZ_HUB_ENABLED (diferente de /flush): é configuração
  * (não-secreta, admin-only) que o operador ajusta ANTES de ligar a flag. Nada conecta aqui —
- * a conexão só ocorre no flush, que é gated. O alvo é local por design (default ws://localhost:3000);
- * apontar para um host interno exige management-auth (o admin já controla o host).
+ * a conexão só ocorre no flush/consumidor, que são gated. A URL passa por `validateBuzzRelayUrl`
+ * (auditoria B-M2): sem credenciais/query/fragment, metadata sempre bloqueada, hosts privados
+ * bloqueados salvo loopback, wss:// obrigatório fora de loopback. String vazia limpa o override.
  */
 export async function PUT(req: NextRequest): Promise<Response> {
   const auth = await requireManagementAuth(req);
   if (auth) return auth;
-  const body = (await req.json().catch(() => ({}))) as { relayUrl?: unknown };
-  if (typeof body.relayUrl !== "string") {
-    return NextResponse.json({ error: "relayUrl (string) is required" }, { status: 400 });
+  const validation = validateBody(relayBodySchema, await req.json().catch(() => ({})));
+  if (isValidationFailure(validation)) {
+    return badRequest("invalid_body", "relayUrl (string, max 2048 chars) is required");
   }
-  const trimmed = body.relayUrl.trim();
-  // Aceita ws:// ou wss:// (ou vazio para limpar o override). Evita URLs inválidas no relay.
-  if (trimmed && !/^wss?:\/\//i.test(trimmed)) {
-    return NextResponse.json(
-      { error: "relayUrl must start with ws:// or wss://" },
-      { status: 400 }
-    );
+  const trimmed = validation.data.relayUrl.trim();
+  if (trimmed) {
+    const check = validateBuzzRelayUrl(trimmed);
+    if (check.ok === false) return badRequest(check.code, check.message);
   }
   setBuzzRelayUrl(trimmed);
   return NextResponse.json(getBuzzStatus());

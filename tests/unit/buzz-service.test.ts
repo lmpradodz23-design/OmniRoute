@@ -36,10 +36,11 @@ test("buzzService: chave do agente e gerada e PERSISTIDA (estavel entre chamadas
   assert.equal(k1, k2); // persistida, nao regenerada
 });
 
-test("buzzService: getBuzzConfig usa default localhost:3000", () => {
+test("buzzService: getBuzzConfig sem relay configurado -> relayUrl vazia (ponte desligada)", () => {
   ensureSchema();
+  delete process.env.BUZZ_RELAY_URL;
   const cfg = getBuzzConfig();
-  assert.match(cfg.relayUrl, /^ws:\/\//);
+  assert.equal(cfg.relayUrl, ""); // sem default implicito (ws://localhost:3000 colidia com o Next)
   assert.equal(cfg.secretKeyHex.length, 64);
 });
 
@@ -52,22 +53,27 @@ test("buzzService: flushBuzzOutbox e SKIPPED quando a flag BUZZ_HUB_ENABLED esta
 
 test("buzzService: getBuzzStatus reporta flag OFF, pubkey 64-hex e contagens do painel", () => {
   ensureSchema();
+  getOrCreateAgentSecretKey(); // identidade ja criada: com a flag OFF o status apenas a reporta
   const id = "evt-" + Math.random().toString(36).slice(2);
   const ev: BuzzEvent = { id, pubkey: "npub_t", kind: 1, createdAt: 1, tags: [], content: "c" };
   enqueueOutbox({ event: ev, correlationId: "c1" });
 
   const s = getBuzzStatus();
   assert.equal(s.enabled, false); // flag OFF por padrao
-  assert.match(s.agentPubkey, /^[0-9a-f]{64}$/); // chave PUBLICA, nunca a secreta
+  assert.match(s.agentPubkey ?? "", /^[0-9a-f]{64}$/); // chave PUBLICA, nunca a secreta
   assert.notEqual(s.agentPubkey, getOrCreateAgentSecretKey()); // publica != secreta
+  assert.equal(s.identityStatus, "ok");
   assert.ok(s.counts.outboxPending >= 1); // enfileirado acima aparece como pendente
 });
 
-test("buzzService: setBuzzRelayUrl (painel) tem precedencia; vazio volta ao default", () => {
+test("buzzService: setBuzzRelayUrl (painel) tem precedencia; vazio volta ao env/default (vazio)", () => {
   ensureSchema();
+  delete process.env.BUZZ_RELAY_URL;
   assert.equal(setBuzzRelayUrl("wss://relay.exemplo:7000"), "wss://relay.exemplo:7000");
   assert.equal(getBuzzRelayUrl(), "wss://relay.exemplo:7000");
   assert.equal(getBuzzConfig().relayUrl, "wss://relay.exemplo:7000"); // config usa o override
+  assert.equal(getBuzzStatus().relayConfigured, true);
   setBuzzRelayUrl(""); // limpa -> volta ao env/default
-  assert.match(getBuzzRelayUrl(), /^ws:\/\/localhost:3000$/);
+  assert.equal(getBuzzRelayUrl(), "");
+  assert.equal(getBuzzStatus().relayConfigured, false);
 });
