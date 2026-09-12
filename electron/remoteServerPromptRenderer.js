@@ -26,7 +26,21 @@
       errorEl.textContent = "Enter a valid http:// or https:// URL, or leave blank to disconnect.";
       return;
     }
-    window.remoteServerPrompt.submit(value);
+    // The main process applies the transport policy (https anywhere, http only on a private
+    // network) and answers with the reason when it refuses.
+    saveBtn.disabled = true;
+    Promise.resolve(window.remoteServerPrompt.submit(value))
+      .then((result) => {
+        if (result && result.ok === false) {
+          errorEl.textContent = result.error || "That URL was rejected.";
+        }
+      })
+      .catch(() => {
+        errorEl.textContent = "Could not apply the URL. Try again.";
+      })
+      .finally(() => {
+        saveBtn.disabled = false;
+      });
   });
 
   cancelBtn.addEventListener("click", () => {

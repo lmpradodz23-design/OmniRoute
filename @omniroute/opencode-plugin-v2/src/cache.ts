@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type {
   OmniRouteEnrichmentEntry,
@@ -195,7 +195,19 @@ export async function writeDiskSnapshot(
       payload = JSON.stringify(envelope);
     }
     if (payload.length > MAX_SNAPSHOT_BYTES) return;
-    await writeFile(file, payload, { encoding: "utf8", mode: 0o600 });
+    // Atomic replace: write a sibling temp file and rename it over the snapshot. A plain
+    // writeFile truncates first, so a reader that opens the file mid-write (a second
+    // plugin instance booting while the optional tier of the first one lands, or a
+    // crash between truncate and write) sees an empty/partial JSON and loses the warm
+    // catalog. rename() within the same directory is atomic on every supported OS.
+    const tmp = `${file}.${process.pid}.${Date.now().toString(36)}.tmp`;
+    try {
+      await writeFile(tmp, payload, { encoding: "utf8", mode: 0o600 });
+      await rename(tmp, file);
+    } catch (err) {
+      await unlink(tmp).catch(() => {});
+      throw err;
+    }
   } catch {
     // Best-effort: callers already hold the in-memory entry.
   }

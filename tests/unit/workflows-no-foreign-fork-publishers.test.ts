@@ -34,8 +34,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const workflowDir = path.join(repoRoot, ".github/workflows");
 
-/** The only owner whose namespaces this repository may publish to or gate on. */
-const OWNER = "diegosouzapw";
+/** The only owner whose namespaces this repository may publish to or gate on (lowercase: registries are case-insensitive). */
+const OWNER = "lmprado-dz23";
 
 function workflowFiles(): string[] {
   return fs

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Card, Input, Select, Toggle } from "@/shared/components";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type RuleScope = "global" | "apiKey" | "combo" | "model" | "connection";
 type TargetKind = "keep" | "model" | "combo";
@@ -95,6 +96,7 @@ function supportsExtendedCodexEffort(model: string, effort: "max" | "ultra"): bo
 
 export default function ReasoningRoutingRules({ apiKeyId }: { apiKeyId?: string }) {
   const t = useTranslations("reasoningRouting");
+  const confirmDialog = useConfirmDialog();
   const [rules, setRules] = useState<Rule[]>([]);
   const [combos, setCombos] = useState<Reference[]>([]);
   const [keys, setKeys] = useState<Reference[]>([]);
@@ -258,7 +260,7 @@ export default function ReasoningRoutingRules({ apiKeyId }: { apiKeyId?: string 
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm(t("deleteConfirm"))) return;
+    if (!(await confirmDialog(t("deleteConfirm")))) return;
     const response = await fetch(
       `/api/settings/reasoning-routing-rules/${encodeURIComponent(id)}`,
       { method: "DELETE" }

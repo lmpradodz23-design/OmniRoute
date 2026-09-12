@@ -26,10 +26,12 @@ import {
   RENAMED_MIGRATION_COMPATIBILITY,
   SUPERSEDED_DUPLICATE_MIGRATIONS,
 } from "./migrationRunner/constants";
+import { missingAddedColumns } from "./migrationRunner/expectedObjects";
 import { getExtraMigrationFiles } from "./migrationRunner/extraDirs";
 import { migrationConsole as console } from "./migrationRunner/logger";
 import {
   createPreMigrationBackup,
+  describeRestorePoint,
   hashFileSync,
   type PreMigrationBackupReceipt,
 } from "./migrationRunner/preMigrationBackup";
@@ -1087,10 +1089,14 @@ export function runMigrations(
       console.log(`[Migration] Applied: ${migration.version}_${migration.name}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      if (
-        message.includes("duplicate column name") &&
-        !atomicPhysicalReplays.has(migration.version)
-      ) {
+      // R-4: "duplicate column name" is only proof that ONE column pre-existed. Tolerate
+      // it (marker-only) solely when every column the file adds is present — a file whose
+      // first ALTER collided while its second never ran is partial, not applied.
+      const missingColumns =
+        message.includes("duplicate column name") && !atomicPhysicalReplays.has(migration.version)
+          ? missingAddedColumns(db, migration, isSchemaAlreadyApplied)
+          : null;
+      if (missingColumns && missingColumns.length === 0) {
         const applyMarkerOnly = db.transaction(() => {
           db.prepare(
             "INSERT OR IGNORE INTO _omniroute_migrations (version, name) VALUES (?, ?)"
@@ -1102,7 +1108,20 @@ export function runMigrations(
           `[Migration] Applied (column pre-exists): ${migration.version}_${migration.name}`
         );
       } else {
+        if (missingColumns && err instanceof Error) {
+          err.message =
+            `${err.message}; ${migration.version}_${migration.name} is only partially applied ` +
+            `— still missing: ${missingColumns.join(", ")}`;
+        }
         console.error(`[Migration] FAILED: ${migration.version}_${migration.name} — ${message}`);
+        if (preMigrationBackup) {
+          // The per-file transaction already rolled this migration back; what the operator
+          // still needs is WHICH snapshot restores the pre-upgrade state (R-1). Keep the
+          // original error object (driver type/code) and extend its message.
+          const restorePoint = describeRestorePoint(preMigrationBackup);
+          console.error(`[Migration] ${restorePoint}`);
+          if (err instanceof Error) err.message = `${err.message}. ${restorePoint}`;
+        }
         throw err;
       }
     }

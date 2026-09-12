@@ -7,7 +7,9 @@
  */
 
 import { hashInput, summarizeOutput } from "./schemas/audit.ts";
+import { resolveAuditApiKeyId } from "./callerContext.ts";
 import { isNativeSqliteLoadError } from "../../src/lib/db/core.ts";
+import { toNumber } from "../../src/shared/utils/numeric.ts";
 
 // ============ Database Connection ============
 
@@ -192,16 +194,6 @@ function setCachedAuditDb(database: AuditDatabase | null): void {
   globalThis.__omnirouteMcpAuditDb = database;
 }
 
-function toNumber(value: unknown, fallback = 0): number {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim().length > 0
-        ? Number(value)
-        : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 function toString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -244,7 +236,10 @@ async function openNodeSqliteAuditDb(dbPath: string): Promise<AuditDatabase> {
   return createNodeSqliteAuditAdapter(new DatabaseSync(dbPath));
 }
 
-async function openFallbackAuditDb(dbPath: string, nativeMessage: string): Promise<AuditDatabase | null> {
+async function openFallbackAuditDb(
+  dbPath: string,
+  nativeMessage: string
+): Promise<AuditDatabase | null> {
   if (!nodeSqliteFallbackAvailable()) {
     console.error(
       `[MCP Audit] better-sqlite3 native binding unavailable and Node ${process.version} ` +
@@ -370,7 +365,9 @@ export async function logToolCall(
 
     const inputHash = await hashInput(input);
     const outputSummary = summarizeOutput(output);
-    const apiKeyId = process.env.OMNIROUTE_API_KEY_ID || null;
+    // R-10: attribute the row to the RESOLVED caller of the current tool call (per-key
+    // principal set by withScopeEnforcement); the static env id only describes stdio.
+    const apiKeyId = resolveAuditApiKeyId();
 
     database
       .prepare(

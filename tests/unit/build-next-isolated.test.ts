@@ -8,6 +8,8 @@ import {
   getTransientBuildPaths,
   movePath,
   pruneStandaloneArtifacts,
+  pruneStandaloneDir,
+  STANDALONE_PRUNE_TARGETS,
   resolveNextBuildEnv,
   syncStandaloneExtraModules,
   syncStandaloneNativeAssets,
@@ -161,6 +163,81 @@ test("getTransientBuildPaths only moves _tasks when explicitly enabled", () => {
   );
 });
 
+test("pruneStandaloneDir strips secrets, source control, tests and nested builds from a standalone copy", async () => {
+  // The v3.8.51 Windows build shipped the checkout's real .env, .git, tests/ and a nested
+  // .build/next inside the standalone (and Electron's resources/app). Tracing excludes are
+  // not a guarantee (see STANDALONE_PRUNE_TARGETS); the prune is.
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omniroute-standalone-hygiene-"));
+  try {
+    const standalone = path.join(tempDir, "standalone");
+    const planted = [
+      ".env",
+      ".env.local",
+      "server.env",
+      path.join(".git", "HEAD"),
+      path.join("tests", "unit", "x.test.ts"),
+      path.join("audit", "03-SECURITY-FINDINGS.md"),
+      ".npmrc",
+      "server.pid",
+      path.join("data", "storage.sqlite"),
+      path.join("db_backups", "x.sqlite"),
+      path.join("logs", "app.log"),
+      path.join(".build", "next-verify", "server", "app", "page.js"), // a SIBLING dist dir
+      path.join(".build", "next-auditC", "dev", "cache", "x.meta"), // a dev server's dist dir
+      path.join(".next", "server", "x.js"),
+      path.join(".install-upgrade", "ws", "omniroute-3.8.51.tgz"),
+      path.join("electron", "dist-electron", "win-unpacked", "OmniRoute.exe"),
+    ];
+    const kept = [
+      "server.js",
+      // The bundle's OWN dist dir: server.js requires it (build #5 proved that pruning it
+      // leaves a standalone without its server chunks).
+      path.join(".build", "next", "server", "app", "page.js"),
+      path.join(".build", "next", "BUILD_ID"),
+      path.join("open-sse", "index.js"),
+      path.join("docs", "README.md"),
+      ".env.example",
+      path.join("electron", "main.js"),
+    ];
+    for (const rel of [...planted, ...kept]) {
+      await fs.mkdir(path.dirname(path.join(standalone, rel)), { recursive: true });
+      await fs.writeFile(path.join(standalone, rel), "x");
+    }
+    const pruned = await pruneStandaloneDir(
+      standalone,
+      fs,
+      { log() {} },
+      { relDistDir: ".build/next" }
+    );
+    for (const rel of planted) {
+      assert.equal(fsSync.existsSync(path.join(standalone, rel)), false, `${rel} must be pruned`);
+    }
+    for (const rel of kept) {
+      assert.equal(fsSync.existsSync(path.join(standalone, rel)), true, `${rel} must survive`);
+    }
+    assert.ok(pruned.includes(".env") && pruned.includes(".git") && pruned.includes("tests"));
+    assert.ok(pruned.includes(path.join(".build", "next-verify")) && pruned.includes(".next"));
+    assert.ok(
+      STANDALONE_PRUNE_TARGETS.includes(".env") && !STANDALONE_PRUNE_TARGETS.includes(".build")
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("pruneStandaloneArtifacts (the post-build hook) removes a traced .env from the standalone", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omniroute-standalone-env-"));
+  try {
+    const envFile = path.join(tempDir, ".build", "next", "standalone", ".env");
+    await fs.mkdir(path.dirname(envFile), { recursive: true });
+    await fs.writeFile(envFile, "API_KEY_SECRET=not-for-shipping");
+    await pruneStandaloneArtifacts(tempDir);
+    assert.equal(fsSync.existsSync(envFile), false, "the checkout's .env must never ship");
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("pruneStandaloneArtifacts removes traced _tasks from standalone output", async () => {
   await withTempDir(async (tempDir) => {
     // Layer 1 moved the Next distDir default to .build/next.
@@ -222,4 +299,28 @@ test("syncStandaloneExtraModules copies the complete wreq-js runtime", async () 
     );
     assert.match(logs[0] ?? "", /wreq-js TLS runtime/);
   });
+});
+
+test("pruneStandaloneDir with an ABSOLUTE dist dir still keeps the bundle's own dist dir (audit A residual)", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omniroute-standalone-absdist-"));
+  try {
+    const projectRoot = path.join(tempDir, "repo");
+    const standalone = path.join(projectRoot, ".build", "next", "standalone");
+    const own = path.join(standalone, ".build", "next", "server", "app", "page.js");
+    const foreign = path.join(standalone, ".build", "next-verify", "server", "x.js");
+    for (const f of [own, foreign]) {
+      await fs.mkdir(path.dirname(f), { recursive: true });
+      await fs.writeFile(f, "x");
+    }
+    await pruneStandaloneDir(
+      standalone,
+      fs,
+      { log() {} },
+      { relDistDir: path.join(projectRoot, ".build", "next"), projectRoot }
+    );
+    assert.equal(fsSync.existsSync(own), true, "own dist dir survives an absolute NEXT_DIST_DIR");
+    assert.equal(fsSync.existsSync(foreign), false, "sibling dist dir is still pruned");
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
 });

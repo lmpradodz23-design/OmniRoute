@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
+import { createServer } from "node:http";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -38,8 +39,9 @@ async function resetStorage() {
         fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       }
       break;
-    } catch (error: any) {
-      if ((error?.code === "EBUSY" || error?.code === "EPERM") && attempt < 9) {
+    } catch (error: unknown) {
+      const code = (error as { code?: string } | null)?.code;
+      if ((code === "EBUSY" || code === "EPERM") && attempt < 9) {
         await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
       } else {
         throw error;
@@ -208,6 +210,27 @@ function installFetchStub() {
   };
 }
 
+// SSRF S-6: the health probe (healthMonitor.checkHealth) goes through the pinned guarded
+// client, which a `globalThis.fetch` stub does not intercept — the managed tool is stood in
+// by a real loopback server whose port is seeded into the tool record.
+async function installToolStandIn() {
+  const calls = [];
+  const server = createServer((req, res) => {
+    calls.push({ url: String(req.url) });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ data: [{ id: "gpt-4.1" }, { id: "o3-mini" }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return {
+    port: server.address().port,
+    calls,
+    async close() {
+      server.closeAllConnections?.();
+      await new Promise((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
 async function seedTool(overrides = {}) {
   return versionManagerDb.upsertVersionManagerTool({
     tool: "cliproxyapi",
@@ -233,12 +256,13 @@ async function prepareInstalledVersions(versions) {
   try {
     fs.unlinkSync(symlinkPath);
   } catch {}
-  fs.symlinkSync(path.join(binDir, "cliproxyapi-2.0.0", "CLIProxyAPI"), symlinkPath);
-}
-
-async function flushAsyncTurns(count = 3) {
-  for (let i = 0; i < count; i++) {
-    await Promise.resolve();
+  // Mirror binaryManager.installVersion(): the managed binary is a symlink on POSIX and a
+  // COPY on Windows (file symlinks need a privilege there — EPERM for a normal user).
+  const target = path.join(binDir, "cliproxyapi-2.0.0", "CLIProxyAPI");
+  if (process.platform === "win32") {
+    fs.copyFileSync(target, symlinkPath);
+  } else {
+    fs.symlinkSync(target, symlinkPath);
   }
 }
 
@@ -334,10 +358,10 @@ test("processManager writes config, starts a process, stops it gracefully and re
 });
 
 test("versionManager start, health, restart and stop flow updates monitoring and persisted state", async () => {
-  await seedTool({ pid: null, port: 8511, status: "installed" });
+  const standIn = await installToolStandIn();
+  await seedTool({ pid: null, port: standIn.port, status: "installed" });
   const spawnStub = installSpawnStub(6200);
   const killStub = installProcessKillStub();
-  const fetchStub = installFetchStub();
 
   try {
     const started = await versionManager.startTool("cliproxyapi");
@@ -348,7 +372,7 @@ test("versionManager start, health, restart and stop flow updates monitoring and
         healthy: started.health.healthy,
         modelCount: started.health.modelCount,
       },
-      { pid: 6200, port: 8511, healthy: true, modelCount: 2 }
+      { pid: 6200, port: standIn.port, healthy: true, modelCount: 2 }
     );
     assert.equal(healthMonitor.isMonitoring("cliproxyapi"), true);
 
@@ -359,7 +383,7 @@ test("versionManager start, health, restart and stop flow updates monitoring and
     killStub.running.add(started.pid);
     const restarted = await versionManager.restartTool("cliproxyapi");
 
-    assert.deepEqual(restarted, { pid: 6201, port: 8511 });
+    assert.deepEqual(restarted, { pid: 6201, port: standIn.port });
     assert.equal(healthMonitor.isMonitoring("cliproxyapi"), true);
 
     killStub.running.add(restarted.pid);
@@ -368,9 +392,9 @@ test("versionManager start, health, restart and stop flow updates monitoring and
     const stopped = await versionManagerDb.getVersionManagerTool("cliproxyapi");
     assert.equal(stopped.status, "stopped");
     assert.equal(healthMonitor.isMonitoring("cliproxyapi"), false);
-    assert.ok(fetchStub.calls.some((call) => call.url.includes("/v1/models")));
+    assert.ok(standIn.calls.some((call) => call.url.includes("/v1/models")));
   } finally {
-    fetchStub.restore();
+    await standIn.close();
     spawnStub.restore();
     killStub.restore();
   }

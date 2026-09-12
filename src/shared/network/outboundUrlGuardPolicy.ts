@@ -71,6 +71,17 @@ export function getProviderOutboundGuard(): OutboundUrlGuardMode {
 }
 
 /**
+ * Private/LAN egress for operator-configured integration base URLs (Obsidian Local REST API,
+ * Qdrant, generic memory backends — SSRF findings S-5/S-6). These are local-first services
+ * exactly like providers, so they follow `getProviderOutboundGuard()`: allowed under the local
+ * default and the explicit opt-in, blocked only in strict `public-only` mode. Cloud metadata
+ * stays blocked in the hardened clients regardless of this answer.
+ */
+export function areIntegrationPrivateUrlsAllowed(): boolean {
+  return getProviderOutboundGuard() !== "public-only";
+}
+
+/**
  * #5066: whether provider endpoints on local/private addresses are permitted. Defaults ON
  * (OmniRoute is local-first — local OpenAI-compatible providers should validate out of the
  * box). Disable via the `OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS` flag (DB toggle or env) to

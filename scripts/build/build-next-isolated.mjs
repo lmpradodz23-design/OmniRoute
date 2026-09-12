@@ -231,21 +231,129 @@ async function resetStandaloneOutput(rootDir = projectRoot, fsImpl = fs) {
   console.log("[build-next-isolated] Moved stale standalone output out of the build path");
 }
 
+/**
+ * Paths that must NEVER ship inside a standalone bundle, relative to the standalone root.
+ *
+ * Next's output-file tracing emits the WHOLE project root for this app (a dynamic
+ * `process.cwd()`-relative fs access in a shared module makes the tracer include the
+ * directory), and `outputFileTracingExcludes` is applied by picomatch against
+ * `path.join()`-ed absolute paths — which never match on Windows (backslashes are glob
+ * escapes) and, on every platform, only cover what the list names. The v3.8.51 standalone
+ * built here contained the checkout's real `.env`, `.git`, `tests/` (5 683 files), the
+ * nested `.build/next` (self-copy, 23 466 files), `.install-upgrade/` and `audit/` — and
+ * the Electron package shipped them all under resources/app. This denylist is the
+ * platform-independent guarantee, applied after `next build` AND on the Electron staging
+ * copy; `check:standalone-hygiene` fails a release whose bundle still has any of them.
+ */
+export const STANDALONE_PRUNE_TARGETS = Object.freeze([
+  // secrets / operator state
+  ".env",
+  ".env.local",
+  ".env.development",
+  ".env.production",
+  ".env.homolog",
+  "server.env",
+  ".npmrc", // may carry a registry auth token
+  ".mcp.json",
+  "server.pid",
+  // operator data that must never ship
+  "data",
+  "db_backups",
+  "logs",
+  // source control / CI / tooling
+  ".git",
+  ".github",
+  ".husky",
+  ".vscode",
+  ".claude",
+  ".opencode",
+  ".sandbox",
+  ".source",
+  ".artifacts",
+  // tests, audits, planning
+  "tests",
+  "audit",
+  "_tasks",
+  "coverage",
+  "test-results",
+  "playwright-report",
+  // gate workspaces and OTHER build outputs. NOTE: the standalone's own dist dir
+  // (`<standalone>/.build/next` — Next mirrors distDir inside the bundle and server.js
+  // requires it) is NOT in this list; pruneStandaloneDir() removes only the SIBLING
+  // dist dirs under .build/ (a stray `.build/next-verify`, a dev server's `.build/next-x`)
+  // and `.next` when it is not the dist dir in use.
+  ".install-upgrade",
+  "dist-electron",
+  path.join("electron", "dist-electron"),
+]);
+
+/**
+ * Remove every STANDALONE_PRUNE_TARGETS entry that exists under `standaloneRoot`, plus any
+ * build-output directory that is NOT the bundle's own dist dir (`relDistDir`, e.g.
+ * `.build/next`): the whole-root trace drags sibling dist dirs (a verification build, a dev
+ * server's `.build/next-*`) and `.next` into the bundle. The bundle's own dist dir is what
+ * `server.js` loads — it must survive.
+ */
+export async function pruneStandaloneDir(
+  standaloneRoot,
+  fsImpl = fs,
+  log = console,
+  { relDistDir = process.env.NEXT_DIST_DIR || ".build/next", projectRoot: root = projectRoot } = {}
+) {
+  const pruned = [];
+  // An ABSOLUTE dist dir (NEXT_DIST_DIR=/abs/path) must be expressed relative to the project
+  // root — that is the path Next mirrors inside the bundle; otherwise distTop would never be
+  // ".build" and the bundle's own dist dir would be pruned (audit A residual).
+  if (path.isAbsolute(relDistDir)) relDistDir = path.relative(root, relDistDir);
+  const rm = async (rel) => {
+    const targetPath = path.join(standaloneRoot, rel);
+    if (!(await exists(targetPath))) return;
+    await fsImpl.rm(targetPath, { recursive: true, force: true });
+    pruned.push(rel);
+    log.log(`[build-next-isolated] Pruned standalone artifact: ${rel}`);
+  };
+  const failures = [];
+  const rmSafe = async (rel) => {
+    try {
+      await rm(rel);
+    } catch (err) {
+      failures.push(`${rel}: ${err?.message ?? err}`);
+    }
+  };
+  for (const rel of STANDALONE_PRUNE_TARGETS) await rmSafe(rel);
+
+  const distParts = relDistDir.replaceAll("\\", "/").replace(/^\.\//, "").split("/");
+  const [distTop, distSub] = distParts;
+  // `.next` is only runtime when it IS the dist dir.
+  if (distTop !== ".next") await rmSafe(".next");
+  // Under `.build/`, keep exactly the bundle's own dist dir; every sibling is foreign output.
+  const buildDir = path.join(standaloneRoot, ".build");
+  if (await exists(buildDir)) {
+    if (distTop !== ".build") {
+      await rmSafe(".build");
+    } else {
+      for (const entry of await fsImpl.readdir(buildDir)) {
+        if (entry !== distSub) await rmSafe(path.join(".build", entry));
+      }
+    }
+  }
+  // Every target is attempted; one locked file (EBUSY/EPERM on Windows) must not silently
+  // leave the others in place — surface all of them and fail the build.
+  if (failures.length > 0) {
+    throw new Error(`standalone prune could not remove: ${failures.join("; ")}`);
+  }
+  return pruned;
+}
+
 export async function pruneStandaloneArtifacts(rootDir = projectRoot, fsImpl = fs) {
   const resolvedDistDirForPrune =
     rootDir === projectRoot
       ? distDir
       : path.join(rootDir, process.env.NEXT_DIST_DIR || ".build/next");
   const standaloneRoot = path.join(resolvedDistDirForPrune, "standalone");
-  const pruneTargets = [path.join(standaloneRoot, "_tasks")];
-
-  for (const targetPath of pruneTargets) {
-    if (!(await exists(targetPath))) continue;
-    await fsImpl.rm(targetPath, { recursive: true, force: true });
-    console.log(
-      `[build-next-isolated] Pruned standalone artifact: ${path.relative(rootDir, targetPath)}`
-    );
-  }
+  return pruneStandaloneDir(standaloneRoot, fsImpl, console, {
+    relDistDir: path.relative(rootDir, resolvedDistDirForPrune) || ".build/next",
+  });
 }
 
 export async function syncStandaloneNativeAssets(
@@ -320,14 +428,9 @@ export async function main() {
         console.warn("[build-next-isolated] Non-fatal error copying docs/:", docsCopyErr?.message);
       }
 
-      try {
-        await pruneStandaloneArtifacts(projectRoot);
-      } catch (pruneErr) {
-        console.warn(
-          "[build-next-isolated] Non-fatal error pruning standalone artifacts:",
-          pruneErr
-        );
-      }
+      // X-1: the prune is a release guarantee, not a courtesy — a bundle that still carries
+      // the checkout's .env / .git / tests must not be reported as a successful build.
+      await pruneStandaloneArtifacts(projectRoot);
 
       // Best-effort: build the TPROXY native addon (Linux-only, opt-in) BEFORE
       // assembling, so its transparent.node is present for assembleStandalone's

@@ -40,6 +40,15 @@ const IPV6_RE = new RegExp(
 // (AGENTS.md → "Regex Security (ReDoS)").
 const MAX_IP_LITERAL_LENGTH = 110;
 
+// Non-canonical IPv4 spellings — bare decimal (`2130706433`), hex (`0x7f000001`), octal
+// (`0177.0.0.1`) and short dotted forms (`127.1`) — are how an attacker smuggles a loopback or
+// private address past a string guard. `ipVersion` (= node:net.isIP) rightly rejects them, but
+// the guard used to fall through to "public" for anything that was not a canonical literal.
+// URL-based callers never see these (WHATWG normalizes them to `127.0.0.1`); a raw-config caller
+// must fail closed. Every quantifier is bounded (AGENTS.md → "Regex Security (ReDoS)").
+const NON_CANONICAL_IPV4_RE =
+  /^(?:0x[0-9a-f]{1,8}|\d{1,10})(?:\.(?:0x[0-9a-f]{1,8}|\d{1,10})){0,3}$/;
+
 /** Pure-JS `node:net#isIP`: 4, 6, or 0 when the string is not an IP literal. */
 export function ipVersion(host: string): 0 | 4 | 6 {
   if (!host || host.length > MAX_IP_LITERAL_LENGTH) return 0;
@@ -48,11 +57,57 @@ export function ipVersion(host: string): 0 | 4 | 6 {
 }
 
 export function normalizeHost(hostname: string) {
-  const normalized = hostname.trim().toLowerCase();
+  let normalized = hostname.trim().toLowerCase();
   if (normalized.startsWith("[") && normalized.endsWith("]")) {
-    return normalized.slice(1, -1);
+    normalized = normalized.slice(1, -1);
+  }
+  // Drop the FQDN root dot. `localhost.` resolves exactly like `localhost`, and a trailing dot
+  // otherwise slips past every exact and suffix test in `isPrivateHost` — including `.internal`,
+  // so `metadata.google.internal.` would have been allowed (S-2). A lone "." is left alone.
+  if (normalized.length > 1 && normalized.endsWith(".")) {
+    normalized = normalized.slice(0, -1);
   }
   return normalized;
+}
+
+// Expand an IPv6 literal (already validated by `ipVersion` === 6) into its eight 16-bit groups,
+// lower-case hex, zero-padded, with an embedded dotted-quad tail folded into the last two groups.
+// Returns null when the literal cannot be expanded (the caller fails closed).
+function expandIpv6Groups(literal: string): string[] | null {
+  let text = literal;
+  const lastColon = text.lastIndexOf(":");
+  const tail = text.slice(lastColon + 1);
+  if (tail.includes(".")) {
+    const octets = tail.split(".").map((segment) => Number(segment));
+    if (octets.length !== 4 || octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+      return null;
+    }
+    const hi = ((octets[0] << 8) | octets[1]).toString(16);
+    const lo = ((octets[2] << 8) | octets[3]).toString(16);
+    text = `${text.slice(0, lastColon + 1)}${hi}:${lo}`;
+  }
+  const halves = text.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const rest = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - head.length - rest.length;
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return null;
+  const groups = [
+    ...head,
+    ...new Array<string>(halves.length === 2 ? missing : 0).fill("0"),
+    ...rest,
+  ];
+  if (groups.length !== 8 || groups.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return null;
+  return groups.map((g) => g.padStart(4, "0"));
+}
+
+function isPrivateIpv4Octets(a: number, b: number) {
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  return false;
 }
 
 export function isPrivateHost(hostname: string) {
@@ -62,40 +117,65 @@ export function isPrivateHost(hostname: string) {
   if (
     normalized === "localhost" ||
     normalized === "0.0.0.0" ||
-    // `::` is the IPv6 twin of `0.0.0.0`: connecting to it reaches a service bound
-    // to the IPv6 loopback, so it has to be refused alongside its IPv4 spelling.
-    normalized === "::" ||
     normalized === "127.0.0.1" ||
-    normalized === "::1" ||
+    // Everything in ::/96 — the unspecified address (`::`, the IPv6 twin of `0.0.0.0`), the
+    // loopback `::1`, IPv4-mapped (`::ffff:7f00:1`) AND the deprecated IPv4-compatible form
+    // (`::7f00:1`, i.e. `::127.0.0.1`). None is a legitimate public egress target, and the old
+    // `::ffff:`-only check let the compatible form through (S-2).
+    normalized.startsWith("::") ||
     normalized.endsWith(".localhost") ||
     normalized.endsWith(".local") ||
     // `.internal` is reserved for private use (ICANN-style) and is the
     // hostname suffix used by GCP/Azure metadata probes
     // (e.g. `metadata.google.internal`).
-    normalized.endsWith(".internal") ||
-    normalized.startsWith("::ffff:")
+    normalized.endsWith(".internal")
   ) {
+    return true;
+  }
+
+  // A numeric spelling that is NOT a canonical dotted quad is never a public host — fail closed
+  // instead of falling through to "public" (see NON_CANONICAL_IPV4_RE).
+  if (NON_CANONICAL_IPV4_RE.test(normalized) && ipVersion(normalized) !== 4) {
     return true;
   }
 
   if (ipVersion(normalized) === 4) {
     const octets = normalized.split(".").map((segment) => parseInt(segment, 10));
     const [a, b] = octets;
-
-    if (a === 0 || a === 10 || a === 127) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true;
-    return false;
+    return isPrivateIpv4Octets(a, b);
   }
 
   if (ipVersion(normalized) === 6) {
+    // The `startsWith("::")` shortcut above only sees the COMPRESSED spelling. The same
+    // addresses written out in full — `0:0:0:0:0:ffff:127.0.0.1`, `0:0:0:0:0:ffff:7f00:1`,
+    // `0:0:0:0:0:0:0:1` — reached this branch and were classified public (final audit B-1).
+    // Classify on the expanded groups instead, so the spelling can never matter.
+    const groups = expandIpv6Groups(normalized);
+    if (!groups) return true; // fail closed on anything we cannot expand
+    const zeroPrefix80 = groups.slice(0, 5).every((g) => g === "0000");
+    // ::/80 covers ::/96 (unspecified, loopback, deprecated IPv4-compatible) and
+    // ::ffff:0:0/96 (IPv4-mapped): never a legitimate public egress target.
+    if (zeroPrefix80) return true;
+    // NAT64 well-known prefix 64:ff9b::/96 embeds an IPv4 address that a NAT64 gateway
+    // would reach on the caller's behalf — apply the IPv4 rules to the embedded address.
+    if (
+      groups[0] === "0064" &&
+      groups[1] === "ff9b" &&
+      groups[2] === "0000" &&
+      groups[3] === "0000" &&
+      groups[4] === "0000" &&
+      groups[5] === "0000"
+    ) {
+      const a = parseInt(groups[6].slice(0, 2), 16);
+      const b = parseInt(groups[6].slice(2), 16);
+      return isPrivateIpv4Octets(a, b);
+    }
     return (
-      normalized === "::1" ||
       normalized.startsWith("fc") ||
       normalized.startsWith("fd") ||
-      normalized.startsWith("fe80:")
+      // Link-local is fe80::/10 — fe80 through febf — not only the `fe80:` spelling, so
+      // `feb0::1` used to be classified public (S-2).
+      /^fe[89ab]/.test(normalized)
     );
   }
 

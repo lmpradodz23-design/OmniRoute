@@ -686,4 +686,4 @@ mcp-server/
 
 ## License
 
-Part of [OmniRoute](https://github.com/diegosouzapw/OmniRoute) — MIT License.
+Part of [OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute) — MIT License.

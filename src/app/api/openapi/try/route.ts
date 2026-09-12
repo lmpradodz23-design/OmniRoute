@@ -8,9 +8,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
-import { isLocalOnlyPath, isAlwaysProtectedPath } from "@/server/authz/routeGuard";
-
-const ALLOWED_TRY_PATH_PREFIXES = ["/api/", "/v1/", "/v1beta/", "/a2a", "/.well-known/agent.json"];
+import {
+  attachStoredApiKey,
+  buildForwardFetchOptions,
+  readProxiedResponse,
+  rejectUnproxiableTarget,
+} from "./tryProxyHelpers";
 
 const BLOCKED_FORWARD_HEADERS = new Set([
   "connection",
@@ -38,13 +41,17 @@ const tryRequestSchema = z.object({
     .string()
     .min(1, "Path is required")
     .startsWith("/", "Path must start with /")
-    .refine((value) => !value.startsWith("//"), "Path must be a same-origin path")
-    .refine(
-      (value) => ALLOWED_TRY_PATH_PREFIXES.some((prefix) => value.startsWith(prefix)),
-      "Path must target an OmniRoute API endpoint"
-    ),
+    .refine((value) => !value.startsWith("//"), "Path must be a same-origin path"),
   headers: z.record(z.string(), z.string()).optional().default({}),
   body: z.any().optional(),
+  /** Required for POST/PUT/PATCH/DELETE — a deliberate act of the operator, never implied. */
+  confirmMutation: z.boolean().optional().default(false),
+  /**
+   * #7 (reveal-once): one of the operator's own stored keys, injected as `Authorization`
+   * SERVER-SIDE so the plaintext never travels to the browser. Ignored when the caller
+   * supplies an explicit Authorization header.
+   */
+  apiKeyId: z.string().trim().min(1).max(128).optional(),
 });
 
 function getRequestOrigin(request: NextRequest) {
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const { method, path, headers, body: reqBody } = validation.data;
+    const { method, path, headers, body: reqBody, confirmMutation, apiKeyId } = validation.data;
 
     const origin = getRequestOrigin(request);
     const targetUrl = new URL(path, origin);
@@ -85,64 +92,28 @@ export async function POST(request: NextRequest) {
     const upperMethod = method.toUpperCase();
     const pathname = targetUrl.pathname;
 
-    // #5 (confused deputy — core fix): never let the same-origin self-fetch reach host-sensitive
-    // (LOCAL_ONLY) or always-protected routes. Those rely on the caller's network locality / login,
-    // which the SERVER itself satisfies over loopback — so proxying them would let an authenticated
-    // management caller (or, with requireLogin=false, an anonymous one) drive install/spawn/config
-    // routes reserved for the local host. Blocking the destination closes the escalation while
-    // preserving the feature's legitimate use (an authenticated admin exercising ordinary
-    // management / inference APIs, including mutations, under their own session).
-    if (isLocalOnlyPath(pathname, upperMethod) || isAlwaysProtectedPath(pathname)) {
-      return NextResponse.json(
-        { error: "Target endpoint is not available through Try It" },
-        { status: 403 }
-      );
-    }
+    // #5: documented-operation allowlist, mutation confirmation, LOCAL_ONLY / protected guard.
+    const rejection = rejectUnproxiableTarget(upperMethod, pathname, confirmMutation);
+    if (rejection) return rejection;
 
     const start = performance.now();
 
-    // Forward cookies/auth from the original (already management-authenticated) request.
+    // #5 residual (no implicit credentials): the proxied call carries ONLY the headers the
+    // operator typed into the panel (an explicit Authorization for the key under test). The
+    // dashboard session cookie is never forwarded — the server must not act as the admin's
+    // deputy; hop-by-hop / host headers and a caller-supplied Cookie are dropped as before.
     const forwardHeaders = buildForwardHeaders(headers as Record<string, string>);
 
-    // Forward auth from the dashboard session so the proxied call runs as the same admin.
-    const cookie = request.headers.get("cookie");
-    if (cookie && !forwardHeaders["Cookie"]) {
-      forwardHeaders["Cookie"] = cookie;
-    }
+    // #7 (reveal-once): a stored key named by id is attached server-side, never echoed back.
+    const missingKey = await attachStoredApiKey(forwardHeaders, apiKeyId);
+    if (missingKey) return missingKey;
 
-    if (reqBody && !forwardHeaders["Content-Type"]) {
-      forwardHeaders["Content-Type"] = "application/json";
-    }
-
-    const fetchOptions: RequestInit = {
-      method: method.toUpperCase(),
-      headers: forwardHeaders,
-    };
-
-    if (reqBody && method.toUpperCase() !== "GET") {
-      fetchOptions.body = typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody);
-    }
+    const fetchOptions = buildForwardFetchOptions(method, forwardHeaders, reqBody);
 
     const res = await fetch(targetUrl, fetchOptions);
     const latencyMs = Math.round(performance.now() - start);
 
-    // Read response
-    const contentType = res.headers.get("content-type") || "";
-    let responseBody: any;
-
-    if (contentType.includes("application/json")) {
-      responseBody = await res.json();
-    } else {
-      const text = await res.text();
-      // Truncate very large responses
-      responseBody = text.length > 10000 ? text.slice(0, 10000) + "\n... (truncated)" : text;
-    }
-
-    // Collect response headers
-    const responseHeaders: Record<string, string> = {};
-    res.headers.forEach((value, key) => {
-      responseHeaders[key] = value;
-    });
+    const { contentType, responseBody, responseHeaders } = await readProxiedResponse(res);
 
     return NextResponse.json({
       status: res.status,

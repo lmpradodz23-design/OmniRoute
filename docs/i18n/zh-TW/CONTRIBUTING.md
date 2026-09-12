@@ -17,7 +17,7 @@
 ### 複製與安裝
 
 ```bash
-git clone https://github.com/diegosouzapw/OmniRoute.git
+git clone https://github.com/LMPrado-DZ23/OmniRoute.git
 cd OmniRoute
 npm install
 ```
@@ -362,5 +362,5 @@ docs/
 - **API 參考**：參見 [`docs/reference/API_REFERENCE.md`](docs/reference/API_REFERENCE.md)
 - **安全文件**：[`docs/security/CLI_TOKEN.md`](docs/security/CLI_TOKEN.md)、[`docs/security/ROUTE_GUARD_TIERS.md`](docs/security/ROUTE_GUARD_TIERS.md)、[`docs/security/ERROR_SANITIZATION.md`](docs/security/ERROR_SANITIZATION.md)、[`docs/security/PUBLIC_CREDS.md`](docs/security/PUBLIC_CREDS.md)
 - **運維文件**：[`docs/ops/SQLITE_RUNTIME.md`](docs/ops/SQLITE_RUNTIME.md)
-- **問題回報**：[github.com/diegosouzapw/OmniRoute/issues](https://github.com/diegosouzapw/OmniRoute/issues)
+- **問題回報**：[github.com/LMPrado-DZ23/OmniRoute/issues](https://github.com/LMPrado-DZ23/OmniRoute/issues)
 - **ADR**：參見 `docs/adr/` 了解架構決策記錄

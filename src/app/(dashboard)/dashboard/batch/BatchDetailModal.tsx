@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useBatchActions } from "./components/useBatchActions";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type BatchTranslator = ReturnType<typeof useTranslations>;
 
@@ -169,6 +170,7 @@ export default function BatchDetailModal({
   onActionDone,
 }: BatchDetailModalProps) {
   const t = useTranslations("common");
+  const confirmDialog = useConfirmDialog();
 
   // ── Action hook (F7) ─────────────────────────────────────────────────────────
   const {
@@ -478,7 +480,7 @@ export default function BatchDetailModal({
               <button
                 onClick={async () => {
                   if (
-                    window.confirm(
+                    await confirmDialog(
                       t("batchDetailActionRetry") +
                         ` (${batch.requestCountsFailed} ${t("batchActionRetry")})?`
                     )
@@ -506,7 +508,7 @@ export default function BatchDetailModal({
             {canCancel && (
               <button
                 onClick={async () => {
-                  if (window.confirm(t("batchDetailCancelConfirm"))) {
+                  if (await confirmDialog(t("batchDetailCancelConfirm"))) {
                     await cancel(batch.id);
                     onClose();
                   }

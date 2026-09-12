@@ -11,6 +11,14 @@
 
 </div>
 
+> **This is the maintained fork [`LMPrado-DZ23/OmniRoute`](https://github.com/LMPrado-DZ23/OmniRoute)** of the original
+> [OmniRoute by Diego Souza (`diegosouzapw`)](https://github.com/LMPrado-DZ23/OmniRoute), MIT-licensed — full credit to the
+> original author and the 600+ upstream contributors. Builds of **this** fork are distributed as
+> [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) (Windows / macOS / Linux installers), the container image
+> [`ghcr.io/lmprado-dz23/omniroute`](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute) and from source.
+> The `omniroute` package on npm is published by upstream — `npm install -g omniroute` installs **upstream**, not this fork;
+> the dashboard update check and `omniroute update` know the difference and only offer releases of this repository.
+
 <div align="center">
 
 ## 💰 ~1.47B Free Tokens / Month
@@ -35,14 +43,12 @@
 
 </h3>
 
-[![Stars](https://img.shields.io/github/stars/diegosouzapw/OmniRoute?style=social)](https://github.com/diegosouzapw/OmniRoute)
-<a href="https://trendshift.io/repositories/23589" target="_blank"><img src="https://trendshift.io/api/badge/repositories/23589" alt="diegosouzapw%2FOmniRoute | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-[![Star History Rank](https://api.star-history.com/badge?repo=diegosouzapw/OmniRoute&theme=dark)](https://www.star-history.com/diegosouzapw/omniroute)
-[![olud.ai](https://olud.ai/badge.php?tool=diegosouzapw-omniroute)](https://olud.ai/project/diegosouzapw-omniroute.html)
+[![Stars](https://img.shields.io/github/stars/LMPrado-DZ23/OmniRoute?style=social)](https://github.com/LMPrado-DZ23/OmniRoute)
+[![Upstream](https://img.shields.io/badge/upstream-diegosouzapw%2FOmniRoute-181717?logo=github)](https://github.com/diegosouzapw/OmniRoute)
 
 ### 💬 Join the community
 
-**👋 Follow the maintainer — get new providers, releases & tips first:**
+**👋 Original author — Diego Souza (`diegosouzapw`) — follow him for the upstream project:**
 
 [![Follow Diego on LinkedIn](https://img.shields.io/badge/Follow_Diego_on-LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/diegosouzapw/)
 [![Follow @diegosouzapw on GitHub](https://img.shields.io/github/followers/diegosouzapw?style=for-the-badge&logo=github&logoColor=white&label=Follow%20on%20GitHub&color=181717)](https://github.com/diegosouzapw)
@@ -80,10 +86,9 @@
 
 [![npm version](https://img.shields.io/npm/v/omniroute?color=cb3837&logo=npm)](https://www.npmjs.com/package/omniroute)
 ![NPM Monthly](https://img.shields.io/npm/dm/omniroute?label=npm/month&color=cb3837&logo=npm)
-[![Docker Hub](https://img.shields.io/docker/v/diegosouzapw/omniroute?label=Docker%20Hub&logo=docker&color=2496ED)](https://hub.docker.com/r/diegosouzapw/omniroute)
+[![GHCR](https://img.shields.io/badge/container-ghcr.io%2Flmprado--dz23%2Fomniroute-2496ED?logo=docker&logoColor=white)](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-![Docker Pulls](https://img.shields.io/docker/pulls/diegosouzapw/omniroute?label=docker%20pulls&logo=docker&color=2496ED)
-![Electron Downloads](https://img.shields.io/github/downloads/diegosouzapw/omniroute/total?style=flat&label=electron%20downloads&logo=electron&color=47848F)
+![Electron Downloads](https://img.shields.io/github/downloads/LMPrado-DZ23/OmniRoute/total?style=flat&label=electron%20downloads&logo=electron&color=47848F)
 
 <table>
   <tr>
@@ -470,10 +475,10 @@ All **19** strategies — mix & match per combo step:
 
 ## 💚 Support OmniRoute
 
-OmniRoute is MIT-licensed and maintained in the open. If it saves you time or money, here's how to keep it independent — pick whatever fits you. Sponsorship never affects routing priority; it buys visibility, not ranking.
+OmniRoute is MIT-licensed and maintained in the open. This fork does not collect donations — the channels below all go to the **original author, Diego Souza (`diegosouzapw`)**, whose work this fork builds on. If OmniRoute saves you time or money, that is the right place to say thanks. Sponsorship never affects routing priority; it buys visibility, not ranking.
 
 <table>
-  <tr><td nowrap>⭐ <b>Star the repo</b></td><td>Free — genuinely helps visibility</td><td><a href="https://github.com/diegosouzapw/OmniRoute">Star OmniRoute</a></td></tr>
+  <tr><td nowrap>⭐ <b>Star the repos</b></td><td>Free — genuinely helps visibility</td><td><a href="https://github.com/LMPrado-DZ23/OmniRoute">this fork</a> · <a href="https://github.com/LMPrado-DZ23/OmniRoute">upstream</a></td></tr>
   <tr><td nowrap>🐙 <b>GitHub Sponsors</b></td><td>One-off or monthly · zero platform fee</td><td><a href="https://github.com/sponsors/diegosouzapw">github.com/sponsors/diegosouzapw</a></td></tr>
   <tr><td nowrap>☕ <b>Ko-fi</b></td><td>Quick one-off tip, no signup for the donor</td><td><a href="https://ko-fi.com/diegosouzapw">ko-fi.com/diegosouzapw</a></td></tr>
   <tr><td nowrap>🧋 <b>Buy Me a Coffee</b></td><td>Small, informal gesture</td><td><a href="https://www.buymeacoffee.com/diegosouzapw">buymeacoffee.com/diegosouzapw</a></td></tr>
@@ -510,7 +515,7 @@ Pix copia-e-cola:
 
 </details>
 
-🐛 Found a bug or have feedback? Open a [Discussion](https://github.com/diegosouzapw/OmniRoute/discussions).
+🐛 Found a bug or have feedback? Open a [Discussion](https://github.com/LMPrado-DZ23/OmniRoute/discussions).
 
 <br/>
 
@@ -721,8 +726,9 @@ of your shell history. → [CLI Integrations](docs/guides/CLI-INTEGRATIONS.md)
 
 <table>
   <tr><th align="left">Platform</th><th align="left">Install</th><th align="left">Highlights</th></tr>
-  <tr><td align="left" nowrap>📦 <b>npm (global)</b></td><td align="left" nowrap><code>npm install -g omniroute</code></td><td align="left">One command, any OS</td></tr>
-  <tr><td align="left" nowrap>🐳 <b>Docker</b></td><td align="left" nowrap><code>docker run … diegosouzapw/omniroute</code></td><td align="left">Multi-arch <b>AMD64 + ARM64</b></td></tr>
+  <tr><td align="left" nowrap>📦 <b>GitHub Releases</b></td><td align="left" nowrap><a href="https://github.com/LMPrado-DZ23/OmniRoute/releases">installers for this fork</a></td><td align="left">Windows <code>.exe</code> · macOS <code>.dmg</code> · Linux <code>.AppImage</code></td></tr>
+  <tr><td align="left" nowrap>🐳 <b>Docker</b></td><td align="left" nowrap><code>docker run … ghcr.io/lmprado-dz23/omniroute</code></td><td align="left">Multi-arch <b>AMD64 + ARM64</b></td></tr>
+  <tr><td align="left" nowrap>🧪 <b>npm (upstream package)</b></td><td align="left" nowrap><code>npm install -g omniroute</code></td><td align="left">Installs the <b>upstream</b> build, not this fork</td></tr>
   <tr><td align="left" nowrap>🖥️ <b>Desktop (Electron)</b></td><td align="left" nowrap><code>npm run electron:build</code></td><td align="left">Native window + system tray — <b>Windows / macOS / Linux</b></td></tr>
   <tr><td align="left" nowrap>🎩 <b>Menu-bar (OmniRouteTray)</b></td><td align="left" nowrap><code>brew install --cask zoispag/tap/omniroute-tray</code></td><td align="left">Supervises &amp; auto-updates the server — <b>macOS</b></td></tr>
   <tr><td align="left" nowrap>💪 <b>ARM</b></td><td align="left" nowrap>native <code>arm64</code></td><td align="left">Raspberry Pi, ARM servers, Apple Silicon</td></tr>
@@ -976,9 +982,18 @@ Auto-trigger by token threshold, flip on the adaptive dial, pin a named profile,
 
 **1) Install & run**
 
+> ⚠️ **Read this before typing any command:** `npm install -g omniroute` installs the **upstream** package published by `diegosouzapw` (the original project), **not this fork**. This fork ships only through the three channels below.
+
+Pick the channel of **this fork** that fits you:
+
+- **Desktop installer** — once a release is published, download the `.exe` / `.dmg` / `.AppImage` for your OS from [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) and open it; the app starts the server and opens the dashboard. If the Releases page has no installers yet, use Docker or source.
+- **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest`
+- **From source** (needs Node.js 22/24 LTS):
+
 ```bash
-npm install -g omniroute
-omniroute
+git clone https://github.com/LMPrado-DZ23/OmniRoute.git && cd OmniRoute
+npm ci && npm run build
+npm start
 ```
 
 > 💡 See `npm warn ERESOLVE` or peer-dep warnings? [They're harmless](docs/guides/TROUBLESHOOTING.md#npm-install-warnings-eresolve--peer--deprecated).
@@ -991,9 +1006,11 @@ Dashboard → **Providers** → connect **Kiro AI** (free Claude, ~50 credits/mo
 
 **3) Point your coding tool**
 
+Create a key in Dashboard → **API Keys** and copy it from the dialog that opens right after creation — it is shown **only once** (afterwards the dashboard shows it masked). Lost it? Create another one.
+
 ```txt
 Base URL: http://localhost:20128/v1
-API Key:  [copy from Dashboard → Endpoints]
+API Key:  the key you copied when you created it (Dashboard → API Keys)
 Model:    auto            (zero-config smart routing — or any provider/model)
 ```
 
@@ -1026,7 +1043,7 @@ Use these only for clients that cannot attach `Authorization: Bearer ...`. Heade
 
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 `:latest` follows the highest **published** stable SemVer. It does not track git `main`. Pin `:X.Y.Z` for GitOps. See [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).The image pins **`OMNIROUTE_MEMORY_MB=1024`**. That is enough for the dashboard and a light chat. **Coding agents** (`POST /v1/responses` from Claude Code, Codex, Grok, …) need a much larger V8 heap or the process `FATAL ERROR`s at ~12 GiB under two overlapping long contexts. Size the container above the heap (native buffers sit outside V8):
@@ -1040,13 +1057,13 @@ docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
   -e OMNIROUTE_MEMORY_MB=8192 --memory=10g \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 Full table: [Docker Guide — runtime RAM](docs/guides/DOCKER_GUIDE.md#runtime-ram-for-coding-agents).
 
-> **Pre-release Docker channel:** `diegosouzapw/omniroute:next` and
-> `diegosouzapw/omniroute:next-web` follow the current default `release/v*`
+> **Pre-release Docker channel:** `ghcr.io/lmprado-dz23/omniroute:next` and
+> `ghcr.io/lmprado-dz23/omniroute:next-web` follow the current default `release/v*`
 > branch. These mutable tags are intended only for testing unreleased fixes and
 > are **not supported for production**. See
 > [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).
@@ -1203,7 +1220,7 @@ same process on one port, so there is no separate CLI-only package today.
 
 Métricas canônicas em 2026-08-24: **1.029 vídeos únicos** · **11.132.922 visualizações conhecidas** (`v > 0`) · **639 canais/perfis por rede**. O painel bruto contém 1.070 linhas; 41 duplicatas do Instagram foram normalizadas pela URL canônica, mantendo a maior contagem por vídeo.
 
-> 🎬 **Made a video about OmniRoute?** Open an [issue](https://github.com/diegosouzapw/OmniRoute/issues/new) or [discussion](https://github.com/diegosouzapw/OmniRoute/discussions) with the link — we'll feature it here.
+> 🎬 **Made a video about OmniRoute?** Open an [issue](https://github.com/LMPrado-DZ23/OmniRoute/issues/new) or [discussion](https://github.com/LMPrado-DZ23/OmniRoute/discussions) with the link — we'll feature it here.
 
 <br/>
 
@@ -1211,22 +1228,23 @@ Métricas canônicas em 2026-08-24: **1.029 vídeos únicos** · **11.132.922 vi
 
 # 📧 Community & Help
 
-> Everything in one place — follow the maintainer, chat with the community, or open an issue.
+> Everything in one place — the upstream community channels, the original author, and this fork's issue tracker.
 
-| Channel                                    | Where / how                                                                                                               |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| 💼 **LinkedIn** — follow the maintainer    | [linkedin.com/in/diegosouzapw](https://www.linkedin.com/in/diegosouzapw/)                                                 |
-| 🐙 **GitHub** — follow for releases & tips | [@diegosouzapw](https://github.com/diegosouzapw)                                                                          |
-| 💬 **Discord**                             | [discord.gg/U47eFqAXCn](https://discord.gg/U47eFqAXCn)                                                                    |
-| ✈️ **Telegram**                            | [t.me/omnirouteOficial](https://t.me/omnirouteOficial)                                                                    |
-| 🟢 **WhatsApp — 🌍 Global**                | [join the group](https://chat.whatsapp.com/FvuCbrpZmQ6I85n2vW5QIC?s=cl&p=a&mlu=4)                                         |
-| 🟢 **WhatsApp — 🇧🇷 Brasil**                | [entrar no grupo](https://chat.whatsapp.com/KWgatljAjmbELQory59Oti?s=cl&p=a&mlu=4)                                        |
-| 🌍 **Website**                             | [omniroute.online](https://omniroute.online)                                                                              |
-| 🌍 **🌍StHub OmniRoute Community (free)**  | [portal sthub](https://portal.sthub.com.br/communities/groups/st-hub/channels/Omniroute-World-8kRjmK)                     |
-| 📦 **Source code**                         | [github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)                                            |
-| 🐛 **Report a bug**                        | [open an issue](https://github.com/diegosouzapw/OmniRoute/issues) — attach `npm run system-info` output                   |
-| 🤝 **Contribute**                          | [CONTRIBUTING.md](CONTRIBUTING.md) · [Branching & Release Model](docs/ops/BRANCHING_MODEL.md) · pick a `good first issue` |
-| 💚 **Support the project**                 | [Ways to support ↑](#-support-omniroute) · [GitHub Sponsors](https://github.com/sponsors/diegosouzapw)                    |
+| Channel                                   | Where / how                                                                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 🍴 **This fork**                          | [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute) — releases, issues, container image        |
+| 💼 **LinkedIn** — original author         | [linkedin.com/in/diegosouzapw](https://www.linkedin.com/in/diegosouzapw/)                                                 |
+| 🐙 **GitHub** — original author           | [@diegosouzapw](https://github.com/diegosouzapw) · [upstream repository](https://github.com/LMPrado-DZ23/OmniRoute)       |
+| 💬 **Discord**                            | [discord.gg/U47eFqAXCn](https://discord.gg/U47eFqAXCn)                                                                    |
+| ✈️ **Telegram**                           | [t.me/omnirouteOficial](https://t.me/omnirouteOficial)                                                                    |
+| 🟢 **WhatsApp — 🌍 Global**               | [join the group](https://chat.whatsapp.com/FvuCbrpZmQ6I85n2vW5QIC?s=cl&p=a&mlu=4)                                         |
+| 🟢 **WhatsApp — 🇧🇷 Brasil**               | [entrar no grupo](https://chat.whatsapp.com/KWgatljAjmbELQory59Oti?s=cl&p=a&mlu=4)                                        |
+| 🌍 **Website**                            | [omniroute.online](https://omniroute.online)                                                                              |
+| 🌍 **🌍StHub OmniRoute Community (free)** | [portal sthub](https://portal.sthub.com.br/communities/groups/st-hub/channels/Omniroute-World-8kRjmK)                     |
+| 📦 **Source code**                        | [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)                                            |
+| 🐛 **Report a bug**                       | [open an issue](https://github.com/LMPrado-DZ23/OmniRoute/issues) — attach `npm run system-info` output                   |
+| 🤝 **Contribute**                         | [CONTRIBUTING.md](CONTRIBUTING.md) · [Branching & Release Model](docs/ops/BRANCHING_MODEL.md) · pick a `good first issue` |
+| 💚 **Support the original author**        | [Ways to support ↑](#-support-omniroute) · [GitHub Sponsors](https://github.com/sponsors/diegosouzapw)                    |
 
 </div>
 
@@ -1244,7 +1262,7 @@ Métricas canônicas em 2026-08-24: **1.029 vídeos únicos** · **11.132.922 vi
   <tr><td nowrap><b>Runtime</b></td><td>Node.js 22.x / 24.x LTS — <code>&gt;=22.22.2 &lt;23 || &gt;=24.0.0 &lt;27</code></td></tr>
   <tr><td nowrap><b>Language</b></td><td>TypeScript 6.0 — <b>100% TypeScript</b> across <code>src/</code> and <code>open-sse/</code> (zero <code>any</code> in core since v2.0)</td></tr>
   <tr><td nowrap><b>Framework</b></td><td>Next.js 16 + React 19 + Tailwind CSS 4</td></tr>
-  <tr><td nowrap><b>Database</b></td><td>better-sqlite3 (SQLite, WAL journaling) + LowDB (JSON legacy) — 122 domain modules, 170 migrations</td></tr>
+  <tr><td nowrap><b>Database</b></td><td>better-sqlite3 (SQLite, WAL journaling) + LowDB (JSON legacy) — 122 domain modules, 171 migrations</td></tr>
   <tr><td nowrap><b>Memory</b></td><td>SQLite FTS5 full-text + int8-quantized vector embeddings, typed decay</td></tr>
   <tr><td nowrap><b>Schemas</b></td><td>Zod 4 — MCP tool I/O validation + API contracts</td></tr>
   <tr><td nowrap><b>Protocols</b></td><td>MCP (stdio / HTTP / SSE) + A2A v0.3 (JSON-RPC 2.0 + SSE)</td></tr>
@@ -1256,8 +1274,8 @@ Métricas canônicas em 2026-08-24: **1.029 vídeos únicos** · **11.132.922 vi
   <tr><td nowrap><b>Logging</b></td><td>pino — structured JSON logs with request context</td></tr>
   <tr><td nowrap><b>Testing</b></td><td>Node.js test runner + Vitest — <b>39,000+ static test declarations</b> across 5,100+ tracked test files (unit, integration, E2E, security, ecosystem)</td></tr>
   <tr><td nowrap><b>Platforms</b></td><td>Desktop (Electron) · Android (Termux) · PWA (any browser)</td></tr>
-  <tr><td nowrap><b>CI/CD</b></td><td>GitHub Actions — auto npm publish + Docker Hub on release</td></tr>
-  <tr><td nowrap><b>Links</b></td><td><a href="https://omniroute.online">Website</a> · <a href="https://www.npmjs.com/package/omniroute">npm</a> · <a href="https://hub.docker.com/r/diegosouzapw/omniroute">Docker Hub</a></td></tr>
+  <tr><td nowrap><b>CI/CD</b></td><td>GitHub Actions — GitHub Releases + GHCR image on release</td></tr>
+  <tr><td nowrap><b>Links</b></td><td><a href="https://github.com/LMPrado-DZ23/OmniRoute/releases">Releases</a> · <a href="https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute">GHCR image</a> · <a href="https://github.com/LMPrado-DZ23/OmniRoute">upstream</a> · <a href="https://omniroute.online">upstream website</a></td></tr>
 </table>
 
 <div align="center">
@@ -1520,7 +1538,7 @@ A heartfelt thank-you to the people who fund OmniRoute out of their own pocket �
 
 <sub>Public GitHub Sponsors revalidated on 2026-08-24. GitHub's <code>activeOnly</code> status determines the active labels above; previously disclosed public one-time supporters remain thanked, and private sponsors remain anonymous.</sub>
 
-<b><a href="https://github.com/sponsors/diegosouzapw">💖 Become a sponsor →</a></b> — every dollar keeps OmniRoute free and independent.
+<b><a href="https://github.com/sponsors/diegosouzapw">💖 Sponsor the original author →</a></b> — every dollar keeps upstream OmniRoute free and independent.
 
 </div>
 
@@ -1532,7 +1550,9 @@ A heartfelt thank-you to the people who fund OmniRoute out of their own pocket �
 
 </div>
 
-[![Contributors](https://contrib.rocks/image?repo=diegosouzapw/OmniRoute&max=639&columns=20&anon=1)](https://github.com/diegosouzapw/OmniRoute/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=LMPrado-DZ23/OmniRoute&max=639&columns=20&anon=1)](https://github.com/LMPrado-DZ23/OmniRoute/graphs/contributors)
+
+<sub>Every one of these people contributed to the upstream project this fork carries forward — see the [upstream contributor graph](https://github.com/LMPrado-DZ23/OmniRoute/graphs/contributors).</sub>
 
 <sub>Audited on 2026-08-24 at frozen base <code>ac02c5b42f</code> and rechecked at live <code>release/v3.8.50</code> tip <code>dafb4ae808</code>: <b>639 normalized human Git identities</b> — 407 appear as commit authors (including the maintainer) and 232 only in explicit <code>Co-authored-by</code> trailers. The census normalizes GitHub noreply handles, excludes 26 bot/agent/service/placeholder identities, and does not merge ordinary email addresses merely because their display names match.</sub>
 
@@ -1561,27 +1581,15 @@ gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
 
 ## 📊 Stars
 
-<a href="https://www.star-history.com/?repos=diegosouzapw%2FOmniRoute&type=date&legend=top-left">
+<a href="https://www.star-history.com/#LMPrado-DZ23/OmniRoute&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=diegosouzapw/OmniRoute&type=date&theme=dark&legend=top-left&sealed_token=XP_ycEjv7s31p1edvhsMOXry51OWYsUjDRWjflSG7jQKRpO9hPGg7i_EHvwhI6QtrARTMH-YGjJhi8sumRYflEJD0DPlH_MMHjizhBYCX8fbHFrHEiNvVA" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=diegosouzapw/OmniRoute&type=date&legend=top-left&sealed_token=XP_ycEjv7s31p1edvhsMOXry51OWYsUjDRWjflSG7jQKRpO9hPGg7i_EHvwhI6QtrARTMH-YGjJhi8sumRYflEJD0DPlH_MMHjizhBYCX8fbHFrHEiNvVA" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=diegosouzapw/OmniRoute&type=date&legend=top-left&sealed_token=XP_ycEjv7s31p1edvhsMOXry51OWYsUjDRWjflSG7jQKRpO9hPGg7i_EHvwhI6QtrARTMH-YGjJhi8sumRYflEJD0DPlH_MMHjizhBYCX8fbHFrHEiNvVA" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=LMPrado-DZ23/OmniRoute&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=LMPrado-DZ23/OmniRoute&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=LMPrado-DZ23/OmniRoute&type=Date" />
  </picture>
 </a>
 
-<br/>
-
-<div align="center">
-
-## 🌍 StarMapper
-
-<a href="https://starmapper.bruniaux.com/diegosouzapw/omniroute">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://starmapper.bruniaux.com/api/map-image/diegosouzapw/omniroute?theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://starmapper.bruniaux.com/api/map-image/diegosouzapw/omniroute?theme=light" />
-    <img alt="StarMapper" src="https://starmapper.bruniaux.com/api/map-image/diegosouzapw/omniroute" />
-  </picture>
-</a>
+<sub>Upstream star history: <a href="https://www.star-history.com/#diegosouzapw/OmniRoute&Date">diegosouzapw/OmniRoute</a>.</sub>
 </div>
 
 <br/>
@@ -1591,6 +1599,8 @@ gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
 ## 🙏 Acknowledgments
 
 </div>
+
+This repository is a fork of **[OmniRoute by Diego Souza (`diegosouzapw`)](https://github.com/LMPrado-DZ23/OmniRoute)** — the original author of everything described in this README; the changes carried by this fork are listed in the [changelog](CHANGELOG.md) and its [release notes](https://github.com/LMPrado-DZ23/OmniRoute/releases).
 
 OmniRoute stands on the shoulders of giants. It started as a fork of **[9router](https://github.com/decolua/9router)** and a TypeScript port of the Go project **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** — and from there, every subsystem below was inspired by an open-source project that got there first. Each one shaped a concrete piece of OmniRoute. This is our thank-you to all of them. 🙏
 

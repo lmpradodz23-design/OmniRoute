@@ -15,28 +15,35 @@ import { resolveMcpCallerAuthInfo, withMcpHttpAuthContext } from "./httpAuthCont
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-let _sseServer: McpServer | null = null;
-let _sseTransport: WebStandardStreamableHTTPServerTransport | null = null;
-let _sseStartedAt: number | null = null;
+// R-9: every HTTP client — on /api/mcp/sse or /api/mcp/stream — gets its own McpServer +
+// transport keyed by mcp-session-id. The former shared "sse" singleton was reset by ANY
+// client's `initialize` and its creation closed every Streamable HTTP session (and vice
+// versa), so two MCP clients kept knocking each other offline.
+type McpHttpSessionKind = "sse" | "streamable-http";
 
-type StreamableSession = {
+type McpHttpSession = {
   sessionId: string;
+  kind: McpHttpSessionKind;
   server: McpServer;
   transport: WebStandardStreamableHTTPServerTransport;
   startedAt: number;
   lastActivityAt: number;
 };
 
-const _streamableSessions = new Map<string, StreamableSession>();
+const _sessions = new Map<string, McpHttpSession>();
+/** Most recent SSE session — fallback for legacy SSE clients that omit mcp-session-id. */
+let _lastSseSessionId: string | null = null;
 
 const MCP_SESSION_IDLE_MS = 5 * 60 * 1000;
+/** Upper bound on live sessions; the least recently active one is evicted beyond it. */
+const MCP_MAX_HTTP_SESSIONS = 64;
 
 const _mcpSessionSweep = setInterval(() => {
   const now = Date.now();
-  for (const [sessionId, session] of _streamableSessions) {
+  for (const [sessionId, session] of _sessions) {
     if (now - session.lastActivityAt > MCP_SESSION_IDLE_MS) {
       try {
-        closeStreamableSession(sessionId);
+        closeSession(sessionId);
       } catch {}
     }
   }
@@ -45,21 +52,8 @@ if (typeof _mcpSessionSweep === "object" && "unref" in _mcpSessionSweep) {
   (_mcpSessionSweep as { unref?: () => void }).unref?.();
 }
 
-function closeSseTransport(): void {
-  if (_sseTransport) {
-    try {
-      _sseTransport.close();
-    } catch {
-      // ignore shutdown errors
-    }
-  }
-  _sseServer = null;
-  _sseTransport = null;
-  _sseStartedAt = null;
-}
-
-function closeStreamableSession(sessionId: string): void {
-  const session = _streamableSessions.get(sessionId);
+function closeSession(sessionId: string): void {
+  const session = _sessions.get(sessionId);
   if (!session) {
     return;
   }
@@ -69,47 +63,44 @@ function closeStreamableSession(sessionId: string): void {
   } catch {
     // ignore shutdown errors
   }
-  _streamableSessions.delete(sessionId);
-}
-
-function closeAllStreamableSessions(): void {
-  for (const sessionId of _streamableSessions.keys()) {
-    closeStreamableSession(sessionId);
+  _sessions.delete(sessionId);
+  if (_lastSseSessionId === sessionId) {
+    _lastSseSessionId = null;
   }
 }
 
-function ensureSseServer(): {
-  server: McpServer;
-  transport: WebStandardStreamableHTTPServerTransport;
-} {
-  if (_sseServer && _sseTransport) {
-    return { server: _sseServer, transport: _sseTransport };
+function closeAllSessions(): void {
+  for (const sessionId of [..._sessions.keys()]) {
+    closeSession(sessionId);
   }
-
-  closeAllStreamableSessions();
-
-  _sseServer = createMcpServer();
-  _sseTransport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-  });
-  _sseStartedAt = Date.now();
-
-  void _sseServer.connect(_sseTransport);
-
-  console.log("[MCP] HTTP transport started (sse)");
-  return { server: _sseServer, transport: _sseTransport };
 }
 
-function createStreamableSession(): StreamableSession {
-  closeSseTransport();
+function evictLeastRecentlyActiveSession(): void {
+  let victim: McpHttpSession | null = null;
+  for (const session of _sessions.values()) {
+    if (!victim || session.lastActivityAt < victim.lastActivityAt) victim = session;
+  }
+  if (victim) {
+    console.warn(
+      `[MCP] HTTP session cap (${MCP_MAX_HTTP_SESSIONS}) reached; evicting idle ${victim.kind}:${victim.sessionId}`
+    );
+    closeSession(victim.sessionId);
+  }
+}
+
+function createSession(kind: McpHttpSessionKind): McpHttpSession {
+  if (_sessions.size >= MCP_MAX_HTTP_SESSIONS) {
+    evictLeastRecentlyActiveSession();
+  }
 
   const sessionId = randomUUID();
   const server = createMcpServer();
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => sessionId,
   });
-  const session = {
+  const session: McpHttpSession = {
     sessionId,
+    kind,
     server,
     transport,
     startedAt: Date.now(),
@@ -117,19 +108,32 @@ function createStreamableSession(): StreamableSession {
   };
 
   void server.connect(transport);
-  _streamableSessions.set(sessionId, session);
-  console.log(`[MCP] HTTP transport started (streamable-http:${sessionId})`);
+  _sessions.set(sessionId, session);
+  if (kind === "sse") {
+    _lastSseSessionId = sessionId;
+  }
+  console.log(`[MCP] HTTP transport started (${kind}:${sessionId})`);
   return session;
 }
 
+function closeStreamableSession(sessionId: string): void {
+  closeSession(sessionId);
+}
+
+function createStreamableSession(): McpHttpSession {
+  return createSession("streamable-http");
+}
 async function isInitializeRequest(request: Request): Promise<boolean> {
   if (request.method !== "POST") {
     return false;
   }
 
   try {
-    const body = (await request.clone().json()) as { method?: unknown };
-    return body?.method === "initialize";
+    const body = (await request.clone().json()) as RpcRequest | RpcRequest[];
+    // A batched JSON-RPC body may carry the initialize entry (#10772).
+    return Array.isArray(body)
+      ? body.some((entry) => entry?.method === "initialize")
+      : body?.method === "initialize";
   } catch {
     return false;
   }
@@ -204,7 +208,7 @@ async function handleStreamableRequest(request: Request): Promise<Response> {
   const sessionId = request.headers.get("mcp-session-id");
 
   if (sessionId) {
-    const session = _streamableSessions.get(sessionId);
+    const session = _sessions.get(sessionId);
     if (!session) {
       // MCP spec (2025-03-26 / 2025-11-25, Session Management): once a session is
       // terminated/unknown, the server MUST respond with HTTP 404 Not Found so the
@@ -293,29 +297,48 @@ interface RpcRequest {
  * Handle SSE requests.
  * SSE transport is implemented via Streamable HTTP transport with GET for SSE stream
  * and POST for messages (the Streamable HTTP transport supports both patterns).
+ *
+ * R-9: each client gets its own session. An `initialize` creates a session and touches
+ * nothing else (a second client's initialize used to reset a shared singleton, dropping
+ * the first client); an unknown session id answers 404 so spec-compliant clients
+ * re-initialize; a header-less follow-up falls back to the most recent SSE session for
+ * legacy clients that never echo mcp-session-id.
  */
 export async function handleMcpSSE(request: Request): Promise<Response> {
-  if (request.method === "POST") {
-    try {
-      const body = await request.clone().json();
-      const isInitialize = Array.isArray(body)
-        ? body.some((req: RpcRequest) => req?.method === "initialize")
-        : (body as RpcRequest)?.method === "initialize";
+  const headerSessionId = request.headers.get("mcp-session-id");
+  let session: McpHttpSession | undefined;
+  // A session created by THIS initialize must not outlive a failed initialize (final audit
+  // A-5): the Streamable HTTP path already closes it in its catch; the SSE path did not, and
+  // left it in the map until the 5-minute idle sweep.
+  let createdHere = false;
 
-      if (isInitialize) {
-        console.log("[MCP] New client initialize detected, resetting SSE singleton...");
-        closeSseTransport();
-      }
-    } catch (err) {}
+  if (await isInitializeRequest(request)) {
+    session = createSession("sse");
+    createdHere = true;
+  } else if (headerSessionId) {
+    session = _sessions.get(headerSessionId);
+    if (!session) {
+      return errorResponse("Not Found: Unknown Mcp-Session-Id header", -32000, 404);
+    }
+  } else {
+    session = _lastSseSessionId ? _sessions.get(_lastSseSessionId) : undefined;
+    if (!session) {
+      return errorResponse("Bad Request: send an initialize request first", -32000);
+    }
   }
-  const { transport } = ensureSseServer();
 
+  const active = session;
   try {
+    active.lastActivityAt = Date.now();
     const response = await withMcpHttpAuthContext(request, () =>
-      handleRequestWithAuthInfo(transport, request)
+      handleRequestWithAuthInfo(active.transport, request)
     );
-    return protectMcpSseResponse(request, response);
+    if (request.method === "DELETE") {
+      closeSession(active.sessionId);
+    }
+    return protectMcpSseResponse(request, withSessionHeader(response, active.sessionId));
   } catch (err) {
+    if (createdHere) closeSession(active.sessionId);
     console.error("[MCP] SSE error:", err);
     return new Response(JSON.stringify({ error: "MCP SSE transport error" }), {
       status: 500,
@@ -330,12 +353,14 @@ export function getMcpHttpStatus(): {
   startedAt: number | null;
   uptime: string | null;
 } {
-  const streamableStartedAt =
-    _streamableSessions.size > 0
-      ? Math.min(...Array.from(_streamableSessions.values(), (session) => session.startedAt))
+  const sessions = Array.from(_sessions.values());
+  const startedAt =
+    sessions.length > 0 ? Math.min(...sessions.map((session) => session.startedAt)) : null;
+  const transport = sessions.some((session) => session.kind === "streamable-http")
+    ? "streamable-http"
+    : sessions.length > 0
+      ? "sse"
       : null;
-  const startedAt = streamableStartedAt ?? _sseStartedAt;
-  const transport = _streamableSessions.size > 0 ? "streamable-http" : _sseTransport ? "sse" : null;
   const online = transport !== null;
 
   return {
@@ -354,11 +379,17 @@ export function isMcpHttpTransportReady(
 }
 
 export function shutdownMcpHttp(): void {
-  closeSseTransport();
-  closeAllStreamableSessions();
+  closeAllSessions();
   console.log("[MCP] HTTP transport shutdown");
 }
 
 export function isMcpHttpActive(): boolean {
-  return _sseTransport !== null || _streamableSessions.size > 0;
+  return _sessions.size > 0;
 }
+
+/** Live HTTP sessions across both endpoints (bounded by the cap). */
+export function getMcpHttpSessionCount(): number {
+  return _sessions.size;
+}
+
+export { MCP_MAX_HTTP_SESSIONS };

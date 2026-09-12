@@ -166,5 +166,5 @@ writeFileSync(outPath, report);
 console.log(report);
 console.log(`\n✅ Report saved to: ${outPath}`);
 console.log(
-  `📎 Attach this file when reporting issues at: https://github.com/diegosouzapw/OmniRoute/issues`
+  `📎 Attach this file when reporting issues at: https://github.com/LMPrado-DZ23/OmniRoute/issues`
 );

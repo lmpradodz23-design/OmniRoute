@@ -30,6 +30,7 @@ import {
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import {
   CALL_LOGS_DIR,
+  deleteCallArtifact,
   readCallArtifact,
   type CallLogArtifact,
   type CallLogDetailState,
@@ -445,6 +446,9 @@ function getLegacyInlineDetail(id: string) {
 }
 
 async function saveCallLogOperation(entry: any): Promise<void> {
+  // Relative path of the artifact this save wrote, if any — the call_logs row is that
+  // file's only reference, so a failed INSERT must take the file with it (R-2).
+  let writtenArtifactRelPath: string | null = null;
   try {
     const apiKeyContext = getCallLogApiKeyContext();
     // `||` (not `??`): an empty-string apiKeyId/apiKeyName is "unattributed",
@@ -556,6 +560,7 @@ async function saveCallLogOperation(entry: any): Promise<void> {
       if (artifactResult) {
         detailState = "ready";
         artifactRelPath = artifactResult.relPath;
+        writtenArtifactRelPath = artifactResult.relPath;
         artifactSizeBytes = artifactResult.sizeBytes;
         artifactSha256 = artifactResult.sha256;
       } else {
@@ -610,6 +615,10 @@ async function saveCallLogOperation(entry: any): Promise<void> {
       "[callLogs] Failed to save call log:",
       sanitizeErrorMessage(error) || "Call log persistence failed"
     );
+    // The artifact and its row cannot share a transaction (file vs SQLite); compensate
+    // instead: without the row the file is unreachable by every detail/export/purge
+    // path, so it would otherwise accumulate in DATA_DIR/call_logs forever.
+    if (writtenArtifactRelPath) deleteCallArtifact(writtenArtifactRelPath);
   }
 }
 

@@ -17,6 +17,7 @@ import {
   type DeleteByPeriodTarget,
 } from "./cleanup/usagePurge";
 import { ensureCompressionRunTelemetryTable } from "./compressionRunTelemetry";
+import { registerShutdownHook } from "../shutdownHooks";
 
 interface CleanupResult {
   deleted: number;
@@ -799,6 +800,8 @@ export function startCleanupScheduler(): void {
   }, 30_000);
 
   // Schedule periodic cleanup every 6 hours.
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("db-cleanup-scheduler", stopCleanupScheduler);
   _cleanupSchedulerTimer = setInterval(async () => {
     try {
       const result = await runAutoCleanup();

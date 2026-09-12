@@ -77,6 +77,12 @@ import {
   selectCompatibleNodeForPrefix,
 } from "@/lib/providerNodePrefixes";
 import { applyCatalogPostFilters, finalizeCatalogResponse } from "./catalogResponse";
+import { blockUnavailableLocalCliProviders } from "./catalogLocalCliGate";
+import {
+  BUILTIN_AUTO_YIELD_INTERVAL,
+  createCatalogBuildYielder,
+  yieldCatalogBuildTurn,
+} from "./catalogBuildYield";
 import {
   isNoAuthProviderBlocked,
   isNoAuthProviderKey,
@@ -166,12 +172,6 @@ export type { CachedCatalog, BackgroundRefreshScheduler } from "./catalogCache";
 export type CatalogResponseOptions = {
   scheduleBackgroundRefresh?: BackgroundRefreshScheduler;
 };
-
-const BUILTIN_AUTO_YIELD_INTERVAL = 2;
-
-function yieldCatalogBuildTurn(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
-}
 
 /**
  * Build unified OpenAI-compatible model catalog response.
@@ -277,18 +277,8 @@ async function buildUnifiedModelsResponseCore(
   corsHeaders: Record<string, string> = {}
 ) {
   const diagnosticHeaders = getCatalogDiagnosticsHeaders({ request });
-  // #9147: this builder walks connections + model registries at catalog scale with no
-  // event-loop yield, so a large deployment pins the single Node.js thread for the
-  // whole build (reporter: 183 connections / 2000+ models → 10.1s stall that blocks the
-  // dashboard WS heartbeat). Yield every `catYIELD_EVERY` items across the hot loops.
-  const catYIELD_EVERY = 5;
-  let catYieldCount = 0;
-  const maybeYieldCatalogBuild = async (): Promise<void> => {
-    catYieldCount++;
-    if (catYieldCount % catYIELD_EVERY === 0) {
-      await yieldCatalogBuildTurn();
-    }
-  };
+  // #9147: yield every 5 items across the hot loops (see catalogBuildYield.ts).
+  const maybeYieldCatalogBuild = createCatalogBuildYielder(5);
   try {
     // #9147: `getModelIsHidden()` is a SQLite read per call (custom row + compat list)
     // and the build consults it ~16× per entry. Bulk-load the hidden-model map once
@@ -480,6 +470,8 @@ async function buildUnifiedModelsResponseCore(
       registerConnectionKey(alias, conn);
       registerConnectionKey(conn.provider, conn);
     }
+
+    await blockUnavailableLocalCliProviders(blockedProviders, { connections });
 
     // noAuth providers have no DB rows; settings.blockedProviders disables them.
     for (const p of Object.values(NOAUTH_PROVIDERS)) {

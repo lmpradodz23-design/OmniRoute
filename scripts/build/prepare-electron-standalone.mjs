@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { assembleStandalone } from "./assembleStandalone.mjs";
 import { assertSqlitePrebuildExists } from "./electronRebuildPlan.mjs";
 import { pruneElectronRuntimeDocs } from "./electronRuntimeDocs.mjs";
+import { pruneStandaloneDir } from "./build-next-isolated.mjs";
 import { stageOptionalPacks } from "./optionalPackStaging.mjs";
 import { runBuildTool } from "./buildToolRunner.mjs";
 
@@ -192,6 +193,18 @@ runBuildTool(
   { stdio: "inherit" }
 );
 
+// Never ship secrets, source control, tests or nested builds inside the app (see
+// STANDALONE_PRUNE_TARGETS): the standalone copy is pruned again here because this stage
+// is what electron-builder packages.
+const hygienePrune = await pruneStandaloneDir(ELECTRON_STANDALONE_DIR, undefined, console, {
+  relDistDir: NEXT_DIST_DIR,
+  projectRoot: ROOT,
+});
+if (hygienePrune.length > 0) {
+  console.log(
+    `[electron] pruned non-runtime paths from the staging bundle: ${hygienePrune.join(", ")}`
+  );
+}
 const docsPrune = pruneElectronRuntimeDocs(ELECTRON_STANDALONE_DIR);
 if (docsPrune.removedFiles > 0) {
   console.log(

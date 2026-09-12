@@ -95,7 +95,7 @@ Avast 和 AVG 執行啟發式掃描，會將包含大量類似 HTTP 請求連結
      [System.IO.File]::ReadAllBytes("$PWD\OmniRoute.Setup.<version>.exe"))
    [Convert]::ToBase64String($b)
    ```
-   輸出必須與 `latest.yml` → `sha512` 相符。如果不符，請刪除檔案並僅從 [GitHub 發布頁面](https://github.com/diegosouzapw/OmniRoute/releases) 重新下載。
+   輸出必須與 `latest.yml` → `sha512` 相符。如果不符，請刪除檔案並僅從 [GitHub 發布頁面](https://github.com/LMPrado-DZ23/OmniRoute/releases) 重新下載。
 2. **還原 + 排除** — 從隔離區還原被回滾的項目，並為 `%LOCALAPPDATA%\Programs\OmniRoute` 加入排除規則（Kaspersky → 設定 → 威脅與排除），然後重新安裝。
 3. **回報誤判** — <https://opentip.kaspersky.com/>。使用者提交的誤判報告確實能加速允許清單的建立。
 
@@ -523,7 +523,7 @@ v3.8.0 版本特有的問題及其目前的解決方法。如果後續修補版�
 
 ## 還是卡住了？
 
-- **GitHub Issues**：[github.com/diegosouzapw/OmniRoute/issues](https://github.com/diegosouzapw/OmniRoute/issues)
+- **GitHub Issues**：[github.com/LMPrado-DZ23/OmniRoute/issues](https://github.com/LMPrado-DZ23/OmniRoute/issues)
 - **架構**：請參閱 [`docs/architecture/ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) 了解內部細節
 - **API 參考**：請參閱 [`docs/reference/API_REFERENCE.md`](../reference/API_REFERENCE.md) 了解所有端點
 - **健康狀態儀表板**：查看**儀表板 → 健康狀態**以取得即時系統狀態

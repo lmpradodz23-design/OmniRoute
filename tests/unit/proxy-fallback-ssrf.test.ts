@@ -11,8 +11,12 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const { isRetryableProxyTarget } = await import("../../src/lib/providers/validation.ts");
 const { isPrivateHost } = await import("../../src/shared/network/outboundUrlGuard.ts");
+const core = await import("../../src/lib/db/core.ts");
 
 test.after(() => {
+  // validation.ts opened the SQLite file on load; close it before removing the directory —
+  // Windows refuses to delete a directory that still has an open handle (EPERM).
+  core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 

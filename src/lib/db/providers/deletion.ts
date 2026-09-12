@@ -198,15 +198,19 @@ export async function reorderProviderConnections(providerId: string) {
 }
 
 export function reorderConnections(db: DbLike, providerId: string) {
-  const rows = db
-    .prepare(
-      "SELECT id, priority, updated_at FROM provider_connections WHERE provider = ? ORDER BY priority ASC, updated_at DESC"
-    )
-    .all(providerId);
+  // R-2: renumbering is one logical write — N row updates that must land together, or a
+  // failure midway leaves the provider with mixed old/new priorities (duplicate slots).
+  db.transaction(() => {
+    const rows = db
+      .prepare(
+        "SELECT id, priority, updated_at FROM provider_connections WHERE provider = ? ORDER BY priority ASC, updated_at DESC"
+      )
+      .all(providerId);
 
-  const update = db.prepare("UPDATE provider_connections SET priority = ? WHERE id = ?");
-  rows.forEach((row, index) => {
-    const current = toRecord(row);
-    update.run(index + 1, current.id);
-  });
+    const update = db.prepare("UPDATE provider_connections SET priority = ? WHERE id = ?");
+    rows.forEach((row, index) => {
+      const current = toRecord(row);
+      update.run(index + 1, current.id);
+    });
+  })();
 }

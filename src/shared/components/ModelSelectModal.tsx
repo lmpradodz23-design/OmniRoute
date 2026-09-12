@@ -34,6 +34,7 @@ import {
 } from "@/shared/constants/providers";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import { useNotificationStore } from "@/store/notificationStore";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 // Provider order: OAuth first, then no-auth, then API Key (matches dashboard/providers)
 const PROVIDER_ORDER = [
@@ -111,6 +112,7 @@ export default function ModelSelectModal({
   keepOpenOnSelect = false,
 }: ModelSelectModalProps) {
   const t = useTranslations("common");
+  const confirmDialog = useConfirmDialog();
   const notify = useNotificationStore();
   const resolvedTitle = title ?? t("selectModel");
   const labelOrFallback = (key: string, fallback: string, values?: Record<string, unknown>) =>
@@ -613,7 +615,7 @@ export default function ModelSelectModal({
   const canAddWorking = workingModelsToSelect.length > 0;
   const canRemoveWorking = workingModelsToUnselect.length > 0;
 
-  const handleToggleSelectAllVisible = () => {
+  const handleToggleSelectAllVisible = async () => {
     if (!showSelectAllToggle) return;
     if (allVisibleSelected) {
       const toRemove = visibleModels.filter(
@@ -630,11 +632,11 @@ export default function ModelSelectModal({
     // "Show configured only" off) — see modelSelectModalHelpers.ts (#8526).
     if (
       shouldConfirmSelectAll(toAdd.length) &&
-      !confirm(
+      !(await confirmDialog(
         labelOrFallback("selectAllConfirm", `Add ${toAdd.length} models to this combo?`, {
           count: toAdd.length,
         })
-      )
+      ))
     ) {
       return;
     }
@@ -654,18 +656,18 @@ export default function ModelSelectModal({
   };
 
   /** Add or remove models that passed the last Test providers run. */
-  const handleToggleWorkingModels = () => {
+  const handleToggleWorkingModels = async () => {
     if (!showSelectWorkingModels) return;
     if (canAddWorking) {
       if (
         shouldConfirmSelectAll(workingModelsToSelect.length) &&
-        !confirm(
+        !(await confirmDialog(
           labelOrFallback(
             "selectAllConfirm",
             `Add ${workingModelsToSelect.length} models to this combo?`,
             { count: workingModelsToSelect.length }
           )
-        )
+        ))
       ) {
         return;
       }

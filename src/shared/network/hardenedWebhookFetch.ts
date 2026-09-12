@@ -21,6 +21,7 @@ import dnsp from "node:dns/promises";
 
 import { Agent, fetch as undiciFetch } from "undici";
 
+import { isRedirectStatus, rejectBlockedRedirect } from "./blockedRedirect";
 import {
   CLOUD_METADATA_BLOCKED_MESSAGE,
   OutboundUrlGuardError,
@@ -44,6 +45,34 @@ export interface ResolvedWebhookTarget {
 }
 
 export type WebhookLookupFn = (hostname: string) => Promise<ResolvedAddress[]>;
+
+type PinnedLookupCallback = (
+  err: Error | null,
+  address: string | Array<{ address: string; family: number }>,
+  family?: number
+) => void;
+
+/**
+ * Dispatcher `connect.lookup` that pins the socket to the pre-validated address so DNS cannot
+ * rebind between validation and connect. Node's `net.connect` (autoSelectFamily, on by default
+ * since Node 20) calls it with `{ all: true }` and expects an ARRAY of `{ address, family }`;
+ * the legacy form expects `(err, address, family)`. Both must be honoured — answering the `all`
+ * form with a bare string fails every hostname target with "Invalid IP address: undefined".
+ */
+export function pinnedLookup(pinned: ResolvedAddress) {
+  return (_hostname: string, options: unknown, callback: unknown) => {
+    const cb = callback as PinnedLookupCallback;
+    const wantsAll =
+      typeof options === "object" &&
+      options !== null &&
+      (options as { all?: boolean }).all === true;
+    if (wantsAll) {
+      cb(null, [{ address: pinned.address, family: pinned.family }]);
+    } else {
+      cb(null, pinned.address, pinned.family);
+    }
+  };
+}
 
 const nodeLookup: WebhookLookupFn = async (hostname) => {
   const recs = await dnsp.lookup(hostname, { all: true, verbatim: true });
@@ -132,14 +161,49 @@ export interface HardenedWebhookFetchOptions {
   /** Injectable resolver for tests. */
   lookup?: WebhookLookupFn;
   maxBodyBytes?: number;
+  /**
+   * Withhold the response body of a private/LAN target (default `true`: connectivity
+   * diagnostics only, never an internal service's content — the webhook-test contract).
+   * Callers whose payload IS the body of an operator-configured private peer (an OIDC issuer
+   * or a federation server on the LAN, admitted through `allowPrivate`) pass `false`.
+   * Cloud-metadata targets stay blocked regardless of either flag.
+   */
+  withholdPrivateBody?: boolean;
 }
 
 export interface HardenedWebhookFetchResult {
   status: number;
   ok: boolean;
-  /** Empty for a private target (never exfiltrated) or when there is no body. */
+  /**
+   * Empty for a private target when `withholdPrivateBody` is on (the default), or when there is
+   * no body; otherwise the body, truncated to `maxBodyBytes`.
+   */
   bodyText: string;
   isPrivateTarget: boolean;
+}
+
+type UndiciResponse = Awaited<ReturnType<typeof undiciFetch>>;
+
+/**
+ * Body policy of the diagnostic response: withheld (cancelled unread) under the webhook-test
+ * contract for a private target, otherwise read and truncated to `maxBodyBytes`.
+ */
+async function readDiagnosticBody(
+  res: UndiciResponse,
+  withhold: boolean,
+  maxBodyBytes: number
+): Promise<string> {
+  if (withhold) {
+    // Connectivity diagnostics only — never the body of an internal service.
+    try {
+      await res.body?.cancel();
+    } catch {
+      /* ignore */
+    }
+    return "";
+  }
+  const bodyText = await res.text();
+  return bodyText.length > maxBodyBytes ? bodyText.slice(0, maxBodyBytes) + "…" : bodyText;
 }
 
 /**
@@ -159,19 +223,15 @@ export async function hardenedWebhookFetch(
     allowPrivate = false,
     lookup,
     maxBodyBytes = 2048,
+    withholdPrivateBody = true,
   } = options;
 
   const target = await resolveAndAssertWebhookTarget(input, { lookup, allowPrivate });
   const pinned = target.addresses[0];
 
-  const agent = new Agent({
-    connect: {
-      // Pin the socket to the pre-validated ip so DNS cannot rebind between the check above and
-      // the connect below. undici's lookup follows Node's dns.lookup callback shape.
-      lookup: (_hostname, _opts, cb) =>
-        (cb as (e: Error | null, a: string, f: number) => void)(null, pinned.address, pinned.family),
-    },
-  });
+  // Pin the socket to the pre-validated ip so DNS cannot rebind between the check above and
+  // the connect below.
+  const agent = new Agent({ connect: { lookup: pinnedLookup(pinned) } });
 
   // Manual timer (cleared in finally) instead of AbortSignal.timeout so no timer is left pending
   // after the request settles.
@@ -192,36 +252,15 @@ export async function hardenedWebhookFetch(
       dispatcher: agent,
     });
 
-    if (res.status >= 300 && res.status < 400) {
-      // Never follow a redirect: the hop could point at an internal service the initial
-      // validation never saw. Surface a blocked diagnostic and read no body.
-      try {
-        await res.body?.cancel();
-      } catch {
-        /* ignore */
-      }
-      throw new OutboundUrlGuardError(
-        `Redirect blocked for ${method} ${target.url.toString()} (${res.status})`,
-        {
-          code: "OUTBOUND_URL_GUARD_BLOCKED",
-          url: target.url.toString(),
-          hostname: normalizeHost(target.url.hostname),
-        }
-      );
-    }
+    // Never follow a redirect: the hop could point at an internal service the initial
+    // validation never saw. Surface a blocked diagnostic and read no body.
+    if (isRedirectStatus(res.status)) await rejectBlockedRedirect(res, method, target.url);
 
-    let bodyText = "";
-    if (target.isPrivateTarget) {
-      // Connectivity diagnostics only — never the body of an internal service.
-      try {
-        await res.body?.cancel();
-      } catch {
-        /* ignore */
-      }
-    } else {
-      bodyText = await res.text();
-      if (bodyText.length > maxBodyBytes) bodyText = bodyText.slice(0, maxBodyBytes) + "…";
-    }
+    const bodyText = await readDiagnosticBody(
+      res,
+      target.isPrivateTarget && withholdPrivateBody,
+      maxBodyBytes
+    );
 
     return { status: res.status, ok: res.ok, bodyText, isPrivateTarget: target.isPrivateTarget };
   } finally {

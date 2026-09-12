@@ -13,13 +13,55 @@ const STRONG_CREDENTIAL_TOKEN_SOURCE =
   "(?:eyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}|" +
   "github_pat_[A-Za-z0-9_]{20,}|ghp_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_-]{20,}|" +
   "xox[a-z]-[A-Za-z0-9-]{10,}|(?:AKIA|ASIA)[A-Z0-9]{16}|" +
-  "(?<![A-Za-z0-9])sk[-_][A-Za-z0-9._~+/=-]{8,}|" +
-  "[A-Za-z0-9]{3,}sk[-_][A-Za-z0-9._~+/=-]{8,})";
+  "(?<![A-Za-z0-9])sk[-_][A-Za-z0-9._~+/=-]{8,})";
 const STRONG_CREDENTIAL_TOKEN = new RegExp(STRONG_CREDENTIAL_TOKEN_SOURCE, "i");
 const STRONG_CREDENTIAL_TOKEN_GLOBAL = new RegExp(STRONG_CREDENTIAL_TOKEN_SOURCE, "gi");
 
+// The "glued" secret-key shape — three or more alphanumerics running straight into
+// `sk-…`/`sk_…` (e.g. `myappsk-…`) — used to be the union alternative
+// `[A-Za-z0-9]{3,}sk[-_][A-Za-z0-9._~+/=-]{8,}`. That form backtracks quadratically over
+// every long alphanumeric run (each start position re-scans the run looking for `sk`),
+// which is exactly the ReDoS class the sanitizer exists to resist: ~130 ms per call on a
+// 4 KB run, over the 250 ms guard on a loaded CI runner. The same contract is enforced
+// here in linear time: find the `sk-…` tail, then walk back over the alphanumeric run.
+const GLUED_SECRET_KEY_TAIL = /sk[-_][A-Za-z0-9._~+/=-]{8,}/gi;
+const GLUED_SECRET_KEY_MIN_PREFIX = 3;
+
+function isAsciiAlphanumeric(code: number): boolean {
+  return (
+    (code >= 48 && code <= 57) || // 0-9
+    (code >= 65 && code <= 90) || // A-Z
+    (code >= 97 && code <= 122) // a-z
+  );
+}
+
+/** Start of the alphanumeric run that ends right before `index` (equal to `index` when none). */
+function alphanumericRunStart(value: string, index: number): number {
+  let start = index;
+  while (start > 0 && isAsciiAlphanumeric(value.charCodeAt(start - 1))) start -= 1;
+  return start;
+}
+
+function redactGluedSecretKeyTokens(value: string): string {
+  let out = "";
+  let cursor = 0;
+  GLUED_SECRET_KEY_TAIL.lastIndex = 0;
+  for (let m = GLUED_SECRET_KEY_TAIL.exec(value); m; m = GLUED_SECRET_KEY_TAIL.exec(value)) {
+    const runStart = alphanumericRunStart(value, m.index);
+    if (m.index - runStart >= GLUED_SECRET_KEY_MIN_PREFIX && runStart >= cursor) {
+      out += value.slice(cursor, runStart) + "[REDACTED]";
+      cursor = m.index + m[0].length;
+    }
+  }
+  return cursor === 0 ? value : out + value.slice(cursor);
+}
+
+function hasGluedSecretKeyToken(value: string): boolean {
+  return redactGluedSecretKeyTokens(value) !== value;
+}
+
 export function containsStrongCredentialToken(value: string): boolean {
-  return STRONG_CREDENTIAL_TOKEN.test(value);
+  return STRONG_CREDENTIAL_TOKEN.test(value) || hasGluedSecretKeyToken(value);
 }
 
 const CREDENTIAL_LABELS = [
@@ -619,9 +661,11 @@ export function redactSensitiveErrorText(value: string): string {
     MAX_ERROR_LEN + MAX_ERROR_SCAN_HEADROOM
   );
   const catalogRedacted = redactKnownCredentialPatterns(redactSensitiveUrlCredentials(normalized));
-  const commonCredentialsRedacted = redactBase64DataUrls(redactPrivateKeyPemBlocks(catalogRedacted))
-    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [REDACTED]")
-    .replace(STRONG_CREDENTIAL_TOKEN_GLOBAL, "[REDACTED]");
+  const commonCredentialsRedacted = redactGluedSecretKeyTokens(
+    redactBase64DataUrls(redactPrivateKeyPemBlocks(catalogRedacted))
+      .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [REDACTED]")
+      .replace(STRONG_CREDENTIAL_TOKEN_GLOBAL, "[REDACTED]")
+  );
   return redactLabeledCredentialAssignments(commonCredentialsRedacted);
 }
 
@@ -631,9 +675,11 @@ export function containsSensitiveErrorCredential(value: string): boolean {
     false,
     MAX_ERROR_LEN + MAX_ERROR_SCAN_HEADROOM
   );
-  const directRedacted = redactKnownCredentialPatterns(redactSensitiveUrlCredentials(normalized))
-    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [REDACTED]")
-    .replace(STRONG_CREDENTIAL_TOKEN_GLOBAL, "[REDACTED]");
+  const directRedacted = redactGluedSecretKeyTokens(
+    redactKnownCredentialPatterns(redactSensitiveUrlCredentials(normalized))
+      .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [REDACTED]")
+      .replace(STRONG_CREDENTIAL_TOKEN_GLOBAL, "[REDACTED]")
+  );
   if (directRedacted !== normalized) return true;
   if (
     /(?:^|\s)--(?:api[-_]?key|token|password|secret)\s+(?:"[^"]*"|'[^']*'|\S+)/i.test(normalized)

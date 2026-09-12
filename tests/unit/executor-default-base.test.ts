@@ -318,12 +318,6 @@ test("DefaultExecutor.buildUrl normalizes configurable chat-openai-compat base U
   );
 });
 
-test("DefaultExecutor.buildUrl falls back to OpenAI config for unknown providers", () => {
-  const executor = new DefaultExecutor("unknown-provider");
-  assert.equal(executor.config.baseUrl, PROVIDERS.openai.baseUrl);
-  assert.equal(executor.buildUrl("gpt-4.1", true), PROVIDERS.openai.baseUrl);
-});
-
 test("DefaultExecutor.buildUrl applies urlSuffix for zai and glm-coding-apikey", () => {
   const zai = new DefaultExecutor("zai");
   const glmCodingApikey = new DefaultExecutor("glm-coding-apikey");
@@ -340,11 +334,6 @@ test("DefaultExecutor.buildUrl applies urlSuffix for zai and glm-coding-apikey",
     "https://api.z.ai/api/anthropic/v1/messages?beta=true"
   );
   assert.equal(zai.buildUrl("glm-5", true), "https://api.z.ai/api/anthropic/v1/messages?beta=true");
-});
-
-test("DefaultExecutor.buildUrl applies urlSuffix from registry for unknown providers with suffix", () => {
-  const executor = new DefaultExecutor("unknown-provider");
-  assert.equal(executor.buildUrl("gpt-4.1", true), PROVIDERS.openai.baseUrl);
 });
 
 test("DefaultExecutor.buildHeaders uses x-api-key for zai and glm-coding-apikey", () => {

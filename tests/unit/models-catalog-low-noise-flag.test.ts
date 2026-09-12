@@ -14,6 +14,14 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const featureFlagsDb = await import("../../src/lib/db/featureFlags.ts");
 const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
+const localCliAvailability =
+  await import("../../src/app/api/v1/models/catalogLocalCliAvailability.ts");
+
+// C-05: the `cxa/` rows asserted below belong to `codex-app-server`, a local-CLI
+// no-auth provider that is now listed only while its app-server is reachable.
+// This file tests prefix gating, not runtime detection, so declare the transport
+// available instead of depending on the machine's env/connection state.
+localCliAvailability.__setLocalCliAvailabilityForTest({ "codex-app-server": true });
 
 type ModelsResponseBody = {
   data: Array<{ id: string }>;

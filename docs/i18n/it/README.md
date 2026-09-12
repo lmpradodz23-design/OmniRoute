@@ -416,7 +416,7 @@ Tutte e **19** le strategie — combinabili liberamente per ogni passaggio della
 OmniRoute è distribuito con licenza MIT e mantenuto apertamente. Se ti fa risparmiare tempo o denaro, ecco come aiutarlo a restare indipendente — scegli ciò che preferisci. Le sponsorizzazioni non influenzano mai la priorità del routing: acquistano visibilità, non posizionamento.
 
 <table>
-  <tr><td nowrap>⭐ <b>Metti una stella alla repo</b></td><td>Gratis — aiuta davvero la visibilità</td><td><a href="https://github.com/diegosouzapw/OmniRoute">Dai una stella a OmniRoute</a></td></tr>
+  <tr><td nowrap>⭐ <b>Metti una stella alla repo</b></td><td>Gratis — aiuta davvero la visibilità</td><td><a href="https://github.com/LMPrado-DZ23/OmniRoute">Dai una stella a OmniRoute</a></td></tr>
   <tr><td nowrap>🐙 <b>GitHub Sponsors</b></td><td>Una tantum o mensile · zero commissioni della piattaforma</td><td><a href="https://github.com/sponsors/diegosouzapw">github.com/sponsors/diegosouzapw</a></td></tr>
   <tr><td nowrap>☕ <b>Ko-fi</b></td><td>Mancia una tantum, senza registrazione per chi dona</td><td><a href="https://ko-fi.com/diegosouzapw">ko-fi.com/diegosouzapw</a></td></tr>
   <tr><td nowrap>🧋 <b>Buy Me a Coffee</b></td><td>Piccolo gesto informale</td><td><a href="https://www.buymeacoffee.com/diegosouzapw">buymeacoffee.com/diegosouzapw</a></td></tr>
@@ -453,7 +453,7 @@ Pix copia-e-cola:
 
 </details>
 
-🐛 Hai trovato un bug o vuoi lasciare un feedback? Apri una [Discussion](https://github.com/diegosouzapw/OmniRoute/discussions).
+🐛 Hai trovato un bug o vuoi lasciare un feedback? Apri una [Discussion](https://github.com/LMPrado-DZ23/OmniRoute/discussions).
 
 <br/>
 
@@ -661,7 +661,7 @@ finiscano nella cronologia della shell. → [Integrazioni CLI](../../guides/CLI-
 <table>
   <tr><th align="left">Piattaforma</th><th align="left">Installazione</th><th align="left">Punti di forza</th></tr>
   <tr><td align="left" nowrap>📦 <b>npm (globale)</b></td><td align="left" nowrap><code>npm install -g omniroute</code></td><td align="left">Un comando, qualsiasi OS</td></tr>
-  <tr><td align="left" nowrap>🐳 <b>Docker</b></td><td align="left" nowrap><code>docker run … diegosouzapw/omniroute</code></td><td align="left">Multi-arch <b>AMD64 + ARM64</b></td></tr>
+  <tr><td align="left" nowrap>🐳 <b>Docker</b></td><td align="left" nowrap><code>docker run … ghcr.io/lmprado-dz23/omniroute</code></td><td align="left">Multi-arch <b>AMD64 + ARM64</b></td></tr>
   <tr><td align="left" nowrap>🖥️ <b>Desktop (Electron)</b></td><td align="left" nowrap><code>npm run electron:build</code></td><td align="left">Finestra nativa + system tray — <b>Windows / macOS / Linux</b></td></tr>
   <tr><td align="left" nowrap>💪 <b>ARM</b></td><td align="left" nowrap>nativo <code>arm64</code></td><td align="left">Raspberry Pi, server ARM, Apple Silicon</td></tr>
   <tr><td align="left" nowrap>📱 <b>Android (Termux)</b></td><td align="left" nowrap><code>pkg install nodejs && npx -y omniroute</code></td><td align="left">Gira <b>sul tuo telefono</b>, 24/7, senza root</td></tr>
@@ -931,7 +931,7 @@ Usali solo con client che non possono aggiungere `Authorization: Bearer ...`. L'
 
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 `:latest` segue la versione SemVer stabile **pubblicata** più alta. Non segue il branch git `main`. Per GitOps, fissa `:X.Y.Z`. Vedi [Canali di release Docker](../../guides/DOCKER_GUIDE.md#release-channels). L'immagine imposta **`OMNIROUTE_MEMORY_MB=1024`**. È sufficiente per la dashboard e una chat leggera. I **coding agent** (`POST /v1/responses` da Claude Code, Codex, Grok, …) richiedono un heap V8 molto più grande, altrimenti il processo va in `FATAL ERROR` a ~12 GiB con due contesti lunghi sovrapposti. Dimensiona il container oltre l'heap (i buffer nativi si trovano fuori da V8):
@@ -945,13 +945,13 @@ docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
   -e OMNIROUTE_MEMORY_MB=8192 --memory=10g \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 Tabella completa: [Guida Docker — RAM di runtime](../../guides/DOCKER_GUIDE.md#runtime-ram-for-coding-agents).
 
-> **Canale Docker pre-release:** `diegosouzapw/omniroute:next` e
-> `diegosouzapw/omniroute:next-web` seguono l'attuale branch `release/v*` predefinito.
+> **Canale Docker pre-release:** `ghcr.io/lmprado-dz23/omniroute:next` e
+> `ghcr.io/lmprado-dz23/omniroute:next-web` seguono l'attuale branch `release/v*` predefinito.
 > Questi tag mutabili sono destinati esclusivamente al test di fix non ancora rilasciati e
 > **non sono supportati in produzione**. Vedi
 > [Canali di release Docker](../../guides/DOCKER_GUIDE.md#release-channels).
@@ -1109,7 +1109,7 @@ stesso processo su una sola porta, quindi oggi non esiste un pacchetto separato 
 
 Metriche di validazione: 1002 video monitorati · 7,069,190 visualizzazioni note · 595 profili/canali · 13+ lingue · 13+ creator.
 
-> 🎬 **Hai realizzato un video su OmniRoute?** Apri una [issue](https://github.com/diegosouzapw/OmniRoute/issues/new) o una [discussion](https://github.com/diegosouzapw/OmniRoute/discussions) con il link — lo metteremo in evidenza qui.
+> 🎬 **Hai realizzato un video su OmniRoute?** Apri una [issue](https://github.com/LMPrado-DZ23/OmniRoute/issues/new) o una [discussion](https://github.com/LMPrado-DZ23/OmniRoute/discussions) con il link — lo metteremo in evidenza qui.
 
 <br/>
 
@@ -1129,8 +1129,8 @@ Metriche di validazione: 1002 video monitorati · 7,069,190 visualizzazioni note
 | 🟢 **WhatsApp — 🌍 Global**                  | [entra nel gruppo](https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t)                                                               |
 | 🟢 **WhatsApp — 🇧🇷 Brasil**                  | [entra nel gruppo](https://chat.whatsapp.com/LTSpdFhXTxjH4R6CCNiKWz)                                                                         |
 | 🌍 **Sito web**                              | [omniroute.online](https://omniroute.online)                                                                                                 |
-| 📦 **Codice sorgente**                       | [github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)                                                               |
-| 🐛 **Segnala un bug**                        | [apri una issue](https://github.com/diegosouzapw/OmniRoute/issues) — allega l'output di `npm run system-info`                                |
+| 📦 **Codice sorgente**                       | [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)                                                               |
+| 🐛 **Segnala un bug**                        | [apri una issue](https://github.com/LMPrado-DZ23/OmniRoute/issues) — allega l'output di `npm run system-info`                                |
 | 🤝 **Contribuisci**                          | [CONTRIBUTING.md](../../../CONTRIBUTING.md) · [Modello di branching e release](../../ops/BRANCHING_MODEL.md) · scegli una `good first issue` |
 | 💚 **Sostieni il progetto**                  | [Modi per sostenere ↑](#-support-omniroute) · [GitHub Sponsors](https://github.com/sponsors/diegosouzapw)                                    |
 
@@ -1165,7 +1165,7 @@ Metriche di validazione: 1002 video monitorati · 7,069,190 visualizzazioni note
   <tr><td nowrap><b>Test</b></td><td>Test runner Node.js + Vitest — <b>oltre 25.000 casi di test</b> su 3.300+ file (unitari, integrazione, E2E, sicurezza, ecosistema)</td></tr>
   <tr><td nowrap><b>Piattaforme</b></td><td>Desktop (Electron) · Android (Termux) · PWA (qualsiasi browser)</td></tr>
   <tr><td nowrap><b>CI/CD</b></td><td>GitHub Actions — pubblicazione automatica npm + Docker Hub alla release</td></tr>
-  <tr><td nowrap><b>Link</b></td><td><a href="https://omniroute.online">Sito web</a> · <a href="https://www.npmjs.com/package/omniroute">npm</a> · <a href="https://hub.docker.com/r/diegosouzapw/omniroute">Docker Hub</a></td></tr>
+  <tr><td nowrap><b>Link</b></td><td><a href="https://omniroute.online">Sito web</a> · <a href="https://www.npmjs.com/package/omniroute">npm</a> · <a href="https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute">Docker Hub</a></td></tr>
 </table>
 
 <div align="center">

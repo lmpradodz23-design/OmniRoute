@@ -185,6 +185,10 @@ export function statusToExitCode(status) {
 }
 
 export class ApiError extends Error {
+  /**
+   * @param {string} message
+   * @param {{ status?: number, code?: string, exitCode?: number }} [options]
+   */
   constructor(message, { status, code, exitCode } = {}) {
     super(message);
     this.name = "ApiError";

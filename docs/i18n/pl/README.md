@@ -392,16 +392,16 @@ Wszystkie **19** strategii — łącz i dopasowuj na każdym kroku komba:
 
 > Ta sama aplikacja, Twoja maszyna, Twoje zasady. Od globalnej instalacji przez npm po Twój telefon za pomocą Termux.
 
-| Platforma                 | Instalacja                               | Najważniejsze cechy                                                           |
-| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- |
-| 📦 **npm (globalnie)**    | `npm install -g omniroute`               | Jedno polecenie, dowolny system operacyjny                                    |
-| 🐳 **Docker**             | `docker run … diegosouzapw/omniroute`    | Wielonatywność architektur **AMD64 + ARM64**                                  |
-| 🖥️ **Desktop (Electron)** | `npm run electron:build`                 | Natywne okno + zasobnik systemowy (system tray) — **Windows / macOS / Linux** |
-| 💪 **ARM**                | natywnie `arm64`                         | Raspberry Pi, serwery ARM, Apple Silicon                                      |
-| 📱 **Android (Termux)**   | `pkg install nodejs && npx -y omniroute` | Działa **na Twoim telefonie**, 24/7, bez roota                                |
-| 📲 **PWA**                | "Dodaj do ekranu głównego"               | Pełny ekran, offline, instalacja z poziomu przeglądarki                       |
-| 🧩 **Wtyczka OpenCode**   | `@omniroute/opencode-provider`           | Natywna integracja z OpenCode                                                 |
-| 🛠️ **Ze źródeł**          | `npm install && npm run dev`             | Modyfikuj kod, współtwórz projekt                                             |
+| Platforma                 | Instalacja                                    | Najważniejsze cechy                                                           |
+| ------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------- |
+| 📦 **npm (globalnie)**    | `npm install -g omniroute`                    | Jedno polecenie, dowolny system operacyjny                                    |
+| 🐳 **Docker**             | `docker run … ghcr.io/lmprado-dz23/omniroute` | Wielonatywność architektur **AMD64 + ARM64**                                  |
+| 🖥️ **Desktop (Electron)** | `npm run electron:build`                      | Natywne okno + zasobnik systemowy (system tray) — **Windows / macOS / Linux** |
+| 💪 **ARM**                | natywnie `arm64`                              | Raspberry Pi, serwery ARM, Apple Silicon                                      |
+| 📱 **Android (Termux)**   | `pkg install nodejs && npx -y omniroute`      | Działa **na Twoim telefonie**, 24/7, bez roota                                |
+| 📲 **PWA**                | "Dodaj do ekranu głównego"                    | Pełny ekran, offline, instalacja z poziomu przeglądarki                       |
+| 🧩 **Wtyczka OpenCode**   | `@omniroute/opencode-provider`                | Natywna integracja z OpenCode                                                 |
+| 🛠️ **Ze źródeł**          | `npm install && npm run dev`                  | Modyfikuj kod, współtwórz projekt                                             |
 
 <sub>📖 [Podręcznik Docker](../../../docs/guides/DOCKER_GUIDE.md) · [Desktop](../../../electron/README.md) · [Termux](../../../docs/guides/TERMUX_GUIDE.md) · [PWA](../../../docs/guides/PWA_GUIDE.md) · [OpenCode](../../../docs/frameworks/OPENCODE.md)</sub>
 
@@ -621,7 +621,7 @@ Używaj ich tylko w przypadku klientów, którzy nie mogą dołączyć nagłówk
 
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
-  -p 20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
+  -p 20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 **🛠️ Ze źródeł**
@@ -718,7 +718,7 @@ W celu uzyskania najszybszej instalacji preferuj **pnpm** (magazyn adresowany tr
 
 <div align="center">
 
-> 🎬 **Nagrałeś film o OmniRoute?** Otwórz [zgłoszenie (issue)](https://github.com/diegosouzapw/OmniRoute/issues/new) lub [dyskusję (discussion)](https://github.com/diegosouzapw/OmniRoute/discussions) z linkiem — umieścimy go tutaj.
+> 🎬 **Nagrałeś film o OmniRoute?** Otwórz [zgłoszenie (issue)](https://github.com/LMPrado-DZ23/OmniRoute/issues/new) lub [dyskusję (discussion)](https://github.com/LMPrado-DZ23/OmniRoute/discussions) z linkiem — umieścimy go tutaj.
 
 <br/>
 </div>
@@ -745,8 +745,8 @@ W celu uzyskania najszybszej instalacji preferuj **pnpm** (magazyn adresowany tr
 > 💬 **Rozmawiaj ze społecznością** — linki do Discorda, Telegrama i WhatsAppa (🌍 / 🇧🇷) znajdują się na [górze tego pliku README](#-do%C5%82%C4%85cz-do-spo%C5%82eczno%C5%9Bci).
 
 - 🌍 **Strona internetowa**: [omniroute.online](https://omniroute.online)
-- 🐙 **GitHub**: [github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)
-- 🐛 **Zgłoszenia (Issues)**: [zgłoś błąd](https://github.com/diegosouzapw/OmniRoute/issues) (dołącz wynik działania komendy `npm run system-info`)
+- 🐙 **GitHub**: [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)
+- 🐛 **Zgłoszenia (Issues)**: [zgłoś błąd](https://github.com/LMPrado-DZ23/OmniRoute/issues) (dołącz wynik działania komendy `npm run system-info`)
 - 🤝 **Współtworzenie**: zobacz [CONTRIBUTING.md](CONTRIBUTING.md) lub wybierz zadanie typu `good first issue`
 
 </div>
@@ -773,7 +773,7 @@ W celu uzyskania najszybszej instalacji preferuj **pnpm** (magazyn adresowany tr
 - **CI/CD**: GitHub Actions (automatyczna publikacja w npm + Docker Hub przy wydaniu wersji)
 - **Strona WWW**: [omniroute.online](https://omniroute.online)
 - **Pakiet**: [npmjs.com/package/omniroute](https://www.npmjs.com/package/omniroute)
-- **Docker**: [hub.docker.com/r/diegosouzapw/omniroute](https://hub.docker.com/r/diegosouzapw/omniroute)
+- **Docker**: [hub.docker.com/r/diegosouzapw/omniroute](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute)
 - **Odporność**: Wyłącznik awaryjny (circuit breaker), wykładnicze opóźnienie (exponential backoff), ochrona przed kumulacją zapytań (anti-thundering herd), podszywanie się pod TLS, samonaprawiające się auto-kombo
 
 <div align="center">
@@ -1116,7 +1116,7 @@ OmniRoute jest darmowym projektem o otwartym kodzie źródłowym, tworzonym i ut
 
 - ⭐ **Dodaj gwiazdkę do repozytorium** — to naprawdę pomaga w widoczności
 - 💖 **[Sponsorzy GitHub](https://github.com/sponsors/diegosouzapw)** — finansuj bieżące utrzymanie i nowych dostawców
-- 🐛 **Zgłaszaj błędy i dziel się opiniami** w [Dyskusjach](https://github.com/diegosouzapw/OmniRoute/discussions)
+- 🐛 **Zgłaszaj błędy i dziel się opiniami** w [Dyskusjach](https://github.com/LMPrado-DZ23/OmniRoute/discussions)
 
 ## 📄 Licencja
 

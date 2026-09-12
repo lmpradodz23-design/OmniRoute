@@ -42,7 +42,7 @@ omniroute/other breakdown). Exit 1 = attention needed; read the log.
 The runner's default `KillMode=process` leaves `Runner.Worker → npm → next-build`
 alive when a unit is stopped or restarted — an orphan build keeps eating RAM and
 CPU with no job attached. Every OmniRoute unit carries a drop-in
-(`/etc/systemd/system/actions.runner.diegosouzapw-OmniRoute.<name>.service.d/10-killmode.conf`)
+(`/etc/systemd/system/actions.runner.LMPrado-DZ23-OmniRoute.<name>.service.d/10-killmode.conf`)
 with `KillMode=mixed`: SIGTERM to the listener first, SIGKILL to the whole cgroup at
 `TimeoutStop`. It takes effect on the unit's next restart — restart **one runner at
 a time, only when idle**, with the idle check and the restart in the same command.

@@ -10,7 +10,8 @@
   "files": [
     "bin/",
     "dist/",
-    "@omniroute/",
+    "@omniroute/opencode-plugin/",
+    "@omniroute/opencode-provider/",
     "open-sse/",
     "src/domain/",
     "src/lib/",
@@ -83,10 +84,13 @@
     "auto-fallback"
   ],
   "license": "MIT",
-  "author": "diegosouzapw",
+  "author": "LMPrado-DZ23",
+  "contributors": [
+    "diegosouzapw (original author, https://github.com/diegosouzapw/OmniRoute)"
+  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/diegosouzapw/OmniRoute"
+    "url": "https://github.com/LMPrado-DZ23/OmniRoute"
   },
   "homepage": "https://omniroute.online",
   "scripts": {
@@ -173,6 +177,8 @@
     "check:node-runtime": "node --import tsx scripts/check/check-supported-node-runtime.ts",
     "check:pack-artifact": "node --import tsx scripts/build/validate-pack-artifact.ts",
     "check:pack-boot": "node scripts/check/check-pack-boot.mjs",
+    "check:standalone-hygiene": "node scripts/check/check-standalone-hygiene.mjs",
+    "check:standalone-boot": "node scripts/check/check-standalone-boot.mjs",
     "check:install-upgrade": "node scripts/check/check-install-upgrade.mjs",
     "check:pack-policy": "node --import tsx scripts/build/validate-pack-artifact.ts --policy-only",
     "check:cli-i18n": "node scripts/check/check-cli-i18n.mjs",
@@ -258,6 +264,8 @@
     "test:vitest:ui": "vitest run --config vitest.config.ts",
     "test:mutation": "stryker run",
     "test:ecosystem": "node scripts/dev/run-ecosystem-tests.mjs",
+    "test:compat": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/e2e/compat-isolated.test.ts",
+    "test:compat:ollama": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/e2e/ollama-real-provider.test.ts",
     "test:system": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/e2e/system-failover.test.ts",
     "test:coverage": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true NODE_OPTIONS=--max-old-space-size=8192 c8 --merge-async --output-dir coverage --exclude=tests/** --exclude=**/*.test.* --reporter=text-summary --reporter=html --reporter=json-summary --reporter=lcov --check-coverage --statements 60 --lines 60 --functions 60 --branches 60 npm run test:coverage:runner",
     "test:coverage:legacy": "c8 --output-dir coverage --exclude=open-sse --check-coverage --lines 50 --functions 50 --branches 50 node --import tsx/esm --test tests/unit/*.test.ts",
@@ -477,7 +485,7 @@
     "vite": "^8.0.16",
     "protobufjs": "^7.6.5",
     "@babel/core": "^7.29.6",
-    "hono": "^4.12.34",
+    "hono": "^4.13.7",
     "@hono/node-server": "^2.0.5",
     "fast-uri": "^3.1.7",
     "body-parser": "^2.3.0",

@@ -24,18 +24,18 @@ _Your universal API proxy — one endpoint, 329 provider catalog entries, resili
 ![Docker Pulls](https://img.shields.io/docker/pulls/diegosouzapw/omniroute)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/diegosouzapw/omniroute/total?style=flat&label=eletron%20donwloads&color=blue)
 
-[![stars](https://custom-icon-badges.demolab.com/github/stars/diegosouzapw/OmniRoute?logo=star&style=flat)](https://github.com/diegosouzapw/OmniRoute/stargazers)
-[![open issues](https://custom-icon-badges.demolab.com/github/issues-raw/diegosouzapw/OmniRoute?logo=issue)](https://github.com/diegosouzapw/OmniRoute/issues)
-[![license](https://custom-icon-badges.demolab.com/github/license/diegosouzapw/OmniRoute?logo=law)](https://github.com/diegosouzapw/OmniRoute/blob/main/LICENSE)
-[![last commit](https://custom-icon-badges.demolab.com/github/last-commit/diegosouzapw/OmniRoute?logo=history&logoColor=white)](https://github.com/diegosouzapw/OmniRoute/commits/main)
+[![stars](https://custom-icon-badges.demolab.com/github/stars/diegosouzapw/OmniRoute?logo=star&style=flat)](https://github.com/LMPrado-DZ23/OmniRoute/stargazers)
+[![open issues](https://custom-icon-badges.demolab.com/github/issues-raw/diegosouzapw/OmniRoute?logo=issue)](https://github.com/LMPrado-DZ23/OmniRoute/issues)
+[![license](https://custom-icon-badges.demolab.com/github/license/diegosouzapw/OmniRoute?logo=law)](https://github.com/LMPrado-DZ23/OmniRoute/blob/main/LICENSE)
+[![last commit](https://custom-icon-badges.demolab.com/github/last-commit/diegosouzapw/OmniRoute?logo=history&logoColor=white)](https://github.com/LMPrado-DZ23/OmniRoute/commits/main)
 [![total contributions](https://custom-icon-badges.demolab.com/badge/dynamic/json?logo=graph&logoColor=fff&color=blue&label=total%20contributions&query=%24.totalContributions&url=https%3A%2F%2Fstreak-stats.demolab.com%2F%3Fuser%3Ddiegosouzapw%26type%3Djson)](https://github.com/diegosouzapw)
-[![code size](https://custom-icon-badges.demolab.com/github/languages/code-size/diegosouzapw/OmniRoute?logo=file-code&logoColor=white)](https://github.com/diegosouzapw/OmniRoute)
-[![pr closed](https://custom-icon-badges.demolab.com/github/issues-pr-closed/diegosouzapw/OmniRoute?color=purple&logo=git-pull-request&logoColor=white)](https://github.com/diegosouzapw/OmniRoute/pulls?q=is%3Apr+is%3Aclosed)
-[![tag](https://custom-icon-badges.demolab.com/github/v/tag/diegosouzapw/OmniRoute?logo=tag&logoColor=white)](https://github.com/diegosouzapw/OmniRoute/tags)
+[![code size](https://custom-icon-badges.demolab.com/github/languages/code-size/diegosouzapw/OmniRoute?logo=file-code&logoColor=white)](https://github.com/LMPrado-DZ23/OmniRoute)
+[![pr closed](https://custom-icon-badges.demolab.com/github/issues-pr-closed/diegosouzapw/OmniRoute?color=purple&logo=git-pull-request&logoColor=white)](https://github.com/LMPrado-DZ23/OmniRoute/pulls?q=is%3Apr+is%3Aclosed)
+[![tag](https://custom-icon-badges.demolab.com/github/v/tag/diegosouzapw/OmniRoute?logo=tag&logoColor=white)](https://github.com/LMPrado-DZ23/OmniRoute/tags)
 [![github streak](https://custom-icon-badges.demolab.com/badge/dynamic/json?logo=fire&logoColor=fff&color=orange&label=github%20streak&query=%24.currentStreak.length&suffix=%20days&url=https%3A%2F%2Fstreak-stats.demolab.com%2F%3Fuser%3Ddiegosouzapw%26type%3Djson)](https://github.com/diegosouzapw)
 [![followers](https://custom-icon-badges.demolab.com/github/followers/diegosouzapw?logo=person-add)](https://github.com/diegosouzapw?tab=followers)
-[![fork](https://custom-icon-badges.demolab.com/github/forks/diegosouzapw/OmniRoute?logo=fork)](https://github.com/diegosouzapw/OmniRoute/network/members)
-[![watch](https://custom-icon-badges.demolab.com/github/watchers/diegosouzapw/OmniRoute?logo=eye)](https://github.com/diegosouzapw/OmniRoute/watchers)
+[![fork](https://custom-icon-badges.demolab.com/github/forks/diegosouzapw/OmniRoute?logo=fork)](https://github.com/LMPrado-DZ23/OmniRoute/network/members)
+[![watch](https://custom-icon-badges.demolab.com/github/watchers/diegosouzapw/OmniRoute?logo=eye)](https://github.com/LMPrado-DZ23/OmniRoute/watchers)
 
 [![License](https://img.shields.io/github/license/diegosouzapw/OmniRoute)](https://github.com/diegosouzapw/OmniRoute/blob/main/LICENSE)
 [![Website](https://img.shields.io/badge/Website-omniroute.online-blue?logo=google-chrome&logoColor=white)](https://omniroute.online)
@@ -178,8 +178,8 @@ _Connect any AI-powered IDE or CLI tool through OmniRoute — free-access AI gat
 > 💬 **Join our community!** [WhatsApp Group](https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t) — Get help, share tips, and stay updated.
 
 - **Website**: [omniroute.online](https://omniroute.online)
-- **GitHub**: [github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)
-- **Issues**: [github.com/diegosouzapw/OmniRoute/issues](https://github.com/diegosouzapw/OmniRoute/issues)
+- **GitHub**: [github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)
+- **Issues**: [github.com/LMPrado-DZ23/OmniRoute/issues](https://github.com/LMPrado-DZ23/OmniRoute/issues)
 - **WhatsApp**: [Community Group](https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t)
 - **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md), open a PR, or pick a `good first issue`
 
@@ -747,13 +747,28 @@ Outcome: deep fallback depth for deadline-critical workloads
 
 ## Início Rápido
 
-### 1) Install and run
+> 🇧🇷 **Guia em português:** [Início rápido — primeiro uso em 5 passos](docs/getting-started/QUICK-START.md) (instalação, primeiro provedor, chave, Claude Code e Codex).
+
+### 1) Instalar e executar
+
+> ⚠️ **Leia antes de digitar qualquer comando:** `npm install -g omniroute` instala o pacote **upstream** publicado por `diegosouzapw` (o projeto original), **não este fork**. Este fork é distribuído somente pelos três canais abaixo.
+
+Escolha o canal **deste fork** que preferir:
+
+- **Instalador desktop** — quando houver uma release publicada, baixe o `.exe` / `.dmg` / `.AppImage` do seu sistema em [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) e abra-o; o aplicativo sobe o servidor e abre o painel. Se a página de Releases ainda não tiver instaladores, use Docker ou o código-fonte.
+- **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest` (se a imagem ainda não estiver publicada, use o código-fonte).
+- **Código-fonte** (requer Node.js 22 ou 24 LTS):
 
 ```bash
-npm install -g omniroute
-omniroute
+git clone https://github.com/LMPrado-DZ23/OmniRoute.git && cd OmniRoute
+npm ci && npm run build
+npm start
 ```
 
+Instalando pelo código-fonte, o comando `omniroute` não fica no PATH: nos comandos `omniroute …` desta página, use `node bin/omniroute.mjs …` de dentro da pasta `OmniRoute`.
+
+> Os pacotes **npm/pnpm** e o pacote **AUR** citados abaixo são publicados pelo projeto original (upstream), não por este fork.
+>
 > **pnpm users:** Pass `--allow-build` at install time to enable native build scripts required by `better-sqlite3` and `@swc/core` (the `approve-builds -g` command is not supported for global installs on pnpm v11):
 >
 > ```bash
@@ -792,12 +807,12 @@ PORT=20128 DASHBOARD_PORT=20129 omniroute
 
 When you no longer need OmniRoute, we provide two quick scripts for a clean removal:
 
-| Command                  | Action                                                                              |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| `npm run uninstall`      | Removes the system app but **keeps your DB and configurations** in `~/.omniroute`.  |
-| `npm run uninstall:full` | Removes the app AND permanently **erases all configurations, keys, and databases**. |
+| Command                  | Action                                                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run uninstall`      | Removes the system app but **keeps your DB and configurations** in the data directory (`%APPDATA%\omniroute` on Windows, `~/.omniroute` on macOS/Linux). |
+| `npm run uninstall:full` | Removes the app AND permanently **erases all configurations, keys, and databases** — asks you to type `ERASE` first (`-- --yes` for scripts).            |
 
-> Note: To run these commands, navigate to the OmniRoute project folder (if you cloned it) and run them. Alternatively, if globally installed, you can simply run `npm uninstall -g omniroute`.
+> Estes scripts existem **somente dentro do repositório clonado** (código-fonte). Aplicativo desktop: use o desinstalador do sistema. Docker: `docker stop omniroute && docker rm omniroute`. Passo a passo, com os avisos e onde ficam os dados: [Guia de desinstalação](docs/guides/UNINSTALL.md).
 
 ### Long-Running Streaming Timeouts
 
@@ -841,14 +856,14 @@ timeouts are also higher than your OmniRoute stream/fetch timeouts.
 ### 2) Connect providers and create your API key
 
 1. Open Dashboard → `Providers` and connect at least one provider (OAuth or API key).
-2. Open Dashboard → `Endpoints` and create an API key.
+2. Open Dashboard → `API Keys` and create an API key. **Copy it from the dialog that opens right after creation — it is shown only once** (afterwards the dashboard shows it masked). Lost it? Create another one.
 3. (Optional) Open Dashboard → `Combos` and set your fallback chain.
 
 ### 3) Point your coding tool to OmniRoute
 
 ```txt
 Base URL: http://localhost:20128/v1
-API Key:  [copy from Endpoint page]
+API Key:  the key you copied when you created it (Dashboard → API Keys)
 Model:    if/kimi-k2-thinking (or any provider/model prefix)
 ```
 
@@ -908,8 +923,8 @@ depends="openssl"
 short_desc="Universal AI gateway with smart routing for multiple LLM providers"
 maintainer="zenobit <zenobit@disroot.org>"
 license="MIT"
-homepage="https://github.com/diegosouzapw/OmniRoute"
-distfiles="https://github.com/diegosouzapw/OmniRoute/archive/refs/tags/v${version}.tar.gz"
+homepage="https://github.com/LMPrado-DZ23/OmniRoute"
+distfiles="https://github.com/LMPrado-DZ23/OmniRoute/archive/refs/tags/v${version}.tar.gz"
 checksum=009400afee90a9f32599d8fe734145cfd84098140b7287990183dde45ae2245b
 system_accounts="_omniroute"
 omniroute_homedir="/var/lib/omniroute"
@@ -1004,7 +1019,7 @@ post_install() {
 
 ## 🐳 Docker
 
-OmniRoute is available as a public Docker image on [Docker Hub](https://hub.docker.com/r/diegosouzapw/omniroute).
+OmniRoute is available as a public Docker image on [Docker Hub](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute).
 
 **Quick run:**
 
@@ -1015,7 +1030,7 @@ docker run -d \
   --stop-timeout 40 \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  diegosouzapw/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 **With environment file:**
@@ -1031,7 +1046,7 @@ docker run -d \
   --env-file .env \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  diegosouzapw/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 **Using Docker Compose:**
@@ -1064,7 +1079,7 @@ OmniRoute can be securely exposed using Caddy's automatic SSL provisioning. Ensu
 ```yaml
 services:
   omniroute:
-    image: diegosouzapw/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:latest
     container_name: omniroute
     restart: unless-stopped
     volumes:
@@ -1086,10 +1101,10 @@ volumes:
   omniroute-data:
 ```
 
-| Image                    | Tag      | Size   | Description           |
-| ------------------------ | -------- | ------ | --------------------- |
-| `diegosouzapw/omniroute` | `latest` | ~250MB | Latest stable release |
-| `diegosouzapw/omniroute` | `3.6.2`  | ~250MB | Current version       |
+| Image                            | Tag      | Size   | Description           |
+| -------------------------------- | -------- | ------ | --------------------- |
+| `ghcr.io/lmprado-dz23/omniroute` | `latest` | ~250MB | Latest stable release |
+| `ghcr.io/lmprado-dz23/omniroute` | `3.6.2`  | ~250MB | Current version       |
 
 ---
 
@@ -2171,7 +2186,7 @@ Se não quiser criar credenciais próprias agora, ainda é possível usar o flux
 - **CI/CD**: GitHub Actions (auto npm publish + Docker Hub on release)
 - **Website**: [omniroute.online](https://omniroute.online)
 - **Package**: [npmjs.com/package/omniroute](https://www.npmjs.com/package/omniroute)
-- **Docker**: [hub.docker.com/r/diegosouzapw/omniroute](https://hub.docker.com/r/diegosouzapw/omniroute)
+- **Docker**: [hub.docker.com/r/diegosouzapw/omniroute](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute)
 - **Resilience**: Circuit breaker, exponential backoff, anti-thundering herd, TLS spoofing, auto-combo self-healing
 
 </details>

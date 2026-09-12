@@ -9,7 +9,7 @@
 OmniRoute'ta bir güvenlik açığı keşfederseniz, lütfen sorumlu bir şekilde bildirin:
 
 1. **KESİNLİKLE** herkese açık bir GitHub issue'su açmayın
-2. [GitHub Security Advisories](https://github.com/diegosouzapw/OmniRoute/security/advisories/new) kullanın
+2. [GitHub Security Advisories](https://github.com/LMPrado-DZ23/OmniRoute/security/advisories/new) kullanın
 3. Şunları ekleyin: açıklama, yeniden oluşturma adımları ve olası etki
 
 ## Yanıt Zaman Çizelgesi
@@ -190,7 +190,7 @@ docker run -d \
   -e JWT_SECRET="$(openssl rand -base64 48)" \
   -e API_KEY_SECRET="$(openssl rand -hex 32)" \
   -e STORAGE_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
-  diegosouzapw/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ---

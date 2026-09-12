@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
 import { AUTO_COMBO_TEMPLATES, type AutoComboTemplate } from "@/domain/assessment/types";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 // Informational catalog of zero-config auto-routing combos.
 // Auto combos are resolved at request time by the chat handler based on the
@@ -18,15 +19,16 @@ export default function AutoComboCatalog({
   onComboCreated?: (comboId: string) => void;
 }) {
   const t = useTranslations("combos");
+  const confirmDialog = useConfirmDialog();
   const [open, setOpen] = useState(false);
   const [duplicatingName, setDuplicatingName] = useState<string | null>(null);
 
   const handleDuplicateTemplate = useCallback(
     async (template: AutoComboTemplate) => {
       if (
-        !confirm(
+        !(await confirmDialog(
           `${t("duplicateAutoComboConfirm", { name: template.name })}\n\n${t("duplicateAutoComboSnapshotMsg")}`
-        )
+        ))
       )
         return;
 
@@ -59,7 +61,7 @@ export default function AutoComboCatalog({
         setDuplicatingName(null);
       }
     },
-    [t, onComboCreated]
+    [t, onComboCreated, confirmDialog]
   );
 
   return (

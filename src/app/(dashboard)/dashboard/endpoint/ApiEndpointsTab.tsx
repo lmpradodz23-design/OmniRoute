@@ -103,7 +103,6 @@ export default function ApiEndpointsTab() {
   const [trying, setTrying] = useState(false);
   const [availableApiKeys, setAvailableApiKeys] = useState<Array<{ id: string; key: string }>>([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string>("");
-  const [revealedApiKeys, setRevealedApiKeys] = useState<Record<string, string>>({});
   const [apiKeyLoadError, setApiKeyLoadError] = useState<string | null>(null);
   const [manualApiKey, setManualApiKey] = useState("");
   const [useManualKey, setUseManualKey] = useState(false);
@@ -142,8 +141,9 @@ export default function ApiEndpointsTab() {
     };
   }, [loadCatalog]);
 
-  // Load API keys for Try It functionality. The list endpoint returns masked
-  // keys; the selected key is revealed only when sending a Try It request.
+  // Load API keys for Try It functionality. The list endpoint returns masked keys; the
+  // selected key is referenced by id and attached SERVER-SIDE by the Try It proxy (#7
+  // reveal-once) — its plaintext never reaches the browser.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/keys?limit=100", { credentials: "same-origin" })
@@ -237,44 +237,20 @@ export default function ApiEndpointsTab() {
     setTryBody(generateExampleBody(ep));
   };
 
-  const revealSelectedApiKey = async () => {
-    if (!selectedApiKey) return "";
-    if (revealedApiKeys[selectedApiKey.id]) return revealedApiKeys[selectedApiKey.id];
-
-    const res = await fetch(`/api/keys/${encodeURIComponent(selectedApiKey.id)}/reveal`, {
-      credentials: "same-origin",
-    });
-    if (!res.ok) {
-      throw new Error(
-        res.status === 403
-          ? t("apiKeyRevealDisabled")
-          : t("apiKeyRevealFailed", { status: res.status })
-      );
-    }
-    const data = await res.json();
-    if (!data?.key || typeof data.key !== "string") {
-      throw new Error(t("apiKeyRevealInvalid"));
-    }
-    setRevealedApiKeys((current) => ({ ...current, [selectedApiKey.id]: data.key }));
-    return data.key;
-  };
-
   const executeTryIt = async (ep: Endpoint) => {
     setTrying(true);
     try {
       const headers: Record<string, string> = {};
+      let apiKeyId: string | undefined;
 
-      // Add Authorization header if endpoint requires auth
+      // Authenticate the proxied call if the endpoint requires it: a pasted key travels as an
+      // explicit Authorization header; a stored key is referenced by id and attached by the
+      // proxy server-side (#7 reveal-once).
       if (ep.security) {
-        let apiKeyForRequest = "";
-        if (useManualKey) {
-          apiKeyForRequest = manualApiKey;
-        } else if (selectedApiKey) {
-          apiKeyForRequest = await revealSelectedApiKey();
-        }
-
-        if (apiKeyForRequest) {
-          headers["Authorization"] = `Bearer ${apiKeyForRequest}`;
+        if (useManualKey && manualApiKey) {
+          headers["Authorization"] = `Bearer ${manualApiKey}`;
+        } else if (!useManualKey && selectedApiKey) {
+          apiKeyId = selectedApiKey.id;
         } else {
           throw new Error(t("apiKeyRequired"));
         }
@@ -287,7 +263,12 @@ export default function ApiEndpointsTab() {
           method: ep.method,
           path: ep.path,
           headers,
+          apiKeyId,
           body: tryBody ? JSON.parse(tryBody) : undefined,
+          // The proxy refuses POST/PUT/PATCH/DELETE without this explicit confirmation; the
+          // operator is running a documented mutating operation on purpose from this panel.
+          // The proxy never forwards the dashboard session — only the key chosen above.
+          confirmMutation: ep.method !== "GET",
         }),
       });
       if (res.ok) setTryResult(await res.json());

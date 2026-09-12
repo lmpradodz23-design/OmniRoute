@@ -77,6 +77,14 @@ export async function GET() {
         days: getDbBackupRetentionDays(),
       },
       dataDir: dataDir.startsWith(homeDir) ? "~" + dataDir.slice(homeDir.length) : dataDir,
+      // Audit C-07: the zero-config banner must show the REAL server.env location, which
+      // only the server knows (DATA_DIR / %APPDATA% / XDG / legacy ~/.omniroute). Kept
+      // absolute (not "~"-abbreviated) so it is copy-pasteable on every OS; mirrors
+      // scripts/build/bootstrap-env.mjs (`join(dataDir, "server.env")`), the file's writer.
+      // This route is a management-session route (not in publicApiRoutes), so the path is
+      // only ever returned to an authenticated dashboard session — same trust level as the
+      // `dbPath`/`dataDir` fields above.
+      serverEnvPath: path.join(dataDir, "server.env"),
     });
   } catch (error) {
     console.error("[API] Error getting storage health:", error);

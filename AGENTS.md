@@ -56,7 +56,7 @@ Repository map and Reference Documentation sections below.
 | Translators   | `open-sse/translator/`  | Format conversion (OpenAI↔Claude↔Gemini)                                                                                                                                  |
 | Transformer   | `open-sse/transformer/` | Responses API ↔ Chat Completions                                                                                                                                          |
 | Services      | `open-sse/services/`    | Combo routing, rate limits, caching, etc                                                                                                                                  |
-| Database      | `src/lib/db/`           | SQLite domain modules (170 migrations)                                                                                                                                    |
+| Database      | `src/lib/db/`           | SQLite domain modules (171 migrations)                                                                                                                                    |
 | Domain/Policy | `src/domain/`           | Policy engine, cost rules, fallback logic                                                                                                                                 |
 | MCP Server    | `open-sse/mcp-server/`  | 110 tools (45 canonical + memory/skill/GitHub/pool/gamification/plugin/Notion/Obsidian/local-corpus/RTK modules), 3 transports (stdio / SSE / Streamable HTTP), 33 scopes |
 | A2A Server    | `src/lib/a2a/`          | JSON-RPC 2.0 agent protocol                                                                                                                                               |
@@ -604,7 +604,7 @@ issue titled `🔴 Release branch not green: <branch>` (label `base-red`). One c
 local suite run for this purpose:
 
 ```bash
-gh issue list --repo diegosouzapw/OmniRoute --state open \
+gh issue list --repo LMPrado-DZ23/OmniRoute --state open \
   --search "Release branch not green: <base> in:title"
 ```
 

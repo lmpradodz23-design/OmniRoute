@@ -237,7 +237,22 @@ test("Kiro stream errors become Responses response.failed events", async () => {
     "kiro-model"
   );
   const writer = transform.writable.getWriter();
-  const responseText = new Response(transform.readable).text();
+  const reader = transform.readable.getReader();
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  const drained = (async () => {
+    let terminalError: unknown = null;
+    try {
+      while (true) {
+        const result = await reader.read();
+        if (result.done) break;
+        chunks.push(decoder.decode(result.value, { stream: true }));
+      }
+    } catch (caught) {
+      terminalError = caught;
+    }
+    return terminalError;
+  })();
 
   await writer.write(
     textEncoder.encode(
@@ -250,11 +265,21 @@ test("Kiro stream errors become Responses response.failed events", async () => {
       })}\n\n`
     )
   );
-  await writer.close();
-  const text = await responseText;
+  // The translated failure frame is the terminal event: the shared stream failure
+  // boundary (#12506) forwards it and then errors the transform exactly once, so a
+  // failed upstream can never be finalized as a successful completion. The writer's
+  // own close() therefore rejects instead of closing the stream a second time.
+  await assert.rejects(writer.close());
+  const terminalError = await drained;
+  const text = chunks.join("");
 
   assert.match(text, /event: response\.failed/);
   assert.match(text, /invalid_kiro_tool_call/);
   assert.match(text, /missing nested MCP tool name/);
   assert.doesNotMatch(text, /response\.output_item\.added/);
+  assert.ok(
+    terminalError instanceof Error,
+    "the readable must terminate with the public-safe error"
+  );
+  assert.match(terminalError.message, /missing nested MCP tool name/);
 });

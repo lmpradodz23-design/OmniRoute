@@ -5,6 +5,11 @@ on:
     workflows: ["Publish to Docker Hub"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact version to deploy (e.g. 3.8.51 or v3.8.51) — never a dist-tag"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -16,6 +21,10 @@ jobs:
       && vars.DEPLOY_ENABLED == 'true'
     name: Deploy OmniRoute to VPS
     runs-on: ubuntu-latest
+    env:
+      # SC-5: the version this run deploys — the dispatched input, or the tag the triggering
+      # publish ran on. Propagated to the box; `@latest` is never used.
+      DEPLOY_VERSION: ${{ inputs.version || github.event.workflow_run.head_branch }}
     steps:
       - name: Check VPS SSH reachability from runner
         id: reach
@@ -44,7 +53,7 @@ jobs:
 
       - name: Deploy via SSH
         if: steps.reach.outputs.reachable == 'true'
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -52,13 +61,33 @@ jobs:
           port: 22
           timeout: 60s
           command_timeout: 15m
+          envs: DEPLOY_VERSION
           script: |
             set -euo pipefail
 
             echo "=== Updating OmniRoute ==="
-            npm install -g omniroute@latest
+            # SC-5: exact version only, and only if that npm version is published from THIS
+            # repository — the `omniroute` package name is shared with upstream, so a blind
+            # `@latest` would deploy another fork's build (see distribution.ts / update.mjs).
+            VERSION="${DEPLOY_VERSION#v}"
+            if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$'; then
+              echo "❌ NOT_DEPLOYED — DEPLOY_VERSION='${DEPLOY_VERSION}' is not an exact version"
+              exit 1
+            fi
+            REPO_URL="$(npm view "omniroute@${VERSION}" repository.url 2>/dev/null || true)"
+            case "$(printf '%s' "$REPO_URL" | tr '[:upper:]' '[:lower:]')" in
+              *github.com/lmprado-dz23/omniroute*) ;;
+              *)
+                echo "❌ NOT_DEPLOYED — omniroute@${VERSION} on npm is not published from LMPrado-DZ23/OmniRoute (repository.url='${REPO_URL}')"
+                exit 1 ;;
+            esac
+            npm install -g "omniroute@${VERSION}"
             INSTALLED_VERSION=$(omniroute --version 2>/dev/null | tr -d '[:space:]' || echo "unknown")
-            echo "Installed CLI version: $INSTALLED_VERSION"
+            echo "Installed CLI version: $INSTALLED_VERSION (requested $VERSION)"
+            if [ "$INSTALLED_VERSION" != "$VERSION" ]; then
+              echo "❌ NOT_DEPLOYED — installed $INSTALLED_VERSION but requested $VERSION"
+              exit 1
+            fi
 
             # Recreate the PM2 process instead of `pm2 restart`. A bare restart
             # re-runs whatever script path was saved earlier; after the build-output

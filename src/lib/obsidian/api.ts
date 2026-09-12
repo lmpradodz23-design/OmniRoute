@@ -1,4 +1,7 @@
 import { getDbInstance } from "@/lib/db/core";
+import { guardedFetch, type GuardedNetworkOptions } from "@/shared/network/guardedFetch";
+import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
 
 const DEFAULT_OBSIDIAN_BASE_URL = "http://127.0.0.1:27123";
 const MAX_RETRIES = 2;
@@ -32,11 +35,6 @@ export class ObsidianTimeoutError extends Error {
   }
 }
 
-type ObsidianResult = {
-  content: Array<{ type: "text"; text: string }>;
-  isError?: boolean;
-};
-
 function classifyObsidianError(status: number, message: string): Error {
   switch (status) {
     case 401:
@@ -50,30 +48,50 @@ function classifyObsidianError(status: number, message: string): Error {
   }
 }
 
+/** Operator-configured base URL plus the guard knobs applied to every request against it. */
+interface ObsidianTarget {
+  baseUrl: string;
+  network: GuardedNetworkOptions;
+}
+
+interface ObsidianRequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  signal?: AbortSignal;
+}
+
+/**
+ * SSRF S-5: every request goes through `guardedFetch` — the resolved address is validated
+ * (cloud metadata never; private/LAN under the integration policy), the connection is pinned
+ * to it, and redirects are never followed. A guard decision is terminal (no retry).
+ */
 function obsidianFetch(
   path: string,
   apiKey: string,
-  baseUrl: string,
-  options: RequestInit = {}
+  target: ObsidianTarget,
+  options: ObsidianRequestInit = {}
 ): Promise<unknown> {
-  const url = `${baseUrl}${path}`;
+  const url = `${target.baseUrl}${path}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const mergedSignal = options.signal
     ? combineSignals(options.signal, controller.signal)
     : controller.signal;
 
-  let lastError: Error | null = null;
-
   const attempt = async (retryCount: number): Promise<unknown> => {
     try {
-      const response = await fetch(url, {
-        ...options,
+      const response = await guardedFetch(url, {
+        method: options.method ?? "GET",
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          ...(options.headers as Record<string, string>),
+          ...(options.headers ?? {}),
         },
+        body: options.body,
         signal: mergedSignal,
+        timeoutMs: TIMEOUT_MS,
+        allowPrivate: target.network.allowPrivate ?? areIntegrationPrivateUrlsAllowed(),
+        lookup: target.network.lookup,
       });
 
       clearTimeout(timeout);
@@ -84,7 +102,6 @@ function obsidianFetch(
         const error = classifyObsidianError(response.status, msg);
 
         if (error instanceof ObsidianServerError && retryCount < MAX_RETRIES - 1) {
-          lastError = error;
           await sleep(Math.pow(2, retryCount) * 200);
           return attempt(retryCount + 1);
         }
@@ -98,6 +115,11 @@ function obsidianFetch(
       }
       return response.text();
     } catch (err) {
+      // Blocked target / redirect: a policy decision, not a transient failure — never retried.
+      if (err instanceof OutboundUrlGuardError) {
+        clearTimeout(timeout);
+        throw err;
+      }
       if (err instanceof Error && err.name === "AbortError") {
         clearTimeout(timeout);
         throw new ObsidianTimeoutError("Obsidian API request timed out after 30s");
@@ -109,14 +131,13 @@ function obsidianFetch(
       if (err instanceof TypeError && err.message === "fetch failed") {
         clearTimeout(timeout);
         throw new ObsidianServerError(
-          `Cannot reach Obsidian at ${baseUrl}. Ensure the Local REST API plugin is running ` +
+          `Cannot reach Obsidian at ${target.baseUrl}. Ensure the Local REST API plugin is running ` +
           `and using the correct port. The REST API uses HTTP on port 27123 — do not use ` +
           `port 27124 (that is a separate MCP endpoint with HTTPS). If connecting via ` +
           `Tailscale, use http://<tailscale-ip>:27123.`
         );
       }
       if (retryCount < MAX_RETRIES - 1) {
-        lastError = err instanceof Error ? err : new ObsidianServerError(String(err));
         await sleep(Math.pow(2, retryCount) * 200);
         return attempt(retryCount + 1);
       }
@@ -151,25 +172,34 @@ function encodePath(segments: string): string {
 export type PatchOperation = "append" | "prepend" | "replace";
 export type TargetType = "heading" | "block" | "frontmatter";
 
-export function createObsidianClient(apiKey: string, baseUrl?: string) {
-  const resolvedBaseUrl = baseUrl ?? DEFAULT_OBSIDIAN_BASE_URL;
+/**
+ * @param network Guard knobs only (`lookup`, `allowPrivate`); omitted in production so the
+ *   operator's integration policy applies.
+ */
+export function createObsidianClient(
+  apiKey: string,
+  baseUrl?: string,
+  network: GuardedNetworkOptions = {}
+) {
+  // Named to stay clear of the `target` (heading/block) parameter of readNote/appendNote/patchNote.
+  const obsidianTarget: ObsidianTarget = { baseUrl: baseUrl ?? DEFAULT_OBSIDIAN_BASE_URL, network };
 
   const client = {
     async checkStatus(): Promise<unknown> {
-      return obsidianFetch("/", apiKey, resolvedBaseUrl);
+      return obsidianFetch("/", apiKey, obsidianTarget);
     },
 
     async searchSimple(query: string, contextLength = 100): Promise<unknown> {
       const params = new URLSearchParams();
       params.set("query", query);
       params.set("contextLength", String(contextLength));
-      return obsidianFetch(`/search/simple/?${params}`, apiKey, resolvedBaseUrl, {
+      return obsidianFetch(`/search/simple/?${params}`, apiKey, obsidianTarget, {
         method: "POST",
       });
     },
 
     async searchStructured(jsonLogic: unknown): Promise<unknown> {
-      return obsidianFetch("/search/", apiKey, resolvedBaseUrl, {
+      return obsidianFetch("/search/", apiKey, obsidianTarget, {
         method: "POST",
         headers: { "Content-Type": "application/vnd.olrapi.jsonlogic+json" },
         body: JSON.stringify(jsonLogic),
@@ -184,28 +214,28 @@ export function createObsidianClient(apiKey: string, baseUrl?: string) {
       const headers: Record<string, string> = {};
       if (targetType) headers["Target-Type"] = targetType;
       if (target) headers["Target"] = encodeURIComponent(target);
-      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, { headers });
+      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, { headers });
     },
 
     async listVault(path = ""): Promise<unknown> {
       const suffix = path ? `/${encodePath(path)}/` : "/";
-      return obsidianFetch(`/vault${suffix}`, apiKey, resolvedBaseUrl);
+      return obsidianFetch(`/vault${suffix}`, apiKey, obsidianTarget);
     },
 
     async getDocumentMap(path: string): Promise<unknown> {
-      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, {
         headers: { Accept: "application/vnd.olrapi.document-map+json" },
       });
     },
 
     async getNoteMetadata(path: string): Promise<unknown> {
-      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, {
         headers: { Accept: "application/vnd.olrapi.note+json" },
       });
     },
 
     async getActiveFile(): Promise<unknown> {
-      return obsidianFetch("/active/", apiKey, resolvedBaseUrl);
+      return obsidianFetch("/active/", apiKey, obsidianTarget);
     },
 
     async getPeriodicNote(
@@ -220,19 +250,19 @@ export function createObsidianClient(apiKey: string, baseUrl?: string) {
       } else {
         url = `/periodic/${period}/`;
       }
-      return obsidianFetch(url, apiKey, resolvedBaseUrl);
+      return obsidianFetch(url, apiKey, obsidianTarget);
     },
 
     async getTags(): Promise<unknown> {
-      return obsidianFetch("/tags/", apiKey, resolvedBaseUrl);
+      return obsidianFetch("/tags/", apiKey, obsidianTarget);
     },
 
     async commandList(): Promise<unknown> {
-      return obsidianFetch("/commands/", apiKey, resolvedBaseUrl);
+      return obsidianFetch("/commands/", apiKey, obsidianTarget);
     },
 
     async writeNote(path: string, content: string): Promise<void> {
-      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, {
         method: "PUT",
         headers: { "Content-Type": "text/markdown" },
         body: content,
@@ -248,7 +278,7 @@ export function createObsidianClient(apiKey: string, baseUrl?: string) {
       const headers: Record<string, string> = { "Content-Type": "text/markdown" };
       if (targetType) headers["Target-Type"] = targetType;
       if (target) headers["Target"] = encodeURIComponent(target);
-      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, {
         method: "POST",
         headers,
         body: content,
@@ -270,7 +300,7 @@ export function createObsidianClient(apiKey: string, baseUrl?: string) {
         "Content-Type": "text/markdown",
       };
       if (createTargetIfMissing) headers["Create-Target-If-Missing"] = "true";
-      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      return obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, {
         method: "PATCH",
         headers,
         body: content,
@@ -278,26 +308,26 @@ export function createObsidianClient(apiKey: string, baseUrl?: string) {
     },
 
     async deleteNote(path: string): Promise<void> {
-      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, {
         method: "DELETE",
       });
     },
 
     async moveNote(path: string, destination: string): Promise<void> {
-      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      await obsidianFetch(`/vault/${encodePath(path)}`, apiKey, obsidianTarget, {
         method: "MOVE",
         headers: { Destination: encodeURIComponent(destination) },
       });
     },
 
     async executeCommand(commandId: string): Promise<void> {
-      await obsidianFetch(`/commands/${encodeURIComponent(commandId)}/`, apiKey, resolvedBaseUrl, {
+      await obsidianFetch(`/commands/${encodeURIComponent(commandId)}/`, apiKey, obsidianTarget, {
         method: "POST",
       });
     },
 
     async openFile(path: string): Promise<void> {
-      await obsidianFetch(`/open/${encodePath(path)}`, apiKey, resolvedBaseUrl, {
+      await obsidianFetch(`/open/${encodePath(path)}`, apiKey, obsidianTarget, {
         method: "POST",
       });
     },
@@ -349,17 +379,26 @@ export interface SyncConflict {
   detectedAt: number;
 }
 
-export function createSyncServerClient(syncToken: string, baseUrl?: string) {
+export function createSyncServerClient(
+  syncToken: string,
+  baseUrl?: string,
+  network: GuardedNetworkOptions = {}
+) {
   const resolvedBaseUrl = baseUrl ?? DEFAULT_SYNC_SERVER_URL;
 
-  async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${resolvedBaseUrl}${path}`, {
-      ...init,
+  async function request<T>(path: string, init: ObsidianRequestInit = {}): Promise<T> {
+    // SSRF S-5: same pinned, redirect-free, policy-gated client as the REST API above.
+    const res = await guardedFetch(`${resolvedBaseUrl}${path}`, {
+      method: init.method ?? "GET",
       headers: {
         "Content-Type": "application/json",
         ...(syncToken ? { Authorization: `Bearer ${syncToken}` } : {}),
-        ...init?.headers,
+        ...(init.headers ?? {}),
       },
+      body: init.body,
+      timeoutMs: TIMEOUT_MS,
+      allowPrivate: network.allowPrivate ?? areIntegrationPrivateUrlsAllowed(),
+      lookup: network.lookup,
     });
     if (!res.ok) {
       const body = await res.text();

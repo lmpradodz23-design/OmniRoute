@@ -10,11 +10,26 @@ import { getRuntimePorts } from "@/lib/runtime/ports";
 import { getCachedPassword, setCachedPassword } from "@/mitm/manager";
 import { execFileWithPassword } from "@/mitm/systemCommands";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
+import {
+  extractTailscaleAuthUrl,
+  extractTailscaleEnableUrl,
+  extractTailscaleFunnelUrl,
+  getTailscaleUrlFromStatusPayload,
+  isBackendRunning,
+  isFunnelRunning,
+  toNonEmptyString,
+} from "./tailscale/cliOutput";
+import { getWindowsDefaultTailscaleBinaries } from "./tailscale/windowsDefaults";
+
+export {
+  extractTailscaleAuthUrl,
+  extractTailscaleEnableUrl,
+  extractTailscaleFunnelUrl,
+  getTailscaleUrlFromStatusPayload,
+} from "./tailscale/cliOutput";
+export { getWindowsDefaultTailscaleBinaries } from "./tailscale/windowsDefaults";
 
 const execFileAsync = promisify(execFile);
-
-const WINDOWS_TAILSCALE_BIN = "C:\\Program Files\\Tailscale\\tailscale.exe";
-const WINDOWS_TAILSCALED_BIN = "C:\\Program Files\\Tailscale\\tailscaled.exe";
 
 // Runtime platform getter. A bundler (Turbopack in `next build`) constant-folds
 // `process.platform` to the BUILD machine's value on a non-Windows runner and prunes
@@ -105,16 +120,6 @@ export type TailscaleEnableResult =
       enableUrl: string | null;
       status: TailscaleTunnelStatus;
     };
-
-function asRecord(value: unknown): JsonRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
-}
-
-function toNonEmptyString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -248,9 +253,10 @@ async function resolveBinary(): Promise<BinaryResolution> {
     return { binaryPath: pathBinary, installSource: "path", managedInstall: false };
   }
 
-  if (getCurrentPlatform() === "win32" && fs.existsSync(WINDOWS_TAILSCALE_BIN)) {
+  const windowsDefaultBin = getWindowsDefaultTailscaleBinaries().tailscale;
+  if (getCurrentPlatform() === "win32" && fs.existsSync(windowsDefaultBin)) {
     return {
-      binaryPath: WINDOWS_TAILSCALE_BIN,
+      binaryPath: windowsDefaultBin,
       installSource: "windows-default",
       managedInstall: false,
     };
@@ -273,8 +279,9 @@ async function resolveDaemonBinary(tailscaleBinaryPath: string | null) {
   const pathBinary = await resolvePathCommand("tailscaled");
   if (pathBinary) return pathBinary;
 
-  if (getCurrentPlatform() === "win32" && fs.existsSync(WINDOWS_TAILSCALED_BIN))
-    return WINDOWS_TAILSCALED_BIN;
+  const windowsDefaultDaemon = getWindowsDefaultTailscaleBinaries().tailscaled;
+  if (getCurrentPlatform() === "win32" && fs.existsSync(windowsDefaultDaemon))
+    return windowsDefaultDaemon;
 
   return null;
 }
@@ -393,41 +400,6 @@ async function getLiveFunnelPayload(binaryPath: string | null) {
   if (funnelResult) return funnelResult;
   // Fallback: older/some versions expose the same config via "serve status"
   return readJsonCommand(binaryPath, await buildTailscaleArgs("serve", "status", "--json"));
-}
-
-function isBackendRunning(payload: unknown) {
-  return toNonEmptyString(asRecord(payload).BackendState) === "Running";
-}
-
-function isFunnelRunning(payload: unknown) {
-  const allowFunnel = asRecord(payload).AllowFunnel;
-  return Boolean(
-    allowFunnel && typeof allowFunnel === "object" && Object.keys(allowFunnel).length > 0
-  );
-}
-
-export function getTailscaleUrlFromStatusPayload(payload: unknown) {
-  const self = asRecord(asRecord(payload).Self);
-  const dnsName = toNonEmptyString(self.DNSName);
-  if (!dnsName) return null;
-  const normalized = dnsName.replace(/\.$/, "");
-  return normalized ? `https://${normalized}` : null;
-}
-
-export function extractTailscaleAuthUrl(text: string) {
-  const match = text.match(/https:\/\/login\.tailscale\.com\/a\/[a-zA-Z0-9-]+/);
-  return match ? match[0] : null;
-}
-
-export function extractTailscaleEnableUrl(text: string) {
-  const match = text.match(/https:\/\/login\.tailscale\.com\/[^\s"']+/);
-  return match ? match[0] : null;
-}
-
-export function extractTailscaleFunnelUrl(text: string) {
-  const match = text.match(/https:\/\/[a-z0-9-]+\.[a-z0-9.-]+\.ts\.net\b[^\s"']*/i);
-  if (!match) return null;
-  return match[0].replace(/\/$/, "");
 }
 
 async function getDefaultHostname() {

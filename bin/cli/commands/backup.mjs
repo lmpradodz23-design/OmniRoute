@@ -292,13 +292,20 @@ async function _uploadBackupToCloud(backupPath, info) {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
-    const res = await fetch(`${getBaseUrl()}/api/db-backups/cloud`, {
-      method: "POST",
-      headers,
-      body: Readable.from(createBackupMultipartStream(backupPath, info, boundary)),
-      duplex: "half",
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
+    // Node's fetch streams a Readable body with `duplex: "half"`; the DOM RequestInit
+    // typings (checkJs) know neither, so the init object is built as an explicit cast.
+    const init = /** @type {RequestInit} */ (
+      /** @type {unknown} */ ({
+        method: "POST",
+        headers,
+        body: Readable.from(createBackupMultipartStream(backupPath, info, boundary)),
+        duplex: "half",
+        signal: controller.signal,
+      })
+    );
+    const res = await fetch(`${getBaseUrl()}/api/db-backups/cloud`, init).finally(() =>
+      clearTimeout(timeout)
+    );
     if (res.ok) {
       const data = await res.json();
       console.log(t("backup.cloudUploaded", { url: data.url || "(stored)" }));

@@ -11,8 +11,13 @@ const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const chatRoute = await import("../../src/app/api/v1/chat/completions/route.ts");
-const { generateSignature, invalidateBySignature, setCachedResponse } =
-  await import("../../src/lib/semanticCache.ts");
+const {
+  clearMemoryCache,
+  extractSignatureContext,
+  generateSignature,
+  invalidateBySignature,
+  setCachedResponse,
+} = await import("../../src/lib/semanticCache.ts");
 const { getCircuitBreaker, resetAllCircuitBreakers, STATE } =
   await import("../../src/shared/utils/circuitBreaker.ts");
 
@@ -28,6 +33,9 @@ async function resetStorage() {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   resetAllCircuitBreakers();
+  // The semantic cache's in-memory LRU is process-wide: a response stored by one test
+  // must not be served to the next one.
+  clearMemoryCache();
 }
 
 async function seedSuppressedConnection() {
@@ -53,6 +61,14 @@ async function seedHealthyConnection() {
   });
 }
 
+const LIVE_TEST_BODY = {
+  model: "openai/gpt-4.1",
+  messages: [{ role: "user", content: "Reply with OK only." }],
+  max_tokens: 16,
+  stream: false,
+  temperature: 0,
+};
+
 function makeRequest(extraHeaders = {}) {
   return new Request("http://localhost/v1/chat/completions", {
     method: "POST",
@@ -60,13 +76,7 @@ function makeRequest(extraHeaders = {}) {
       "Content-Type": "application/json",
       ...extraHeaders,
     },
-    body: JSON.stringify({
-      model: "openai/gpt-4.1",
-      messages: [{ role: "user", content: "Reply with OK only." }],
-      max_tokens: 16,
-      stream: false,
-      temperature: 0,
-    }),
+    body: JSON.stringify(LIVE_TEST_BODY),
   });
 }
 
@@ -185,11 +195,17 @@ test("combo live test bypasses connection cooldown and breaker state to perform 
 test("combo live test bypasses semantic cache and forces a fresh upstream request", async () => {
   await seedHealthyConnection();
 
+  // Prime the cache under the signature the route itself computes for LIVE_TEST_BODY:
+  // chat-completions format plus the steering context (here `max_tokens: 16`) — an entry
+  // keyed without the context is, by design, NOT served to this request (X-2).
   const signature = generateSignature(
     "gpt-4.1",
-    [{ role: "user", content: "Reply with OK only." }],
+    LIVE_TEST_BODY.messages,
     0,
-    1
+    1,
+    undefined,
+    "openai",
+    extractSignatureContext(LIVE_TEST_BODY)
   );
 
   setCachedResponse(signature, "gpt-4.1", {

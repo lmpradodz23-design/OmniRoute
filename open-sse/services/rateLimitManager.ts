@@ -34,6 +34,7 @@ import {
 } from "./rateLimitManager/errors";
 import { LimiterWedgeWatchdog, WATCHDOG_INTERVAL_MS } from "./rateLimitManager/wedgeWatchdog";
 import { toNumber } from "@/shared/utils/numeric";
+import { registerShutdownHook } from "@/lib/shutdownHooks";
 
 interface LearnedLimitEntry {
   provider: string;
@@ -289,6 +290,8 @@ let shutdownHandlersRegistered = false;
 
 export function startRateLimitWatchdog(): void {
   if (watchdogInterval) return;
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("rate-limit-watchdog", stopRateLimitWatchdog);
   watchdogInterval = setInterval(() => {
     const run = trackAsyncOperation(limiterWatchdog.run());
     void run.then(undefined, (error) => {

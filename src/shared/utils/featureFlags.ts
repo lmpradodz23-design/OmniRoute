@@ -88,6 +88,7 @@ export function areContextWindowChecksDisabled(): boolean {
   }
 }
 
+/** Governs the providers page's credential reveal only — never OmniRoute API keys (#7). */
 export function isApiKeyRevealEnabledFlag(): boolean {
   try {
     return isFeatureFlagEnabled("ALLOW_API_KEY_REVEAL");

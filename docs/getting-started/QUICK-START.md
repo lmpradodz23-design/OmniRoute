@@ -1,51 +1,75 @@
 ---
 title: "Quick Start: Get OmniRoute Running in 3 Minutes"
-version: 3.8.50
-lastUpdated: 2026-08-06
+version: 3.8.51
+lastUpdated: 2026-09-11
 ---
 
 # Quick Start: Get OmniRoute Running in 3 Minutes
 
+🌐 **Languages:** 🇺🇸 English · 🇧🇷 [Português (Brasil)](../i18n/pt-BR/docs/getting-started/QUICK-START.md)
+
 > **TL;DR**: Install → Connect a free provider → Point your IDE to OmniRoute. Done.
+
+> ⚠️ **Before you run anything:** `npm install -g omniroute` installs the **original project** (`diegosouzapw/OmniRoute`, published on npm by the upstream author), **not** this fork (`LMPrado-DZ23/OmniRoute`). This fork ships **only** through the channels below: the desktop installer on GitHub Releases, the Docker image `ghcr.io/lmprado-dz23/omniroute`, and the source code.
 
 ---
 
 ## Step 1: Install OmniRoute
 
-Choose your preferred method:
+All three methods below install **this fork**. Pick one:
 
-### Option A: npm (Recommended)
+### Option A: Desktop app (Windows, macOS, Linux) — when available
+
+Once installers are published on this fork's [Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) page, download the file for your OS (`.exe` on Windows, `.dmg` on macOS, `.AppImage` on Linux) and open it. The app starts the embedded server, lives in the system tray and updates itself (always asking before installing; a snapshot of your data is written to `db_backups/pre-update-*` before every update).
+
+If the Releases page has no installers yet, use **Option B** or **Option C**.
+
+### Option B: Docker — when the image is published
+
+This fork's image is `ghcr.io/lmprado-dz23/omniroute` (that is what the repository's publish workflow produces). If the `docker run` below reports that the image cannot be found, it has not been published yet — use **Option C**.
 
 ```bash
-npm install -g omniroute
+docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
-### Option B: Docker
+Your data lives in the `omniroute-data` volume (`/app/data` inside the container). `:latest` is the highest **published** stable SemVer. It does **not** track git `main`. Pin `ghcr.io/lmprado-dz23/omniroute:X.Y.Z` for GitOps. See [Image Tags / Release Channels](../guides/DOCKER_GUIDE.md#release-channels).
+
+### Option C: From source (works today)
+
+Requires **Node.js 22 or 24 LTS** and **git**. Copy and paste one line at a time:
 
 ```bash
-docker run -d --name omniroute -p 20128:20128 diegosouzapw/omniroute:latest
-```
-
-`:latest` is the highest **published** stable SemVer. It does **not** track git `main`. Pin `diegosouzapw/omniroute:X.Y.Z` for GitOps. See [Image Tags / Release Channels](../guides/DOCKER_GUIDE.md#release-channels).
-
-### Option C: From Source
-
-```bash
-git clone https://github.com/diegosouzapw/OmniRoute.git
+git clone https://github.com/LMPrado-DZ23/OmniRoute.git
 cd OmniRoute
-npm install
-npm run dev
+npm ci
+npm run build
+npm start
 ```
+
+- `npm ci` installs the dependencies exactly as locked in the repository; `npm run build` builds the dashboard; `npm start` starts the server at `http://localhost:20128`.
+- For development (hot reload, no `build` step): `npm run dev`.
+- A source install does **not** put an `omniroute` command on your PATH. Wherever this guide shows `omniroute <something>`, run `node bin/omniroute.mjs <something>` from inside the `OmniRoute` folder.
 
 ---
 
 ## Step 2: Start OmniRoute
 
-```bash
-omniroute
-```
+It depends on the method you chose in Step 1:
 
-OmniRoute starts at `http://localhost:20128`. The dashboard opens automatically.
+- **Desktop app:** open OmniRoute like any other program. It starts the server and opens the dashboard.
+- **Docker:** the container is already running after `docker run`. To stop/start it again: `docker stop omniroute` / `docker start omniroute`.
+- **From source:** inside the `OmniRoute` folder, `npm start` (or `npm run dev`).
+
+In every case the dashboard is at `http://localhost:20128`.
+
+### What happens on first open
+
+The behaviour depends on whether the `INITIAL_PASSWORD` variable is set (it ships in `.env.example` as `CHANGEME`; it only takes effect if you copied that file to `.env` or passed `-e INITIAL_PASSWORD=...` to Docker):
+
+- **Without `INITIAL_PASSWORD`** (the default for the desktop app and for a source install with no `.env`): the **setup wizard** appears. There you set a **password** for the dashboard or tick **"skip password"** (local access without login). It then offers to connect a free provider.
+- **With `INITIAL_PASSWORD` set** (typical for Docker and servers): the wizard does **not** appear. OmniRoute marks setup as complete, requires login and goes straight to the **login page** — sign in with the password from the variable. If it is still the default `CHANGEME`, change it **immediately** in **Settings → Security** (OmniRoute logs a warning that this password is publicly known).
+
+Forgot the password? Run `omniroute-reset-password` (from source: `node bin/reset-password.mjs`).
 
 ---
 
@@ -79,9 +103,13 @@ You can use OmniRoute **without paying anything** by connecting a free provider.
 
 ---
 
-## Step 4: Verify It Works
+## Step 4: Create Your Key and Verify It Works
 
-From [API Keys](http://localhost:20128/dashboard/api-manager), create a new key. Store this key since it will not appear again. Do note that this key is for tools to access OmniRoute, not to access upstream providers.
+From [API Keys](http://localhost:20128/dashboard/api-manager), create a new key.
+
+> 🔑 **The key is shown exactly once**, in the dialog that opens right after creation ("it won't be shown again"). **Copy it at that moment** and store it somewhere safe. After that the dashboard only shows it masked. If you lose it there is no way to recover it: create **another** key (and delete the old one).
+
+This key is for your tools to access OmniRoute, not to access upstream providers.
 
 ```bash
 curl http://localhost:20128/v1/models -H "Authorization: Bearer YOUR_KEY"
@@ -97,11 +125,13 @@ In your IDE or CLI tool, set:
 
 ```
 Base URL: http://localhost:20128/v1
-API Key:  [copy from Dashboard → Endpoints]
+API Key:  the key you copied in Step 4 (the dashboard will not show it again)
 Model:    auto
 ```
 
 That's it! Your IDE now uses OmniRoute with automatic provider selection.
+
+> Installed from source? In every `omniroute …` command below, use `node bin/omniroute.mjs …` from inside the `OmniRoute` folder.
 
 ### IDE Example: VSCode/Continue.dev
 
@@ -152,6 +182,14 @@ You can see the details of the request by clicking [Monitoring/Logs](http://loca
 
 ---
 
+## Close, Reopen, Recover, Uninstall
+
+- **Where your data lives:** Windows `%APPDATA%\omniroute`; macOS and Linux `~/.omniroute`; Docker in the `omniroute-data` volume. Nothing is deleted on uninstall unless you ask for it.
+- **Backup and restore:** `omniroute backup create` / `omniroute backup restore` — details in the [Database Guide](../ops/DATABASE_GUIDE.md).
+- **Uninstall:** depends on how you installed — desktop app: the operating system's uninstaller; Docker: `docker stop omniroute && docker rm omniroute`; source: `npm run uninstall` (keeps your data) or `npm run uninstall:full` (asks you to type `ERASE` before wiping everything). Step by step, with the warnings, in the [Uninstall Guide](../guides/UNINSTALL.md).
+
+---
+
 ## What's Next?
 
 - **[Auto-Combo Guide](./AUTO-COMBO-GUIDE.md)** — Let OmniRoute pick the best AI for you
@@ -165,7 +203,7 @@ You can see the details of the request by clicking [Monitoring/Logs](http://loca
 
 ### "Do I need an API key?"
 
-**No!** You can use free providers (Kiro, OpenCode Free, Pollinations) without any API key. Just connect them in the dashboard.
+**No!** You can use free providers (Kiro, OpenCode Free, Pollinations) without any API key. Just connect them in the dashboard. The key from **Step 4** is the one your tools use to talk to OmniRoute.
 
 ### "What is `auto`?"
 
@@ -189,4 +227,4 @@ OmniRoute automatically skips failed providers and tries the next one. You don't
 
 - **[Troubleshooting](../guides/TROUBLESHOOTING.md)** — Common issues and fixes
 - **[Discord](https://discord.gg/U47eFqAXCn)** — Community support
-- **[GitHub Issues](https://github.com/diegosouzapw/OmniRoute/issues)** — Report bugs
+- **[GitHub Issues](https://github.com/LMPrado-DZ23/OmniRoute/issues)** — Report bugs

@@ -18,7 +18,12 @@ export const CREDENTIAL_PATTERNS: CredentialPattern[] = [
     regex: /sk-ant-[A-Za-z0-9_-]{20,}/g,
     replacement: "[REDACTED:anthropic]",
   },
-  { name: "google", regex: /AIza[0-9A-Za-z_-]{35}/g, replacement: "[REDACTED:google]" },
+  // Google API keys are `AIza` + 35 chars in the wild, but the passthrough layer
+  // (upstreamErrorPassthrough.ts / publicCreds.ts) refuses any `AIza…` token of
+  // 20+ chars as a credential leak; the fallback sanitizer must redact at least
+  // everything that layer refuses (GHSA-qv45-56jc-4wmj), so use the same bounded
+  // open-ended quantifier instead of an exact length.
+  { name: "google", regex: /\bAIza[0-9A-Za-z_-]{20,200}/g, replacement: "[REDACTED:google]" },
   { name: "huggingface", regex: /hf_[A-Za-z0-9]{34}/g, replacement: "[REDACTED:hf]" },
   { name: "replicate", regex: /r8_[A-Za-z0-9]{37}/g, replacement: "[REDACTED:replicate]" },
   { name: "github", regex: /gh[pousr]_[A-Za-z0-9]{36,}/g, replacement: "[REDACTED:github]" },

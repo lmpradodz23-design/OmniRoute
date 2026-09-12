@@ -4,6 +4,11 @@ import { updateSettings } from "@/lib/db/settings";
 import { SignJWT, jwtVerify, createRemoteJWKSet } from "jose";
 import { cookies } from "next/headers";
 import { timingSafeCompare } from "@/shared/utils/timingSafeCompare";
+import {
+  OidcEndpointError,
+  discoverOidcEndpoints,
+  postOidcTokenRequest,
+} from "@/lib/auth/oidcDiscovery";
 // Test seam (static) — allows tests to inject a cookie store and capture the minted auth_token.
 // Mirrors the pattern in src/app/api/auth/login/route.ts
 export const oidcCallbackInternals = {
@@ -99,23 +104,23 @@ export async function GET(request: Request) {
   const origin = `${scheme}://${host}`;
   const redirectUri = `${origin}${redirectPath}`;
 
-  // Discover endpoints
-  let tokenEndpoint = `${issuer}/token`;
-  let jwksUri = `${issuer}/jwks`;
+  // Discover endpoints through the validated helper (SSRF S-4): the issuer and every endpoint
+  // are checked (https outside loopback, never cloud-metadata, private only under the opt-in),
+  // the discovery document is trusted only when its `issuer` matches the configured one, and all
+  // I/O is pinned with redirects blocked. Discovery failures still fall back to the conventional
+  // endpoints under the configured issuer. The JWKS itself is fetched by jose's
+  // createRemoteJWKSet below; only its URL is validated here.
+  let tokenEndpoint: string;
+  let jwksUri: string;
   try {
-    const wellKnownResp = await fetch(`${issuer}/.well-known/openid-configuration`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (wellKnownResp.ok) {
-      const data: unknown = await wellKnownResp.json();
-      if (data && typeof data === "object") {
-        const rec = data as Record<string, unknown>;
-        if (typeof rec.token_endpoint === "string") tokenEndpoint = rec.token_endpoint;
-        if (typeof rec.jwks_uri === "string") jwksUri = rec.jwks_uri;
-      }
+    const endpoints = await discoverOidcEndpoints(issuer);
+    tokenEndpoint = endpoints.tokenEndpoint;
+    jwksUri = endpoints.jwksUri;
+  } catch (error) {
+    if (error instanceof OidcEndpointError) {
+      return NextResponse.redirect(new URL("/login?oidc_error=issuer_rejected", originEarly));
     }
-  } catch {
-    // use conventional endpoints
+    throw error;
   }
 
   // Exchange code for tokens (form post)
@@ -127,14 +132,11 @@ export async function GET(request: Request) {
     client_secret: clientSecret,
   });
 
-  let tokenResp: Response;
+  let tokenResp: { status: number; ok: boolean; bodyText: string };
   try {
-    tokenResp = await fetch(tokenEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: tokenParams.toString(),
-      signal: AbortSignal.timeout(10000),
-    });
+    // Pinned POST through the validated transport: a blocked or redirected token endpoint is a
+    // token_exchange failure, never a client_secret sent to an unvalidated host.
+    tokenResp = await postOidcTokenRequest(tokenEndpoint, tokenParams);
   } catch {
     return NextResponse.redirect(new URL("/login?oidc_error=token_exchange", originEarly));
   }
@@ -145,7 +147,7 @@ export async function GET(request: Request) {
 
   let tokenData: unknown;
   try {
-    tokenData = await tokenResp.json();
+    tokenData = JSON.parse(tokenResp.bodyText);
   } catch {
     return NextResponse.redirect(new URL("/login?oidc_error=token_response", originEarly));
   }

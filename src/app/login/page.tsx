@@ -15,6 +15,8 @@ export default function LoginPage() {
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
   const [oidcEnabled, setOidcEnabled] = useState<boolean | null>(null);
   const [oidcDisablePasswordLogin, setOidcDisablePasswordLogin] = useState<boolean | null>(null);
+  // U2: only true while the server says the well-known default password is still active.
+  const [usingDefaultPassword, setUsingDefaultPassword] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [nodeVersion, setNodeVersion] = useState(null);
   const [nodeCompatible, setNodeCompatible] = useState(true);
@@ -45,13 +47,14 @@ export default function LoginPage() {
           setSetupComplete(!!data.setupComplete);
           setOidcEnabled(!!data.oidcEnabled);
           setOidcDisablePasswordLogin(!!data.oidcDisablePasswordLogin);
+          setUsingDefaultPassword(data.usingDefaultPassword === true);
         } else {
           setHasPassword(true);
           setSetupComplete(true);
           setOidcEnabled(false);
           setOidcDisablePasswordLogin(false);
         }
-      } catch (err) {
+      } catch {
         clearTimeout(timeoutId);
         setHasPassword(true);
         setSetupComplete(true);
@@ -60,6 +63,7 @@ export default function LoginPage() {
       }
     }
     checkAuth();
+    return () => cancelAnimationFrame(raf);
   }, [router]);
 
   const handleLogin = async (e) => {
@@ -86,7 +90,7 @@ export default function LoginPage() {
         }
         setError(data.error || t("invalidPassword"));
       }
-    } catch (err) {
+    } catch {
       setError(t("errorOccurredRetry"));
     } finally {
       setLoading(false);
@@ -281,7 +285,17 @@ export default function LoginPage() {
                         {error}
                       </p>
                     )}
-                    <p className="text-xs text-text-muted/60 pt-0.5">{t("defaultPasswordHint")}</p>
+                    {usingDefaultPassword && (
+                      <p className="text-xs text-amber-500 dark:text-amber-400 pt-0.5 flex items-start gap-1.5">
+                        <span
+                          className="material-symbols-outlined text-[14px] mt-px"
+                          aria-hidden="true"
+                        >
+                          warning
+                        </span>
+                        {t("defaultPasswordHint")}
+                      </p>
+                    )}
                   </div>
 
                   <Button

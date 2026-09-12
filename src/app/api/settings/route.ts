@@ -398,6 +398,34 @@ export async function PATCH(request: Request) {
       }
     }
 
+    // U3: requiring login with no way to sign in is a self-lockout (isAuthRequired demands a
+    // session the moment requireLogin is true and setup is complete). Refuse unless a password
+    // is configured, is set in this same request, or SSO is (being) enabled.
+    if (body.requireLogin === true && !body.newPassword) {
+      const current = (await getSettings()) as Record<string, unknown>;
+      if (
+        !hasManagementPasswordConfigured(current) &&
+        current.oidcEnabled !== true &&
+        body.oidcEnabled !== true
+      ) {
+        emitSettingsFailureAudit(
+          request,
+          actor,
+          "PASSWORD_REQUIRED_TO_ENABLE_LOGIN",
+          attemptedKeys
+        );
+        return NextResponse.json(
+          {
+            error: {
+              code: "PASSWORD_REQUIRED_TO_ENABLE_LOGIN",
+              message: "Set a password (newPassword) in the same request before requiring login",
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // #6540: reject a paid-only webSearchRouteModel target when hidePaidModels
     // is on. Business-rule check (needs an async DB read), so it runs after
     // Zod shape validation rather than as a Zod .refine(). Fails open on

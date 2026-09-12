@@ -13,18 +13,68 @@
  * package-artifact job or `check:release-green --with-build`). Exit codes:
  * 0 = boots and reports the right version · 1 = boot failed · 2 = missing build.
  */
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHmac } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const POLL_INTERVAL_MS = 2_000;
 const BOOT_DEADLINE_MS = 240_000;
 const MAX_SERVER_OUTPUT_CHARS = 1_000_000;
 const SQLJS_STARTUP_MARKER = "Pre-initializing sql.js WASM";
 const DEFAULT_CLI_SALT = "omniroute-cli-auth-v1";
+
+// Windows has neither process groups nor signals: `process.kill(-pid)` throws, and a
+// detached child keeps running after the parent is terminated. Terminate the whole tree
+// with taskkill /T /F there (TerminateProcess — no graceful phase exists on win32).
+function signalProcessGroup(pid, signal) {
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    return;
+  }
+  process.kill(-pid, signal);
+}
+
+// `npm install -g --prefix <p>` lays the package out as <p>/lib/node_modules/omniroute on
+// POSIX but <p>/node_modules/omniroute on Windows, where the bin entry is a `omniroute.cmd`
+// shim that cannot be spawned without a shell. Boot the installed CLI through the package's
+// own bin script under the current Node instead — same code path the shim resolves to.
+function installedPackageRoot(prefix) {
+  return process.platform === "win32"
+    ? path.join(prefix, "node_modules", "omniroute")
+    : path.join(prefix, "lib", "node_modules", "omniroute");
+}
+function installedCliLaunch(prefix) {
+  if (process.platform === "win32") {
+    return {
+      file: process.execPath,
+      args: [path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs")],
+      exists: path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs"),
+    };
+  }
+  const bin = path.join(prefix, "bin", "omniroute");
+  return { file: bin, args: [], exists: bin };
+}
+
+// Windows: npm is `npm.cmd`, which Node refuses to spawn without a shell since the
+// CVE-2024-27980 fix (EINVAL). Every npm argument here is a fixed literal or a path we
+// built ourselves; under the shell they are quoted, never interpolated from user input.
+const NPM =
+  process.platform === "win32"
+    ? {
+        file: "npm.cmd",
+        shell: true,
+        args: (list) =>
+          list.map((value) =>
+            /[\s"]/.test(String(value)) ? `"${String(value).replace(/"/g, '\\"')}"` : value
+          ),
+      }
+    : { file: "npm", shell: false, args: (list) => list };
 
 // Dependency-based packaging (#11242): the tarball can never contain a node_modules
 // path (files[] has "!**/node_modules/**" and check:pack-artifact fails on the
@@ -251,14 +301,14 @@ async function stopChild(child, graceMs = 30_000) {
     if (hasExited(child)) return;
 
     try {
-      process.kill(-child.pid, "SIGTERM");
+      signalProcessGroup(child.pid, "SIGTERM");
     } catch {
       /* group already gone */
     }
     if (await waitForExit(graceMs)) return;
 
     try {
-      process.kill(-child.pid, "SIGKILL");
+      signalProcessGroup(child.pid, "SIGKILL");
     } catch {
       /* group already gone */
     }
@@ -279,23 +329,28 @@ async function stopChild(child, graceMs = 30_000) {
  * so it leads its own process group — stopChild() relies on that to SIGTERM the whole tree.
  * The caller owns shutdown so the graceful DB flush lands before teardown.
  */
-function spawnServer(binPath, port, dataDir) {
-  const child = spawn(binPath, ["serve", "--port", String(port), "--log", "--no-open"], {
-    env: {
-      ...process.env,
-      PORT: String(port),
-      DATA_DIR: dataDir,
-      JWT_SECRET: "pack-boot-smoke-secret-with-sufficient-length-000",
-      API_KEY_SECRET: "pack-boot-smoke-api-key-secret-long",
-      DISABLE_SQLITE_AUTO_BACKUP: "true",
-      OMNIROUTE_SKIP_SYSTEM_TRUST: "1",
-      OMNIROUTE_PACK_BOOT_SMOKE: "1",
-      OMNIROUTE_PACK_BOOT_FORCE_SQLJS: "1",
-      INITIAL_PASSWORD: "pack-boot-machine-token-auth-required",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: true,
-  });
+function spawnServer(launch, port, dataDir) {
+  const child = spawn(
+    launch.file,
+    [...launch.args, "serve", "--port", String(port), "--log", "--no-open"],
+    {
+      env: {
+        ...process.env,
+        PORT: String(port),
+        DATA_DIR: dataDir,
+        JWT_SECRET: "pack-boot-smoke-secret-with-sufficient-length-000",
+        API_KEY_SECRET: "pack-boot-smoke-api-key-secret-long",
+        DISABLE_SQLITE_AUTO_BACKUP: "true",
+        OMNIROUTE_SKIP_SYSTEM_TRUST: "1",
+        OMNIROUTE_PACK_BOOT_SMOKE: "1",
+        OMNIROUTE_PACK_BOOT_FORCE_SQLJS: "1",
+        INITIAL_PASSWORD: "pack-boot-machine-token-auth-required",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+      windowsHide: true,
+    }
+  );
   const tail = [];
   let retainedChars = 0;
   const keepTail = (chunk) => {
@@ -422,19 +477,25 @@ async function main() {
   let shutdownConfirmed = false; // process group confirmed stopped → safe to rm the workspace
   try {
     log(`packing v${expectedVersion}…`);
-    const packOut = execFileSync("npm", ["pack", "--json", "--pack-destination", tmp], {
-      cwd: ROOT,
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-    });
+    const packOut = execFileSync(
+      NPM.file,
+      NPM.args(["pack", "--json", "--pack-destination", tmp]),
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+        shell: NPM.shell,
+      }
+    );
     const tarball = path.join(tmp, pickTarball(packOut));
     log(`installing ${path.basename(tarball)} into a clean prefix (postinstall runs for real)…`);
     const prefix = path.join(tmp, "prefix");
-    execFileSync("npm", ["install", "-g", "--prefix", prefix, tarball], {
+    execFileSync(NPM.file, NPM.args(["install", "-g", "--prefix", prefix, tarball]), {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
+      shell: NPM.shell,
     });
-    const packageRoot = path.join(prefix, "lib", "node_modules", "omniroute");
+    const packageRoot = installedPackageRoot(prefix);
     const missingSqlJsFiles = findMissingSqlJsRuntimeFiles(packageRoot);
     if (missingSqlJsFiles.length > 0) {
       throw new Error(
@@ -453,7 +514,7 @@ async function main() {
     const port = pickPort();
     const dataDir = path.join(tmp, "data");
     fs.mkdirSync(dataDir, { recursive: true });
-    const binPath = path.join(prefix, "bin", "omniroute");
+    const binPath = installedCliLaunch(prefix);
     const packagedCliToken = derivePackagedCliToken(packageRoot);
 
     // BOOT #1 — boot, prove the forced sql.js tier, PATCH a setting, then shut down cleanly
@@ -562,8 +623,7 @@ async function main() {
 }
 
 const isDirectRun =
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirectRun) {
   main().catch((e) => {
     console.error("[pack-boot] fatal:", e.message);

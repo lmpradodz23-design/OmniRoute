@@ -12,11 +12,13 @@ import path from "node:path";
 // openSqliteDatabase() only fell back when the *import* failed; the construction-time
 // failure was translated into "Run: omniroute runtime repair" guidance and aborted.
 
-const FIXTURE_DIR = new URL("fixtures/", import.meta.url).pathname;
-const hookPath = path.join(FIXTURE_DIR, "8826-mock-better-sqlite3.mjs");
+// A file URL, not `URL.pathname` + path.join: on Windows that produced
+// "\C:\Users\...\8826-mock-better-sqlite3.mjs", which module.register rejects as an
+// invalid specifier (ERR_INVALID_MODULE_SPECIFIER), failing the suite before any test ran.
+const hookUrl = new URL("fixtures/8826-mock-better-sqlite3.mjs", import.meta.url).href;
 
 // Register the ESM hook to return a module whose Database constructor throws
-register(hookPath, import.meta.url);
+register(hookUrl);
 
 // Patch Module._load so CJS createRequire("better-sqlite3") in driverFactory.ts
 // also gets a constructor that throws the bindings error.

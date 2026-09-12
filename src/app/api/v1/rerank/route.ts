@@ -4,7 +4,7 @@ import {
   clearRecoveredProviderState,
 } from "@/sse/services/auth";
 import { withInjectionGuard } from "@/middleware/promptInjectionGuard";
-import { parseRerankModel, getRerankProvider } from "@omniroute/open-sse/config/rerankRegistry.ts";
+import { parseRerankModel } from "@omniroute/open-sse/config/rerankRegistry.ts";
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
@@ -20,6 +20,29 @@ import { attachOmniRouteMetaHeaders } from "@/domain/omnirouteResponseMeta";
 import { generateRequestId } from "@/shared/utils/requestId";
 import { CORS_HEADERS } from "@omniroute/open-sse/utils/cors.ts";
 import { deriveRerankProviderForChatProvider } from "@omniroute/open-sse/config/rerankRegistry.ts";
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
+
+const LOCAL_RERANK_TIMEOUT_MS = 60_000;
+
+/**
+ * SSRF S-6: the provider-node base URL is operator data. Even inside the local allowlist
+ * below, the request goes through the pinned guarded client so a redirect from the node can
+ * never steer the bearer to another host and the resolved address is what gets connected.
+ */
+function postLocalRerank(url: string, token: string | undefined, payload: unknown) {
+  return guardedFetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+    timeoutMs: LOCAL_RERANK_TIMEOUT_MS,
+    allowPrivate: areIntegrationPrivateUrlsAllowed(),
+  });
+}
 
 /**
  * Handle CORS preflight
@@ -57,7 +80,7 @@ function buildDynamicRerankProvider(node: any) {
  * Supports cloud providers (Cohere, Together, NVIDIA, Fireworks)
  * and local provider_nodes (oMLX, vLLM, etc.) via dynamic routing.
  */
-async function postHandler(request, context) {
+async function postHandler(request, _context) {
   let rawBody;
   try {
     rawBody = await request.json();
@@ -106,7 +129,7 @@ async function postHandler(request, context) {
   }
 
   // Try cloud registry first
-  const { provider, model: modelId } = parseRerankModel(body.model);
+  const { provider } = parseRerankModel(body.model);
 
   // Generic fallback: a configured OpenAI-compatible chat provider with no
   // curated rerank entry (groq, mistral, ...) still exposes a Cohere-compatible
@@ -179,40 +202,21 @@ async function postHandler(request, context) {
 
       const token = credentials?.apiKey || credentials?.accessToken;
       const startTime = Date.now();
+      const upstreamPayload = {
+        model: localModel,
+        query: body.query,
+        documents: body.documents,
+        top_n: body.top_n || body.documents.length,
+        return_documents: body.return_documents !== false,
+      };
       try {
-        let res = await fetch(localProvider.baseUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            model: localModel,
-            query: body.query,
-            documents: body.documents,
-            top_n: body.top_n || body.documents.length,
-            return_documents: body.return_documents !== false,
-          }),
-        });
+        let res = await postLocalRerank(localProvider.baseUrl, token, upstreamPayload);
 
         // Some local providers (e.g. Infinity, TEI) mount at /rerank rather than /v1/rerank
         if (res.status === 404 && localProvider.baseUrl.endsWith("/v1/rerank")) {
           const fallbackUrl = localProvider.baseUrl.replace(/\/v1\/rerank$/, "/rerank");
           try {
-            const fallbackRes = await fetch(fallbackUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                model: localModel,
-                query: body.query,
-                documents: body.documents,
-                top_n: body.top_n || body.documents.length,
-                return_documents: body.return_documents !== false,
-              }),
-            });
+            const fallbackRes = await postLocalRerank(fallbackUrl, token, upstreamPayload);
             if (fallbackRes.ok || fallbackRes.status !== 404) {
               res = fallbackRes;
             }
@@ -286,20 +290,27 @@ async function postHandler(request, context) {
           headers,
         });
       } catch (err: any) {
+        // A guard decision (blocked target / redirect) is a configuration error on the
+        // provider node, reported URL-free: the guard's message embeds the full target.
+        const guardBlocked = err instanceof OutboundUrlGuardError;
+        const status = guardBlocked ? HTTP_STATUS.BAD_REQUEST : 500;
+        const message = guardBlocked
+          ? "Local rerank provider URL blocked by the outbound guard"
+          : `Rerank request failed: ${err.message}`;
         saveCallLog({
           method: "POST",
           path: "/v1/rerank",
-          status: 500,
+          status,
           model: body.model,
           provider: prefix,
           connectionId:
             (credentials as { connectionId?: string } | null)?.connectionId || undefined,
           duration: Date.now() - startTime,
-          error: err.message,
+          error: guardBlocked ? message : err.message,
           apiKeyId: policy.apiKeyInfo?.id || undefined,
           apiKeyName: policy.apiKeyInfo?.name || undefined,
         }).catch(() => {});
-        return errorResponse(500, `Rerank request failed: ${err.message}`);
+        return errorResponse(status, message);
       }
     }
   }

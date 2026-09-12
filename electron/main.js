@@ -34,17 +34,31 @@ const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 const { hasEncryptedCredentials } = require("./sqlite-inspection");
 const { loginManager } = require("./loginManager");
-const { killProcessTree } = require("./processTree");
+const {
+  killProcessTree,
+  serverSpawnOptions,
+  writeServerPidFile,
+  removeServerPidFile,
+  reapOrphanServer,
+} = require("./processTree");
 const { resolveServerEntry } = require("./lib/resolveServerEntry");
 const { resolveDarwinHelperExecutable } = require("./lib/resolveNodeHelper");
 const { resolveRemoteServerUrl, isValidHttpUrl } = require("./lib/resolveRemoteServerUrl");
-const { isPrivilegedSenderAllowed } = require("./lib/ipcOriginGuard");
+const {
+  isPrivilegedSenderAllowed,
+  shouldBlockNavigation,
+  withPrivilegedSender,
+} = require("./lib/ipcOriginGuard");
+const { writeOwnerOnlyFile } = require("./lib/ownerOnlyFile");
 const {
   readPreferences,
   writeRemoteServerUrl,
   writeCloseBehavior,
 } = require("./lib/remoteServerPreferences");
 const { buildReadinessUrl, waitForServer } = require("./lib/serverReadiness");
+const { createLoadFailureRecovery } = require("./lib/loadFailure");
+const { createTrayTranslator } = require("./lib/trayStrings");
+const { createPreUpdateSnapshot } = require("./lib/preUpdateSnapshot");
 const { shouldStartHidden, showOrCreateWindow } = require("./lib/windowLifecycle");
 const {
   CLOSE_BEHAVIOR_KEEP_LOADED,
@@ -86,6 +100,9 @@ let isServerStopped = false;
 let remoteServerPromptWindow = null;
 let keepAliveWithoutWindows = false;
 let lastRendererUrl = null;
+// E-5: data dir the embedded server was started with, and the version waiting to install.
+let serverDataDir = null;
+let pendingUpdateVersion = null;
 
 // ── Remote Server Mode ──────────────────────────────────────
 // Lets the desktop shell attach to an already-running OmniRoute server (e.g. a
@@ -284,14 +301,15 @@ function setupAutoUpdater() {
   autoUpdater.on("update-downloaded", (info) => {
     sendToRenderer("update-status", { status: "downloaded", version: info.version });
     console.log("[Electron] Update downloaded:", info.version);
+    pendingUpdateVersion = info.version;
 
     if (Notification.isSupported()) {
       const notification = new Notification({
-        title: "OmniRoute Update Ready",
-        body: `Version ${info.version} is ready to install. Click to restart.`,
+        title: tt("updateReadyTitle"),
+        body: tt("updateReadyBody", { version: info.version }),
       });
       notification.on("click", () => {
-        autoUpdater.quitAndInstall();
+        installUpdate();
       });
       notification.show();
     }
@@ -335,6 +353,25 @@ function installUpdate() {
     // grandchildren) keeps omniroute.exe locked and the updater fails with "file in use".
     killProcessTree(nextServer, { signal: "SIGTERM" });
     nextServer = null;
+    removeServerPidFile(serverPidFilePath);
+    serverPidFilePath = null;
+  }
+  // E-5: restore point before the application is replaced (DB + WAL/SHM + server.env +
+  // .env + preferences → DATA_DIR/db_backups/pre-update-<version>-<ts>/, last 3 kept).
+  const snapshot = createPreUpdateSnapshot({
+    dataDir: serverDataDir || resolveDataDir(null, process.env),
+    fromVersion: app.getVersion(),
+    toVersion: pendingUpdateVersion,
+  });
+  if (snapshot.error) {
+    console.warn(
+      "[Electron] Pre-update snapshot FAILED (continuing with the update):",
+      snapshot.error
+    );
+  } else {
+    console.log(
+      `[Electron] Pre-update snapshot written to ${snapshot.dir} (${snapshot.copied.length} files)`
+    );
   }
   autoUpdater.quitAndInstall();
 }
@@ -404,6 +441,9 @@ function createWindow({ showWhenReady = true } = {}) {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // E-3: explicit — the renderer sandbox is Electron's default when nodeIntegration is
+      // off, but the privileged window must never depend on that default silently changing.
+      sandbox: true,
       webSecurity: true,
       webviewTag: false,
     },
@@ -446,6 +486,24 @@ function createWindow({ showWhenReady = true } = {}) {
     return { action: "deny" };
   });
 
+  // E-1: this window carries the privileged preload bridge. Neither a page nor a server-side
+  // redirect may steer it onto another origin (loopback ↔ loopback excepted — the embedded
+  // server may move port/spelling on restart). Main-process loadURL calls do not emit these.
+  const blockCrossOriginNavigation = (event, targetUrl) => {
+    if (shouldBlockNavigation(window.webContents.getURL(), targetUrl)) {
+      event.preventDefault();
+      console.warn("[Electron] Blocked cross-origin navigation of the privileged window");
+    }
+  };
+  window.webContents.on("will-navigate", blockCrossOriginNavigation);
+  window.webContents.on("will-redirect", blockCrossOriginNavigation);
+  window.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      loadFailureRecovery.handle({ errorCode, errorDescription, validatedURL, isMainFrame });
+    }
+  );
+
   // Keep the server alive while either hiding the renderer for a fast reopen or
   // unloading it to reclaim memory, according to the persisted tray preference.
   window.on("close", (event) => {
@@ -469,6 +527,22 @@ function createWindow({ showWhenReady = true } = {}) {
 
   return window;
 }
+
+// I3: tray / notification strings follow the OS locale (pt / en, English fallback).
+// app.getLocale() is only meaningful after "ready", so the translator is built lazily.
+let trayTranslator = null;
+function tt(key, params) {
+  if (!trayTranslator) trayTranslator = createTrayTranslator(app.getLocale());
+  return trayTranslator(key, params);
+}
+
+// J2: if the dashboard fails to load (server not listening yet, crash before listen),
+// show a static explanation and reload once the readiness ping answers again.
+const loadFailureRecovery = createLoadFailureRecovery({
+  getWindow: () => mainWindow,
+  getServerUrl: () => getServerUrl(),
+  waitForServer: (serverUrl, timeoutMs) => waitForServer(buildReadinessUrl(serverUrl), timeoutMs),
+});
 
 function showMainWindow() {
   return showOrCreateWindow({
@@ -511,18 +585,18 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "Open OmniRoute",
+      label: tt("openApp"),
       click: () => showMainWindow(),
     },
     {
-      label: "Open Dashboard",
+      label: tt("openDashboard"),
       click: () => shell.openExternal(getServerUrl()),
     },
     { type: "separator" },
     {
-      label: "Server Port",
+      label: tt("serverPort"),
       submenu: [
-        { label: `Port: ${serverPort}`, enabled: false },
+        { label: tt("portLabel", { port: serverPort }), enabled: false },
         { type: "separator" },
         { label: "20128", click: () => changePort(20128) },
         { label: "3000", click: () => changePort(3000) },
@@ -531,32 +605,34 @@ function createTray() {
       enabled: !remoteServerUrl,
     },
     {
-      label: "Remote Server",
+      label: tt("remoteServer"),
       submenu: [
         {
-          label: remoteServerUrl ? `Connected: ${remoteServerUrl}` : "Using local embedded server",
+          label: remoteServerUrl
+            ? tt("remoteConnected", { url: remoteServerUrl })
+            : tt("remoteLocal"),
           enabled: false,
         },
         { type: "separator" },
-        { label: "Connect to Remote Server…", click: () => showRemoteServerPrompt() },
+        { label: tt("remoteConnect"), click: () => showRemoteServerPrompt() },
         {
-          label: "Disconnect (use Local Server)",
+          label: tt("remoteDisconnect"),
           enabled: Boolean(remoteServerUrl),
           click: () => setRemoteServerUrl(null),
         },
       ],
     },
     {
-      label: "When Dashboard Closes",
+      label: tt("whenDashboardCloses"),
       submenu: [
         {
-          label: "Keep Loaded (Faster Reopen)",
+          label: tt("keepLoaded"),
           type: "radio",
           checked: closeBehavior === CLOSE_BEHAVIOR_KEEP_LOADED,
           click: () => setCloseBehavior(CLOSE_BEHAVIOR_KEEP_LOADED),
         },
         {
-          label: "Unload Renderer (Lower Memory)",
+          label: tt("unloadRenderer"),
           type: "radio",
           checked: closeBehavior === CLOSE_BEHAVIOR_UNLOAD,
           click: () => setCloseBehavior(CLOSE_BEHAVIOR_UNLOAD),
@@ -565,12 +641,12 @@ function createTray() {
     },
     { type: "separator" },
     {
-      label: "Check for Updates",
+      label: tt("checkForUpdates"),
       click: () => checkForUpdates(false),
     },
     { type: "separator" },
     {
-      label: "Quit",
+      label: tt("quit"),
       click: () => {
         app.isQuitting = true;
         app.quit();
@@ -578,7 +654,7 @@ function createTray() {
     },
   ]);
 
-  tray.setToolTip("OmniRoute");
+  tray.setToolTip(tt("tooltip"));
   tray.setContextMenu(contextMenu);
 
   tray.on("double-click", () => showMainWindow());
@@ -629,7 +705,7 @@ function showRemoteServerPrompt() {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: "Connect to Remote Server",
+    title: tt("remotePromptTitle"),
     parent: mainWindow || undefined,
     modal: Boolean(mainWindow),
     webPreferences: {
@@ -653,9 +729,13 @@ async function setRemoteServerUrl(nextUrl) {
   const normalized = (nextUrl || "").trim() || null;
   if (normalized === remoteServerUrl) return;
 
-  // Reject invalid URLs — only http:// and https:// are accepted.
+  // Reject invalid URLs — https:// anywhere, http:// only on a private network
+  // (the shell sends the dashboard session and provider credentials there).
   if (normalized !== null && !isValidHttpUrl(normalized)) {
-    console.warn("[Electron] Rejected invalid remote server URL:", normalized);
+    console.warn(
+      "[Electron] Rejected remote server URL (must be https://, or http:// on loopback / a private network):",
+      normalized
+    );
     return;
   }
 
@@ -748,6 +828,7 @@ function startNextServer() {
   const preferredEnvPath = getPreferredEnvFilePath(process.env);
   const preferredEnv = preferredEnvPath ? parseEnvFile(preferredEnvPath) : {};
   const dataDir = resolveDataDir(null, { ...preferredEnv, ...process.env });
+  serverDataDir = dataDir;
   const serverEnvPath = path.join(dataDir, "server.env");
   const persisted = parseEnvFile(serverEnvPath);
   const serverEnv = { ...persisted, ...preferredEnv, ...process.env };
@@ -791,7 +872,8 @@ function startNextServer() {
         ...Object.entries(persisted).map(([k, v]) => `${k}=${v}`),
         "",
       ];
-      fs.writeFileSync(serverEnvPath, lines.join("\n"), "utf8");
+      // E-7: these are the keys that unlock the credential store — owner-only (0o600).
+      writeOwnerOnlyFile(serverEnvPath, lines.join("\n"));
       console.log("[Electron] 📁 Secrets persisted to:", serverEnvPath);
     } catch (e) {
       console.warn("[Electron] Could not persist secrets:", e.message);
@@ -828,10 +910,18 @@ function startNextServer() {
   console.log("[Electron] Server NODE_OPTIONS:", serverNodeOptions);
   sendToRenderer("server-status", { status: "starting", port: serverPort });
 
+  // R-12: a previous main process that died (crash, SIGKILL, updater) may have left its
+  // detached server running. Reap it — only after verifying the recorded pid is still
+  // our server — before binding a new one to the same DATA_DIR and port.
+  const serverPidFile = path.join(dataDir, "server.pid");
+  reapOrphanServer(serverPidFile);
+
   // Fix #10: Use pipe instead of inherit for logging & readiness detection
   // windowsHide prevents a visible console window from spawning alongside the GUI app.
   // shell: false avoids launching via a shell wrapper which can flash a terminal on macOS.
+  // serverSpawnOptions: own process group on POSIX so killProcessTree reaches grandchildren.
   nextServer = spawn(nodeExecutable, [serverScript], {
+    ...serverSpawnOptions(process.platform),
     cwd: NEXT_SERVER_PATH,
     env: {
       ...serverEnv,
@@ -854,6 +944,30 @@ function startNextServer() {
     windowsHide: true,
     shell: false,
   });
+
+  // The child this call spawned. Event handlers below must compare against it instead of
+  // the module-level `nextServer`: when a stop times out, waitForServerExit() resolves
+  // BEFORE the old child's `exit` fires, a new server is spawned, and the late `exit` of
+  // the OLD child would otherwise null `nextServer` and delete the NEW server's pid file
+  // (final audit A-4).
+  const spawnedServer = nextServer;
+
+  // R-12: record the pid so a later launch can reap this server if we die first.
+  if (nextServer.pid) {
+    serverPidFilePath = serverPidFile;
+    try {
+      writeServerPidFile(serverPidFile, {
+        pid: nextServer.pid,
+        execPath: nodeExecutable,
+        script: serverScript,
+      });
+    } catch (err) {
+      console.warn(
+        "[Electron] Could not write server.pid:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
 
   // Capture server output for logging
   nextServer.stdout?.on("data", (data) => {
@@ -888,18 +1002,28 @@ function startNextServer() {
 
   nextServer.on("exit", (code) => {
     console.log("[Electron] Server exited with code:", code);
+    // A-4: a superseded child's late exit must not touch the current server's state.
+    if (nextServer !== spawnedServer) return;
     sendToRenderer("server-status", { status: "stopped", port: serverPort });
     nextServer = null;
+    removeServerPidFile(serverPidFilePath);
+    serverPidFilePath = null;
   });
 }
+
+// R-12: DATA_DIR/server.pid of the running embedded server (null when none is tracked).
+let serverPidFilePath = null;
 
 function stopNextServer() {
   if (nextServer) {
     // #3347: kill the whole tree, not just the direct child. On Windows the server
     // (omniroute.exe-as-node) spawns grandchildren that a bare SIGTERM leaves alive,
-    // holding a lock on omniroute.exe and blocking updates.
+    // holding a lock on omniroute.exe and blocking updates. On POSIX the server runs in
+    // its own process group (serverSpawnOptions), so the group signal reaches them too.
     killProcessTree(nextServer, { signal: "SIGTERM" });
     nextServer = null;
+    removeServerPidFile(serverPidFilePath);
+    serverPidFilePath = null;
   }
 }
 
@@ -984,37 +1108,60 @@ function setupIpcHandlers() {
   // boundary — this window never loads remote/untrusted content) ──
   ipcMain.handle("remote-server-prompt:get-initial-url", () => remoteServerUrl || "");
 
-  ipcMain.on("remote-server-prompt:submit", (_event, url) => {
+  // The main process is the authority on the URL (E-4 transport policy); the renderer only
+  // gets a yes/no so it can keep the window open and show why.
+  ipcMain.handle("remote-server-prompt:submit", (_event, url) => {
+    const normalized = (typeof url === "string" ? url : "").trim();
+    if (normalized && !isValidHttpUrl(normalized)) {
+      return {
+        ok: false,
+        error:
+          "Use https://, or http:// only for localhost / a private-network address (e.g. 192.168.x.x, a container name).",
+      };
+    }
     remoteServerPromptWindow?.close();
-    void setRemoteServerUrl(url);
+    void setRemoteServerUrl(normalized);
+    return { ok: true };
   });
 
   ipcMain.on("remote-server-prompt:cancel", () => {
     remoteServerPromptWindow?.close();
   });
 
-  ipcMain.handle("open-external", (_event, url) => {
-    try {
-      const parsedUrl = new URL(url);
-      if (["http:", "https:"].includes(parsedUrl.protocol)) {
-        shell.openExternal(url);
+  // E-2: every channel that acts on the machine, the app lifecycle or credentials is
+  // registered through withPrivilegedSender — a remote/LAN page loaded in Remote Server
+  // mode is denied before the handler runs. Informational channels stay open.
+  ipcMain.handle(
+    "open-external",
+    withPrivilegedSender("open-external", (_event, url) => {
+      try {
+        const parsedUrl = new URL(url);
+        if (["http:", "https:"].includes(parsedUrl.protocol)) {
+          shell.openExternal(url);
+        }
+      } catch {
+        console.error("[Electron] Blocked invalid URL:", url);
       }
-    } catch {
-      console.error("[Electron] Blocked invalid URL:", url);
-    }
-  });
+    })
+  );
 
-  ipcMain.handle("get-data-dir", () => app.getPath("userData"));
+  ipcMain.handle(
+    "get-data-dir",
+    withPrivilegedSender("get-data-dir", () => app.getPath("userData"))
+  );
 
   // Fix #2: Add timeout to restart
-  ipcMain.handle("restart-server", async () => {
-    const serverToStop = nextServer;
-    stopNextServer();
-    await waitForServerExit(serverToStop);
-    startNextServer();
-    await waitForServer(getServerReadinessUrl());
-    return { success: true };
-  });
+  ipcMain.handle(
+    "restart-server",
+    withPrivilegedSender("restart-server", async () => {
+      const serverToStop = nextServer;
+      stopNextServer();
+      await waitForServerExit(serverToStop);
+      startNextServer();
+      await waitForServer(getServerReadinessUrl());
+      return { success: true };
+    })
+  );
 
   // Window controls
   ipcMain.on("window-minimize", () => mainWindow?.minimize());
@@ -1028,32 +1175,41 @@ function setupIpcHandlers() {
   ipcMain.on("window-close", () => mainWindow?.close());
 
   // Auto-update IPC handlers
-  ipcMain.handle("check-for-updates", async () => {
-    try {
-      await checkForUpdates(false);
-      return { success: true };
-    } catch (error) {
-      console.error("[Electron] Check for updates failed:", error);
-      sendToRenderer("update-status", { status: "error", message: error.message });
-      return { success: false, error: error.message };
-    }
-  });
+  ipcMain.handle(
+    "check-for-updates",
+    withPrivilegedSender("check-for-updates", async () => {
+      try {
+        await checkForUpdates(false);
+        return { success: true };
+      } catch (error) {
+        console.error("[Electron] Check for updates failed:", error);
+        sendToRenderer("update-status", { status: "error", message: error.message });
+        return { success: false, error: error.message };
+      }
+    })
+  );
 
-  ipcMain.handle("download-update", async () => {
-    try {
-      await downloadUpdate();
-      return { success: true };
-    } catch (error) {
-      console.error("[Electron] Download update failed:", error);
-      sendToRenderer("update-status", { status: "error", message: error.message });
-      return { success: false, error: error.message };
-    }
-  });
+  ipcMain.handle(
+    "download-update",
+    withPrivilegedSender("download-update", async () => {
+      try {
+        await downloadUpdate();
+        return { success: true };
+      } catch (error) {
+        console.error("[Electron] Download update failed:", error);
+        sendToRenderer("update-status", { status: "error", message: error.message });
+        return { success: false, error: error.message };
+      }
+    })
+  );
 
-  ipcMain.handle("install-update", () => {
-    installUpdate();
-    // No return value — app will quit and restart
-  });
+  ipcMain.handle(
+    "install-update",
+    withPrivilegedSender("install-update", () => {
+      installUpdate();
+      // No return value — app will quit and restart
+    })
+  );
 
   ipcMain.handle("get-app-version", () => app.getVersion());
 
@@ -1065,52 +1221,58 @@ function setupIpcHandlers() {
     sendToRenderer("login:status", status);
   });
 
-  ipcMain.handle("login:start", async (event, providerId, options) => {
-    // #6: privileged IPC — only the LOCAL renderer may drive provider login. A remote/compromised
-    // page loaded in this window (Remote Server mode) is rejected outright and never reaches the
-    // credential-extraction flow below.
-    if (!isPrivilegedSenderAllowed(event?.senderFrame?.url)) {
-      return { success: false, error: "Login is not available from a remote context" };
-    }
-    // #6: validate the caller-supplied providerId before using it as a secret key / login target.
-    if (typeof providerId !== "string" || providerId.length === 0 || providerId.length > 128) {
-      return { success: false, error: "Invalid providerId" };
-    }
-
-    const result = await loginManager.startLogin(providerId, options);
-
-    // Persist extracted credentials IN THE MAIN PROCESS ONLY.
-    if (result.success && result.credentials) {
-      try {
-        // Store as JSON blob under the provider ID
-        const { persistSecret: ps } = require("../src/lib/db/secrets");
-        if (typeof ps === "function") {
-          ps(providerId, JSON.stringify(result.credentials));
-        }
-        sendToRenderer("login:status", {
-          providerId,
-          status: "persisted",
-          message: "Credentials saved",
-        });
-      } catch (err) {
-        console.error("[Electron] Failed to persist credentials:", err);
-        return { success: false, error: "Extracted but failed to save credentials" };
+  ipcMain.handle(
+    "login:start",
+    withPrivilegedSender("login:start", async (event, providerId, options) => {
+      // #6: privileged IPC — only the LOCAL renderer may drive provider login. A remote/compromised
+      // page loaded in this window (Remote Server mode) is rejected outright and never reaches the
+      // credential-extraction flow below. (Defence in depth: withPrivilegedSender already denied it.)
+      if (!isPrivilegedSenderAllowed(event?.senderFrame?.url)) {
+        return { success: false, error: "Login is not available from a remote context" };
       }
-    }
+      // #6: validate the caller-supplied providerId before using it as a secret key / login target.
+      if (typeof providerId !== "string" || providerId.length === 0 || providerId.length > 128) {
+        return { success: false, error: "Invalid providerId" };
+      }
 
-    // #6: NEVER return extracted credentials to the renderer — a remote/compromised page must not
-    // receive provider tokens/cookies. Strip them and return only non-sensitive status.
-    const { credentials: _omitCredentials, ...safeResult } = result || {};
-    return {
-      ...safeResult,
-      credentialsPersisted: Boolean(result && result.success && result.credentials),
-    };
-  });
+      const result = await loginManager.startLogin(providerId, options);
 
-  ipcMain.handle("login:cancel", async () => {
-    loginManager.cancel();
-    return { success: true };
-  });
+      // Persist extracted credentials IN THE MAIN PROCESS ONLY.
+      if (result.success && result.credentials) {
+        try {
+          // Store as JSON blob under the provider ID
+          const { persistSecret: ps } = require("../src/lib/db/secrets");
+          if (typeof ps === "function") {
+            ps(providerId, JSON.stringify(result.credentials));
+          }
+          sendToRenderer("login:status", {
+            providerId,
+            status: "persisted",
+            message: "Credentials saved",
+          });
+        } catch (err) {
+          console.error("[Electron] Failed to persist credentials:", err);
+          return { success: false, error: "Extracted but failed to save credentials" };
+        }
+      }
+
+      // #6: NEVER return extracted credentials to the renderer — a remote/compromised page must not
+      // receive provider tokens/cookies. Strip them and return only non-sensitive status.
+      const { credentials: _omitCredentials, ...safeResult } = result || {};
+      return {
+        ...safeResult,
+        credentialsPersisted: Boolean(result && result.success && result.credentials),
+      };
+    })
+  );
+
+  ipcMain.handle(
+    "login:cancel",
+    withPrivilegedSender("login:cancel", async () => {
+      loginManager.cancel();
+      return { success: true };
+    })
+  );
 
   ipcMain.handle("login:status", async () => {
     return { active: loginManager.getActiveProvider() !== null };
@@ -1124,36 +1286,42 @@ function setupIpcHandlers() {
     return app.getLoginItemSettings().openAtLogin;
   });
 
-  ipcMain.handle("enable-autostart", () => {
-    if (process.platform === "linux") {
-      return enableLinuxDesktopAutostart();
-    }
-    try {
-      app.setLoginItemSettings({
-        openAtLogin: true,
-        args: ["--hidden"],
-      });
-      return true;
-    } catch (err) {
-      console.error("[Electron] Enable autostart failed:", err);
-      return false;
-    }
-  });
+  ipcMain.handle(
+    "enable-autostart",
+    withPrivilegedSender("enable-autostart", () => {
+      if (process.platform === "linux") {
+        return enableLinuxDesktopAutostart();
+      }
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: true,
+          args: ["--hidden"],
+        });
+        return true;
+      } catch (err) {
+        console.error("[Electron] Enable autostart failed:", err);
+        return false;
+      }
+    })
+  );
 
-  ipcMain.handle("disable-autostart", () => {
-    if (process.platform === "linux") {
-      return disableLinuxDesktopAutostart();
-    }
-    try {
-      app.setLoginItemSettings({
-        openAtLogin: false,
-      });
-      return true;
-    } catch (err) {
-      console.error("[Electron] Disable autostart failed:", err);
-      return false;
-    }
-  });
+  ipcMain.handle(
+    "disable-autostart",
+    withPrivilegedSender("disable-autostart", () => {
+      if (process.platform === "linux") {
+        return disableLinuxDesktopAutostart();
+      }
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: false,
+        });
+        return true;
+      } catch (err) {
+        console.error("[Electron] Disable autostart failed:", err);
+        return false;
+      }
+    })
+  );
 }
 
 // ── App Lifecycle ──────────────────────────────────────────

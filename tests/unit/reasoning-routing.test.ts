@@ -53,8 +53,11 @@ function ruleInput(
 
 test.beforeEach(resetStorage);
 
-test.after(async () => {
-  await resetStorage();
+test.after(() => {
+  // Windows: the SQLite handle must be closed BEFORE the directory is removed, and the
+  // directory must not be recreated afterwards (resetStorage() reopened it → EPERM).
+  apiKeysDb.resetApiKeyState();
+  core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 

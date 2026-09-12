@@ -16,6 +16,7 @@ globalThis.fetch = async () => {
   throw new Error("unexpected external provider/model call");
 };
 
+const guardedFetchMod = await import("../../src/shared/network/guardedFetch.ts");
 const core = await import("../../src/lib/db/core.ts");
 const providers = await import("../../src/lib/db/providers.ts");
 const apiKeys = await import("../../src/lib/db/apiKeys.ts");
@@ -54,15 +55,20 @@ async function resetStorage(): Promise<void> {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   externalCalls = 0;
-  globalThis.fetch = async () => {
+  const countingFetch = async () => {
     externalCalls += 1;
     throw new Error("unexpected external provider/model call");
   };
+  globalThis.fetch = countingFetch;
+  // S-6: translator/send goes through guardedFetch (undici + pinned dispatcher), which never
+  // touches globalThis.fetch — count its attempts through the test seam.
+  guardedFetchMod.__setGuardedFetchImplForTest(countingFetch as never);
 }
 
 test.beforeEach(resetStorage);
 test.after(() => {
   globalThis.fetch = originalFetch;
+  guardedFetchMod.__setGuardedFetchImplForTest(null);
   core.resetDbInstance();
   apiKeys.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

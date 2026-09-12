@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { betterSqlite3AliasFor } from "./scripts/build/better-sqlite3-stub-flag.mjs";
 import { mitmManagerAliasFor } from "./scripts/build/mitm-stub-flag.mjs";
 import { normalizeBasePath } from "./scripts/build/normalizeBasePath.mjs";
+import { siblingBuildDirExcludes } from "./scripts/build/siblingBuildDirs.mjs";
 import {
   buildSecurityHeaderRules,
   nonPageRoutePrefixes,
@@ -321,6 +322,31 @@ const nextConfig = {
       "**/.tmp/**",
       "**/electron/**",
       "**/docs/**",
+      // Disposable gate workspaces that live INSIDE the repository. `check:install-upgrade`
+      // leaves ~12 GB of installed trees, SQLite databases and tarballs under
+      // .install-upgrade/; a `next build` that ran after (or during) the gate traced them
+      // into the standalone bundle — and aborted with ENOENT when the gate deleted its
+      // workspace mid-copy ("copyfile .install-upgrade/.../db_backups/...sqlite").
+      "**/.install-upgrade/**",
+      "**/dist-electron/**",
+      // Secrets and non-runtime trees the whole-root trace otherwise drags in (the
+      // standalone once shipped the checkout's .env, .git and audit/). The build script's
+      // STANDALONE_PRUNE_TARGETS is the platform-independent backstop for the same list.
+      "**/.env",
+      "**/.env.*",
+      "**/server.env",
+      "**/audit/**",
+      // Every OTHER build output under .build/ (verification builds, dev-server caches, the
+      // Electron staging copy, optional packs) — computed at config time so the dist dir being
+      // built is never in the list. A sibling rotated by another process mid-copy aborts
+      // `next build` with ENOENT (verification builds #4 and #7).
+      ...siblingBuildDirExcludes(projectRoot, distDir),
+      // NOT "**/.build/**": the route traces list the bundle's OWN chunks under
+      // <distDir>/server/chunks, and that glob removed them (build #6 booted with
+      // ChunkLoadError: 93 of 22 000 chunks copied). Sibling dist dirs are pruned by
+      // STANDALONE_PRUNE_TARGETS / pruneStandaloneDir() after the build instead.
+      "**/.github/**",
+      "**/.husky/**",
     ],
   },
   serverExternalPackages: [

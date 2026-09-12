@@ -2,20 +2,22 @@
  * Public-safe error bodies for the tunnel and MITM management routes.
  *
  * Hard Rule #12 forbids returning a raw `err.message` in an HTTP body, and
- * `sanitizeErrorMessage()` is the repo's general answer. It is not enough here:
- * it only rewrites tokens that look like an absolute path ending in a *source*
- * extension (`ts|tsx|js|jsx|mjs|cjs` — see `SOURCE_EXT` in
- * open-sse/utils/error.ts), so the three leak shapes these routes actually
- * produce all survive it verbatim:
+ * `sanitizeErrorMessage()` (open-sse/utils/errorSanitization.ts) is the repo's
+ * general answer. Division of responsibility with it:
  *
- *   - config/state paths:  `ENOENT ... open '/home/<user>/.omniroute/data/tunnels.json'`
- *   - binary paths:        `spawn /usr/local/bin/cloudflared ENOENT`
- *   - Tailscale auth keys: `invalid key tskey-auth-kMn3Qz7RtY-9fVbXsPq2LdWc`
+ *   - Absolute filesystem paths — `.json`/`.yml` state files, extension-less
+ *     binaries, Windows drives — are redacted by the shared sanitizer
+ *     (`ENOENT ... open '/home/<user>/.omniroute/data/tunnels.json'`,
+ *     `spawn /usr/local/bin/cloudflared ENOENT`). This module adds nothing there.
+ *   - Tailscale auth keys (`invalid key tskey-auth-kMn3Qz7RtY-9fVbXsPq2LdWc`) are
+ *     NOT in the shared credential vocabulary and would survive it verbatim.
  *
- * These come from child processes (`cloudflared`, `tailscale`, `tailscaled`,
- * `ngrok`) and from filesystem I/O on the operator's home directory, so the raw
- * message discloses the host layout, the install location, the OS account name
- * and — for Tailscale — a live credential.
+ * Because one shape still leaks through the shared sanitizer and these bodies
+ * come from child processes (`cloudflared`, `tailscale`, `tailscaled`, `ngrok`)
+ * and filesystem I/O on the operator's home directory, this module does not
+ * echo a (sanitized) upstream message at all: it answers with a fixed sentence.
+ * tests/unit/tunnel-routes-error-sanitization.test.ts pins which shapes the
+ * shared sanitizer covers so this contract can be revisited when it grows.
  *
  * Reachability is not uniform. `/api/tunnels/ngrok` (both methods),
  * `/api/tunnels/tailscale` and `/api/tunnels/tailscale/check` are NOT in

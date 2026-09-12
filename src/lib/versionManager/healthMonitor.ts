@@ -1,4 +1,6 @@
 import { updateToolHealth } from "@/lib/db/versionManager";
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
 
 interface HealthResult {
   healthy: boolean;
@@ -14,9 +16,14 @@ async function checkHealth(url: string, healthPath?: string): Promise<HealthResu
   const start = Date.now();
 
   try {
-    const res = await fetch(`${url}${basePath}`, {
-      signal: AbortSignal.timeout(5000),
+    // SSRF S-6: the managed-tool URL is operator data — resolved address validated (cloud
+    // metadata never; loopback/LAN under the local-first integration policy), connection
+    // pinned, redirects never followed. Guard decisions surface through `error` like any
+    // other probe failure.
+    const res = await guardedFetch(`${url}${basePath}`, {
+      timeoutMs: 5000,
       headers: { Authorization: "Bearer omniroute-internal" },
+      allowPrivate: areIntegrationPrivateUrlsAllowed(),
     });
 
     const latency = Date.now() - start;

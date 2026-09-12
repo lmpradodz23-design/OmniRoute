@@ -67,7 +67,7 @@ docker rm omniroute
 docker volume rm omniroute-data
 
 # (İsteğe bağlı) İmajı silin
-docker rmi diegosouzapw/omniroute:latest
+docker rmi ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ### Docker Compose

@@ -68,7 +68,7 @@ x-common: &common
 services:
   # ── Redis (Rate Limiter Backend) ──────────────────────────────────
   redis:
-    image: docker.io/library/redis:8.6.5-alpine
+    image: docker.io/library/redis:8.6.5-alpine@sha256:cd218f4b106a332c5c992e38a9480bfb9d7e9f8f7b0ec9a0023bfa36d9a408f9
     container_name: omniroute-redis
     restart: unless-stopped
     ports:
@@ -239,7 +239,7 @@ services:
   # src/lib/memory/qdrant.ts:37. See docs/architecture/cluster-decisions.md
   # for the workload analysis behind this profile.
   qdrant:
-    image: docker.io/qdrant/qdrant:v1.12.4
+    image: docker.io/qdrant/qdrant:v1.12.4@sha256:241edb9d7778327516ef218f8c74e1bd61b5ea42cd4f193cb8d0896199705636
     container_name: omniroute-qdrant
     restart: unless-stopped
     ports:
@@ -267,7 +267,7 @@ services:
   # fall back to the chatCore path with zero code changes. See
   # docs/architecture/cluster-decisions.md for the activation plan.
   bifrost:
-    image: ghcr.io/maximhq/bifrost:v1.6.11
+    image: ghcr.io/maximhq/bifrost:v1.6.11@sha256:ef8e686b3588884066ec3d0e57f3fc15136b11047ad94678adefe5a9573539af
     container_name: omniroute-bifrost
     restart: unless-stopped
     ports:
@@ -291,7 +291,7 @@ services:
   # version the sidecar integration (port 8317, /v1/models healthcheck) targets.
   cliproxyapi:
     container_name: cliproxyapi
-    image: docker.io/eceasy/cli-proxy-api:v6.9.7
+    image: docker.io/eceasy/cli-proxy-api:v6.9.7@sha256:3dbbc38ee5e05920f1983262518614c2c9a61397fb2e0f252d8800fec7711283
     restart: unless-stopped
     ports:
       - "${CLIPROXYAPI_PORT:-8317}:${CLIPROXYAPI_PORT:-8317}"

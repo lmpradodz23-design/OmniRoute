@@ -8,6 +8,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import InfoTooltip from "@/shared/components/InfoTooltip";
 import { useTranslations } from "next-intl";
 import { compareTr, matchesSearch } from "@/shared/utils/turkishText";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type CoverageFilter = "all" | "lt50" | "gte50lt100" | "full";
 type AuthFilter = "all" | "oauth" | "apikey" | "unknown";
@@ -99,6 +100,7 @@ async function fetchPricingBundle(): Promise<PricingBundle> {
 }
 
 export default function PricingTab() {
+  const confirmDialog = useConfirmDialog();
   const [catalog, setCatalog] = useState<Record<string, PricingCatalogProvider>>({});
   const [pricingData, setPricingData] = useState<
     Record<string, Record<string, Record<string, number>>>
@@ -393,7 +395,10 @@ export default function PricingTab() {
 
   const resetProvider = useCallback(
     async (providerAlias: string, pricingKey?: string) => {
-      if (!confirm(t("resetPricingConfirm", { provider: providerAlias.toUpperCase() }))) return;
+      if (
+        !(await confirmDialog(t("resetPricingConfirm", { provider: providerAlias.toUpperCase() })))
+      )
+        return;
 
       try {
         const writeKey = pricingKey || providerAlias;
@@ -423,7 +428,7 @@ export default function PricingTab() {
         );
       }
     },
-    [loadData, showStatus, t]
+    [loadData, showStatus, t, confirmDialog]
   );
 
   const triggerSync = useCallback(async () => {
@@ -459,7 +464,7 @@ export default function PricingTab() {
   }, [loadData, showStatus, t]);
 
   const clearSyncedPricing = useCallback(async () => {
-    if (!confirm(t("clearSyncedPricingConfirm"))) return;
+    if (!(await confirmDialog(t("clearSyncedPricingConfirm")))) return;
 
     setSyncing(true);
     try {
@@ -481,7 +486,7 @@ export default function PricingTab() {
     } finally {
       setSyncing(false);
     }
-  }, [loadData, showStatus, t]);
+  }, [loadData, showStatus, t, confirmDialog]);
 
   if (loading) {
     return (

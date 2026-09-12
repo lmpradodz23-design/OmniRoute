@@ -95,9 +95,11 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
   },
   {
     key: "ALLOW_API_KEY_REVEAL",
-    label: "API Key Reveal",
+    label: "Provider Credential Reveal",
+    // #7 (reveal-once): this flag no longer affects OmniRoute's own API keys, which are shown
+    // in full only in the create / regenerate responses. It gates the providers page only.
     description:
-      "Allow authenticated dashboard users to reveal stored API keys instead of only seeing masked values.",
+      "Allow authenticated dashboard users to reveal stored third-party provider credentials on the providers page. OmniRoute API keys are never revealable.",
     descriptionI18nKey: "featureFlagAllowApiKeyRevealDescription",
     category: "security",
     defaultValue: "false",

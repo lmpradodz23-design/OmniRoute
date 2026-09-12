@@ -63,6 +63,7 @@ import { forwardOpencodeClientHeaders } from "../utils/opencodeHeaders.ts";
 import { resolveZaiUrl } from "./default/zaiFormatOverride.ts";
 import { normalizePoolConfig } from "./default/poolConfig.ts";
 import { acquireNvidiaConcurrencySlot } from "./default/nvidiaConcurrencyGate.ts";
+import { assertKnownProviderBaseUrl } from "./default/unknownProviderGuard.ts";
 import { resolveAlibabaProviderBaseUrl } from "@/shared/constants/alibabaProviderRegions";
 import { usesCcWireImage } from "../services/ccWireImageBuiltins.ts";
 
@@ -462,8 +463,9 @@ export class DefaultExecutor extends BaseExecutor {
         if (customBaseUrl && isOpenAIFormat) {
           return normalizeOpenAIChatUrl(customBaseUrl);
         }
-        const url = this.config.baseUrl;
         const entry = getRegistryEntry(this.provider);
+        assertKnownProviderBaseUrl(this.provider, entry);
+        const url = this.config.baseUrl;
         return entry?.urlSuffix ? `${url}${entry.urlSuffix}` : url;
       }
     }

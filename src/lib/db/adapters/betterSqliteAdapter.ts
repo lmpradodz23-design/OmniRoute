@@ -1,6 +1,11 @@
 import type { SqliteAdapter, PreparedStatement, RunResult } from "./types";
+import { runWithBusyRetry } from "./busyRetry";
 
 export function createBetterSqliteAdapter(db: import("better-sqlite3").Database): SqliteAdapter {
+  // R-3: retry SQLITE_BUSY only when this connection holds no transaction — inside one
+  // the caller's transaction (rolled back on throw) decides whether to replay.
+  const outsideTransaction = () => !db.inTransaction;
+
   return {
     driver: "better-sqlite3",
 
@@ -19,14 +24,15 @@ export function createBetterSqliteAdapter(db: import("better-sqlite3").Database)
     prepare(sql: string): PreparedStatement {
       const stmt = db.prepare(sql);
       return {
-        run: (...params: unknown[]): RunResult => stmt.run(...params) as unknown as RunResult,
+        run: (...params: unknown[]): RunResult =>
+          runWithBusyRetry(() => stmt.run(...params) as unknown as RunResult, outsideTransaction),
         get: (...params: unknown[]): unknown => stmt.get(...params),
         all: (...params: unknown[]): unknown[] => stmt.all(...params),
       };
     },
 
     exec(sql: string): void {
-      db.exec(sql);
+      runWithBusyRetry(() => db.exec(sql), outsideTransaction);
     },
 
     pragma(pragmaStr: string, options?: { simple?: boolean }): unknown {
@@ -34,11 +40,15 @@ export function createBetterSqliteAdapter(db: import("better-sqlite3").Database)
     },
 
     transaction<T>(fn: (...args: unknown[]) => T): (...args: unknown[]) => T {
-      return db.transaction(fn) as (...args: unknown[]) => T;
+      // better-sqlite3 rolls the transaction back on throw, so a top-level BUSY leaves no
+      // partial work behind and the whole function can be replayed.
+      const tx = db.transaction(fn) as (...args: unknown[]) => T;
+      return (...args: unknown[]) => runWithBusyRetry(() => tx(...args), outsideTransaction);
     },
 
     immediate(fn: () => void): void {
-      (db.transaction(fn) as unknown as { immediate: () => void }).immediate();
+      const tx = db.transaction(fn) as unknown as { immediate: () => void };
+      runWithBusyRetry(() => tx.immediate(), outsideTransaction);
     },
 
     async backup(destination: string): Promise<void> {

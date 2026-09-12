@@ -6,6 +6,9 @@
  * by the caller via progressive edits (sendMessage / editMessageText).
  */
 import { getTelegramBotApiBase, getTelegramBotToken, getTelegramWebhookTimeoutMs } from "./config";
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
 
 export interface TelegramSendMessageParams {
   chat_id: number | string;
@@ -53,12 +56,27 @@ async function botFetch<T>(method: string, body: unknown): Promise<T> {
   const token = getTelegramBotToken();
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not set");
   const url = `${getTelegramBotApiBase()}/bot${token}/${method}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(getTelegramWebhookTimeoutMs()),
-  });
+  let res: Response;
+  try {
+    // SSRF S-6: the Bot API base is operator data (self-hosted Bot API servers are a
+    // legitimate config) — resolved address validated, connection pinned, redirects never
+    // followed. The token travels in the PATH, so a guard decision (whose message embeds
+    // the full URL) is reported without it.
+    res = await guardedFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      timeoutMs: getTelegramWebhookTimeoutMs(),
+      allowPrivate: areIntegrationPrivateUrlsAllowed(),
+    });
+  } catch (error) {
+    if (error instanceof OutboundUrlGuardError) {
+      throw new Error(
+        `Telegram API ${method} failed: Bot API base URL blocked by the outbound guard`
+      );
+    }
+    throw error;
+  }
   const json = (await res.json().catch(() => null)) as {
     ok?: boolean;
     description?: string;

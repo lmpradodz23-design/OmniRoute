@@ -15,17 +15,19 @@ export type RuntimePorts = {
   dashboardPortExplicit: boolean;
 };
 
-export function getRuntimePorts(): RuntimePorts {
+// `env` is injectable so pure consumers (e.g. the live WebSocket Origin
+// allow-list) can be unit-tested against a synthetic environment.
+export function getRuntimePorts(env: NodeJS.ProcessEnv = process.env): RuntimePorts {
   // OMNIROUTE_PORT preserves the user's canonical PORT in wrapped runtimes
   // where Next.js requires process.env.PORT to be the dashboard listener port.
-  const basePort = parsePort(process.env.OMNIROUTE_PORT || process.env.PORT, DEFAULT_PORT);
-  const apiPortExplicit = !!process.env.API_PORT;
-  const dashboardPortExplicit = !!process.env.DASHBOARD_PORT;
+  const basePort = parsePort(env.OMNIROUTE_PORT || env.PORT, DEFAULT_PORT);
+  const apiPortExplicit = !!env.API_PORT;
+  const dashboardPortExplicit = !!env.DASHBOARD_PORT;
 
   return {
     port: basePort,
-    apiPort: parsePort(process.env.API_PORT, basePort),
-    dashboardPort: parsePort(process.env.DASHBOARD_PORT, basePort),
+    apiPort: parsePort(env.API_PORT, basePort),
+    dashboardPort: parsePort(env.DASHBOARD_PORT, basePort),
     apiPortExplicit,
     dashboardPortExplicit,
   };

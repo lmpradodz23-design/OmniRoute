@@ -2,15 +2,16 @@
  * db/apiKeys.js — API key management.
  */
 
-import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { getDbInstance, rowToCamel } from "./core";
 import { backupDbFile } from "./backup";
 import { registerDbStateResetter } from "./stateReset";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
-import { getKeyGroupsForApiKey, checkKeyModelAccess } from "./apiKeyGroups";
-import { API_KEY_COLUMN_FALLBACKS } from "./apiKeyColumnFallbacks";
-import { decrypt, encrypt, encryptSensitive, isEncryptionEnabled } from "./encryption";
+import { checkKeyModelAccess } from "./apiKeyGroups";
+import { ensureApiKeysColumns, resetApiKeysSchemaCheck } from "./apiKeys/schemaColumns";
+import { hashKey } from "./apiKeys/storageFields";
+import { decrypt, encryptSensitive, isEncryptionEnabled } from "./encryption";
+import { encryptApiKeysAtRest } from "./encryptionAtRest";
 import {
   appendUsageLimitUpdates,
   hasUsageLimitUpdate,
@@ -29,9 +30,9 @@ import {
   addProviderAliasScopedCandidates,
   modelPatternMatches,
   hasClaudeCodeWildcardPermission,
-  matchesWildcardPattern,
 } from "./apiKeys/modelPermissions";
 import { ALL_COMBOS_ACCESS_RULE } from "@/shared/constants/comboAccess";
+import { hasPrivilegedScope } from "@/shared/constants/managementScopes";
 import {
   parseAllowedModels,
   parseAllowedCombos,
@@ -69,9 +70,6 @@ import type { AccessSchedule, RateLimitRule } from "./apiKeys/types";
 
 // ──────────────── Performance Optimizations ────────────────
 
-// Schema check memoization - only run once
-let _schemaChecked = false;
-
 type JsonRecord = Record<string, unknown>;
 
 interface CacheEntry<TValue> {
@@ -87,6 +85,8 @@ interface CreateApiKeyOptions {
 }
 
 export type { AccessSchedule, RateLimitRule } from "./apiKeys/types";
+export { ensureApiKeysColumns } from "./apiKeys/schemaColumns";
+export { deriveApiKeyStorageFields } from "./apiKeys/storageFields";
 
 interface ApiKeyMetadata {
   id: string;
@@ -182,6 +182,10 @@ interface StatementLike<TRow = unknown> {
 interface ApiKeysDbLike {
   prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
   exec: (sql: string) => void;
+  /** Adapter DEFERRED transaction (nests as a SAVEPOINT when a transaction is open). */
+  transaction: <T>(fn: () => T) => () => T;
+  /** Adapter IMMEDIATE transaction — same nesting guarantee as `transaction`. */
+  immediate: (fn: () => void) => void;
 }
 
 interface ApiKeysStatements {
@@ -396,32 +400,6 @@ async function getPublishedModelLookupTarget(
   return null;
 }
 
-function ensureApiKeyColumn(
-  db: ApiKeysDbLike,
-  columnNames: Set<string>,
-  column: (typeof API_KEY_COLUMN_FALLBACKS)[number]
-): void {
-  if (columnNames.has(column.name)) return;
-  db.exec(`ALTER TABLE api_keys ADD COLUMN ${column.definition}`);
-  console.log(`[DB] Added api_keys.${column.name} column`);
-}
-
-function ensureApiKeysColumns(db: ApiKeysDbLike) {
-  if (_schemaChecked) return;
-
-  try {
-    const columns = db.prepare<ApiKeyRow>("PRAGMA table_info(api_keys)").all();
-    const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
-    for (const column of API_KEY_COLUMN_FALLBACKS) {
-      ensureApiKeyColumn(db, columnNames, column);
-    }
-    _schemaChecked = true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn("[DB] Failed to verify api_keys schema:", message);
-  }
-}
-
 let _stmtDb: ApiKeysDbLike | null = null;
 function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
   ensureApiKeysColumns(db);
@@ -567,7 +545,7 @@ export async function getExclusiveLeaseConnectionIds(): Promise<Set<string>> {
  * inactive, banned, or hard-lease key, and it never widens a key's allowedModels.
  */
 export async function pickApiKeyForInternalUse(
-  purpose: "combo-health-check" | "cloud-sync-verify" | "internal-probe" = "internal-probe"
+  _purpose: "combo-health-check" | "cloud-sync-verify" | "internal-probe" = "internal-probe"
 ): Promise<string | null> {
   try {
     const keys = (await getApiKeys()) as Array<{
@@ -661,16 +639,6 @@ export async function getApiKeyById(id: string) {
   return camelRow;
 }
 
-async function hashKey(key: string): Promise<string> {
-  if (!key || typeof key !== "string") return "";
-  // CodeQL: This is intentionally SHA-256, NOT password hashing. API keys are
-  // high-entropy random tokens (not user-chosen passwords) and need fast O(1)
-  // comparison for per-request validation. bcrypt/scrypt would add ~100ms per
-  // request, which is unacceptable for an API proxy.
-  // lgtm[js/insufficient-password-hash]
-  return createHash("sha256").update(key).digest("hex"); // nosemgrep: insufficient-password-hash
-}
-
 export async function createApiKey(
   name: string,
   machineId: string,
@@ -731,6 +699,15 @@ export async function createApiKey(
   );
   setNoLog(apiKey.id, false);
 
+  // M-2: creation is the other way a privileged scope gets issued — audit it like a grant.
+  // Never the key material: name, scopes and whether the grant is privileged.
+  const { logAuditEvent } = await import("@/lib/compliance");
+  logAuditEvent({
+    action: "apiKey.create",
+    target: apiKey.id,
+    details: { name, scopes, privileged: hasPrivilegedScope(scopes) },
+  });
+
   backupDbFile("pre-write");
   return apiKey;
 }
@@ -743,27 +720,7 @@ export async function createApiKey(
  */
 export function encryptExistingApiKeyPlaintext(): number {
   if (!isEncryptionEnabled()) return 0;
-  const db = getDbInstance();
-  const rows = db
-    .prepare(
-      "SELECT id, key FROM api_keys WHERE key IS NOT NULL AND key <> '' AND key NOT LIKE 'enc:v1:%'"
-    )
-    .all() as Array<{ id: string; key: string }>;
-  if (rows.length === 0) return 0;
-
-  const update = db.prepare("UPDATE api_keys SET key = ? WHERE id = ?");
-  let migrated = 0;
-  const runAll = db.transaction(() => {
-    for (const row of rows) {
-      const enc = encrypt(row.key);
-      if (typeof enc === "string" && enc.startsWith("enc:v1:")) {
-        update.run(enc, row.id);
-        migrated++;
-      }
-    }
-  });
-  runAll();
-  return migrated;
+  return encryptApiKeysAtRest(getDbInstance());
 }
 
 export async function regenerateApiKey(id: string) {
@@ -1054,22 +1011,23 @@ export async function updateApiKeyPermissions(
     updates.push("scopes = @scopes");
     params.scopes = JSON.stringify(nextScopes);
 
-    // SELECT-then-UPDATE wrapped in an explicit transaction so a concurrent
-    // writer can't slip between the read and the write and make the audit
-    // log lie about what changed. `exec("BEGIN"/"COMMIT")` works across all
-    // driver backends (better-sqlite3 / node:sqlite / sql.js) wired by the
-    // v3.8.1 db driver cascade — none of them expose `db.transaction()` via
-    // ApiKeysDbLike, which is intentionally minimal.
-    db.exec("BEGIN IMMEDIATE");
-    try {
+    // SELECT-then-UPDATE under the adapter's IMMEDIATE transaction so a concurrent
+    // writer can't slip between the read and the write and make the audit log lie
+    // about what changed. The adapter (better-sqlite3 / node:sqlite / sql.js) nests
+    // this as a SAVEPOINT when a caller already holds a transaction — a raw
+    // `exec("BEGIN IMMEDIATE")` here used to bypass that tracking and fail with
+    // "cannot start a transaction within a transaction" (R-2). A throw inside the
+    // callback (policy assertion, driver error) rolls the whole block back.
+    let missing = false;
+    db.immediate(() => {
       const prevRow = db
         .prepare<{ scopes: string | null; allowed_connections: string | null }>(
           "SELECT scopes, allowed_connections FROM api_keys WHERE id = ?"
         )
         .get(id);
       if (!prevRow) {
-        db.exec("ROLLBACK");
-        return false;
+        missing = true;
+        return;
       }
       previousScopes = parseStringList(prevRow.scopes);
       const nextAllowedConnections =
@@ -1081,42 +1039,26 @@ export async function updateApiKeyPermissions(
         .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)
         .run(params);
       changedRows = upd.changes ?? 0;
-      db.exec("COMMIT");
-    } catch (err) {
-      // Guard the ROLLBACK: if it throws (e.g. transaction already ended
-      // due to an implicit commit, or backend in a bad state), the original
-      // error from the try block is the actionable one — don't shadow it.
-      try {
-        db.exec("ROLLBACK");
-      } catch {
-        // swallow: original error is more important
-      }
-      throw err;
-    }
+    });
+    if (missing) return false;
   } else if (normalized.allowedConnections !== undefined) {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+    const nextAllowedConnections = normalized.allowedConnections;
+    let missing = false;
+    db.immediate(() => {
       const row = db
         .prepare<{ scopes: string | null }>("SELECT scopes FROM api_keys WHERE id = ?")
         .get(id);
       if (!row) {
-        db.exec("ROLLBACK");
-        return false;
+        missing = true;
+        return;
       }
-      assertExclusiveLeaseKeyPolicy(parseStringList(row.scopes), normalized.allowedConnections);
+      assertExclusiveLeaseKeyPolicy(parseStringList(row.scopes), nextAllowedConnections);
       const upd = db
         .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)
         .run(params);
       changedRows = upd.changes ?? 0;
-      db.exec("COMMIT");
-    } catch (err) {
-      try {
-        db.exec("ROLLBACK");
-      } catch {
-        // Preserve the mutation failure if rollback also fails.
-      }
-      throw err;
-    }
+    });
+    if (missing) return false;
   } else {
     const upd = db.prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`).run(params);
     changedRows = upd.changes ?? 0;
@@ -1141,12 +1083,12 @@ export async function updateApiKeyPermissions(
   }
 
   if (scopesUpdate !== undefined) {
-    // Compare prev vs next scope sets and emit a dedicated audit event when
-    // the privileged "manage" scope is granted or revoked. Other scope
-    // mutations also emit a generic "apiKey.scopes.update" so the audit log
-    // captures the full change history (action + details).
-    const hadManage = previousScopes.includes("manage");
-    const hasManage = nextScopes.includes("manage");
+    // Compare prev vs next scope sets and emit a dedicated audit event when a
+    // privileged scope (`manage`, `admin`, or the MCP super-user `*` — M-2) is
+    // granted or revoked. Other scope mutations also emit a generic
+    // "apiKey.scopes.update" so the audit log captures the full change history.
+    const hadManage = hasPrivilegedScope(previousScopes);
+    const hasManage = hasPrivilegedScope(nextScopes);
     if (!hadManage && hasManage) {
       logAuditEvent({
         action: "apiKey.scopes.grant",
@@ -1190,12 +1132,17 @@ export async function deleteApiKey(id: string) {
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
   const row = stmt.getKeyById.get(id) as ApiKeyRow | undefined;
-  const result = stmt.deleteKey.run(id);
 
-  if (result.changes === 0) return false;
-
-  db.prepare("DELETE FROM domain_budgets WHERE api_key_id = ?").run(id);
-  db.prepare("DELETE FROM domain_cost_history WHERE api_key_id = ?").run(id);
+  // R-2: the key row, its budget and its cost history go together or not at all — a
+  // failure after the first DELETE used to leave orphaned budgets behind a vanished key.
+  const removed = db.transaction(() => {
+    const result = stmt.deleteKey.run(id);
+    if ((result.changes ?? 0) === 0) return false;
+    db.prepare("DELETE FROM domain_budgets WHERE api_key_id = ?").run(id);
+    db.prepare("DELETE FROM domain_cost_history WHERE api_key_id = ?").run(id);
+    return true;
+  })();
+  if (!removed) return false;
   setNoLog(id, false);
 
   // Invalidate caches since a key was removed
@@ -1643,7 +1590,7 @@ function clearPreparedStatementCache() {
   _stmtGetKeyMetadata = null;
   _stmtInsertKey = null;
   _stmtDeleteKey = null;
-  _schemaChecked = false; // Also reset schema check for new connection
+  resetApiKeysSchemaCheck(); // Also reset schema check for new connection
 }
 
 /**

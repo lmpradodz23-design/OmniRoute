@@ -21,6 +21,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omr-retrieval-rrk-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -108,7 +109,7 @@ test("applyRerank fails silently: LOOPBACK_URL is 127.0.0.1 (not external)", () 
   // RERANK_LOOPBACK_URL constant contains 127.0.0.1
   const source = fs.readFileSync(
     path.join(
-      import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname),
+      import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url)),
       "../../src/lib/memory/retrieval.ts"
     ),
     "utf8"

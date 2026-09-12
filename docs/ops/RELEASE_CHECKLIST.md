@@ -47,7 +47,7 @@ it restores the fully automatic flow the project had up to v3.8.48 while keeping
 WS1.3 guarantee (a leaked token cannot publish alone — there is no token).
 
 **One-time setup (owner):** npmjs.com → package `omniroute` → Settings → _Trusted
-Publisher_ → GitHub: owner `diegosouzapw`, repo `OmniRoute`, workflow `npm-publish.yml`
+Publisher_ → GitHub: owner `LMPrado-DZ23`, repo `OmniRoute`, workflow `npm-publish.yml`
 (environment: none). Until that exists, the automatic step fails with `ENEEDAUTH`:
 re-dispatch with `publish_mode=staged` (below) or `direct`.
 

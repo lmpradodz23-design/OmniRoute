@@ -154,7 +154,10 @@ test("openai-compatible validation returns actionable connection failure when pr
   });
 
   assert.equal(result.valid, false);
-  assert.equal(result.error, "Connection failed while testing /chat/completions");
+  // C-03: worded without a bare `/chat/completions` token — the public path redactor
+  // used to collapse the old sentence to "Connection failed while testing <path>".
+  assert.equal(result.error, "Connection failed while testing the chat completions endpoint");
+  assert.equal("code" in result, false);
 });
 
 test("anthropic-compatible validation requires a base URL", async () => {

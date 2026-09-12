@@ -396,6 +396,7 @@ export default function ConnectionRow({
   onToggleProxyEnabled,
 }: ConnectionRowProps) {
   const t = useTranslations("providers");
+  const tc = useTranslations("common");
   const emailsVisible = useEmailPrivacyStore((s) => s.emailsVisible);
   const displayName = isOAuth
     ? pickDisplayValue(
@@ -416,8 +417,7 @@ export default function ConnectionRow({
   // #11497: cookie rows with a decodable JWT credential carry a persisted
   // cookieExpiresAt — feed it into the same countdown badge OAuth rows use.
   const cookieExpiresAt = readCookieExpiresAt(connection.providerSpecificData);
-  const effectiveExpiresAt =
-    connection.tokenExpiresAt || connection.expiresAt || cookieExpiresAt;
+  const effectiveExpiresAt = connection.tokenExpiresAt || connection.expiresAt || cookieExpiresAt;
   const hasExpirySource = isOAuth || Boolean(cookieExpiresAt);
   const getTokenMinsLeft = () => {
     if (!hasExpirySource || !effectiveExpiresAt) return null;
@@ -543,15 +543,21 @@ export default function ConnectionRow({
         {/* Priority arrows */}
         <div className="flex flex-col">
           <button
+            type="button"
             onClick={onMoveUp}
             disabled={isFirst}
+            aria-label={tc("moveUp")}
+            title={tc("moveUp")}
             className={`p-0.5 rounded ${isFirst ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
           >
             <span className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
           </button>
           <button
+            type="button"
             onClick={onMoveDown}
             disabled={isLast}
+            aria-label={tc("moveDown")}
+            title={tc("moveDown")}
             className={`p-0.5 rounded ${isLast ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
           >
             <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>

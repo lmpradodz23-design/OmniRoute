@@ -14,6 +14,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -288,43 +290,108 @@ test("GET /api/settings/qdrant/health — returns health result shape (qdrant di
   assert.strictEqual(body.ok, false, "ok should be false when qdrant not configured");
 });
 
+// SSRF S-5: Qdrant requests go through the pinned guarded client (undici dispatcher), so a
+// `globalThis.fetch` mock does not intercept them any more — stand up a real loopback Qdrant
+// stand-in instead. Loopback is admitted under the default local-first integration policy.
+async function withLoopbackQdrant(
+  handler: (req: IncomingMessage, res: ServerResponse) => void,
+  fn: (base: string) => Promise<void>
+) {
+  const server = createServer(handler);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    await fn(base);
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
 test("GET /api/settings/qdrant/health — reports named collection vector metadata", async () => {
-  await localDb.updateSettings({
-    qdrantEnabled: true,
-    qdrantHost: "http://qdrant.test",
-    qdrantCollection: "omniroute_memory",
-  });
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
-    if (String(url).endsWith("/readyz")) return new Response("ready", { status: 200 });
-    if (String(url).endsWith("/collections/omniroute_memory")) {
-      return Response.json({
-        result: {
-          config: {
-            params: {
-              vectors: { omniao: { size: 2048, distance: "Cosine" } },
+  await withLoopbackQdrant(
+    (req, res) => {
+      if (req.url?.endsWith("/readyz")) {
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        return res.end("ready");
+      }
+      if (req.url?.endsWith("/collections/omniroute_memory")) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            result: {
+              config: { params: { vectors: { omniao: { size: 2048, distance: "Cosine" } } } },
             },
-          },
-        },
+          })
+        );
+      }
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("not found");
+    },
+    async (base) => {
+      await localDb.updateSettings({
+        qdrantEnabled: true,
+        qdrantHost: base,
+        qdrantCollection: "omniroute_memory",
+      });
+      const req = await makeAuthRequest("GET", "http://localhost/api/settings/qdrant/health");
+      const res = await qdrantHealthRoute.GET(asNextRequest(req));
+      const body = await res.json();
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(body.ok, true);
+      assert.deepStrictEqual(body.collection, {
+        exists: true,
+        vectorSize: 2048,
+        vectorName: "omniao",
       });
     }
-    return new Response("not found", { status: 404 });
-  };
+  );
+});
 
-  try {
-    const req = await makeAuthRequest("GET", "http://localhost/api/settings/qdrant/health");
-    const res = await qdrantHealthRoute.GET(asNextRequest(req));
-    const body = await res.json();
+test("GET /api/settings/qdrant/health — SSRF S-5: a cloud-metadata host is blocked before any socket", async () => {
+  await localDb.updateSettings({
+    qdrantEnabled: true,
+    qdrantHost: "http://169.254.169.254",
+    qdrantPort: 6333,
+    qdrantCollection: "omniroute_memory",
+  });
+  const req = await makeAuthRequest("GET", "http://localhost/api/settings/qdrant/health");
+  const res = await qdrantHealthRoute.GET(asNextRequest(req));
+  const body = await res.json();
 
-    assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(body.collection, {
-      exists: true,
-      vectorSize: 2048,
-      vectorName: "omniao",
-    });
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(body.ok, false);
+  assert.match(
+    String(body.error),
+    /blocked/i,
+    "the outbound-guard decision must surface, not a connect error from the wire"
+  );
+});
+
+test("GET /api/settings/qdrant/health — SSRF S-5: a redirect from the Qdrant host is never followed", async () => {
+  let hits = 0;
+  await withLoopbackQdrant(
+    (_req, res) => {
+      hits += 1;
+      res.writeHead(302, { Location: "http://127.0.0.1:9/internal" });
+      res.end();
+    },
+    async (base) => {
+      await localDb.updateSettings({
+        qdrantEnabled: true,
+        qdrantHost: base,
+        qdrantCollection: "omniroute_memory",
+      });
+      const req = await makeAuthRequest("GET", "http://localhost/api/settings/qdrant/health");
+      const res = await qdrantHealthRoute.GET(asNextRequest(req));
+      const body = await res.json();
+
+      assert.strictEqual(body.ok, false);
+      assert.match(String(body.error), /redirect blocked/i);
+      assert.strictEqual(hits, 1, "the redirect target must not be requested");
+    }
+  );
 });
 
 test("GET /api/settings/qdrant/health — 401 without auth", async () => {
@@ -412,10 +479,11 @@ test("GET /api/settings/qdrant/embedding-models — lists only configured provid
   assert.strictEqual(res.status, 200);
   const body = await res.json();
   assert.ok(body.models.length > 0, "should list models for configured provider");
-  assert.ok(body.models.every((model: any) => model.value.startsWith("openai/")));
-  assert.ok(body.models.some((model: any) => model.value === "openai/text-embedding-3-small"));
-  const defaultModel = body.models.find((m: any) => m.value === "openai/text-embedding-3-small");
-  assert.match(defaultModel.label, /1536d/);
+  const models = body.models as EmbeddingModelOptionLike[];
+  assert.ok(models.every((model) => model.value.startsWith("openai/")));
+  assert.ok(models.some((model) => model.value === "openai/text-embedding-3-small"));
+  const defaultModel = models.find((m) => m.value === "openai/text-embedding-3-small");
+  assert.match(defaultModel?.label ?? "", /1536d/);
 });
 
 test("GET /api/settings/qdrant/embedding-models — includes an active local no-API-key provider (#11949)", async () => {
@@ -468,6 +536,35 @@ test("GET /api/settings/qdrant/embedding-models — still excludes a remote prov
   assert.ok(
     body.models.every((model: EmbeddingModelOptionLike) => !model.value.startsWith("openai/")),
     "should not list a remote provider's models when its active connection has no API key"
+  );
+});
+
+test("GET /api/settings/qdrant/embedding-models — curated registry models appear only for configured providers (#11390 ∩ #11949)", async () => {
+  // mistral has no embedding entry in the chat catalog: it is listed ONLY through the
+  // curated EMBEDDING_PROVIDERS registry — and only because it is configured here.
+  await localDb.createProviderConnection({
+    provider: "mistral",
+    authType: "apikey",
+    name: "embedding-test-mistral",
+    apiKey: "test-mistral-key",
+  });
+
+  const headers = await createManagementSessionHeaders();
+  const req = new Request("http://localhost/api/settings/qdrant/embedding-models", {
+    method: "GET",
+    headers: Object.fromEntries(headers.entries()),
+  });
+
+  const res = await qdrantEmbeddingModelsRoute.GET(asNextRequest(req));
+  assert.strictEqual(res.status, 200);
+  const models = (await res.json()).models as EmbeddingModelOptionLike[];
+  assert.ok(
+    models.some((model) => model.value === "mistral/mistral-embed"),
+    "a configured registry provider contributes its curated models"
+  );
+  assert.ok(
+    models.every((model) => model.value.startsWith("mistral/")),
+    "unconfigured registry providers (cohere, voyage, jina, …) and the unconditional openai default stay out"
   );
 });
 

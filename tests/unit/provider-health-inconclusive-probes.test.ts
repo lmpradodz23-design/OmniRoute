@@ -50,7 +50,16 @@ test("NVIDIA non-timeout network failures remain failures", () => {
   const result = normalizeNvidiaValidationFailure(error);
 
   assert.equal(result.valid, false);
-  assert.equal(result.error, "fetch failed");
+  // C-03: undici's bare "fetch failed" is a genuine transport failure, so it is
+  // presented as the typed, readable "Could not connect to <host>" sentence instead
+  // of the raw undici text — but it stays a failure, never inconclusive.
+  assert.ok("code" in result && "host" in result, "expected a typed transport failure");
+  assert.equal(result.code, "UPSTREAM_UNREACHABLE");
+  assert.equal(result.host, "integrate.api.nvidia.com");
+  assert.equal(
+    result.error,
+    "Could not connect to integrate.api.nvidia.com. Check the URL and that the service is running."
+  );
   assert.equal(isCredentialProbeInconclusive(result), false);
 });
 

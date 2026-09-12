@@ -17,13 +17,13 @@ npm install -g omniroute
 ### Opcja B: Docker
 
 ```bash
-docker run -d --name omniroute -p 20128:20128 diegosouzapw/omniroute:latest
+docker run -d --name omniroute -p 20128:20128 ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 ### Opcja C: Ze źródeł
 
 ```bash
-git clone https://github.com/diegosouzapw/OmniRoute.git
+git clone https://github.com/LMPrado-DZ23/OmniRoute.git
 cd OmniRoute
 npm install
 npm run dev
@@ -179,4 +179,4 @@ OmniRoute automatycznie pomija niedziałających providerów i próbuje kolejneg
 
 - **[Troubleshooting](./TROUBLESHOOTING.md)** — Typowe problemy i rozwiązania
 - **[Discord](https://discord.gg/U47eFqAXCn)** — Wsparcie społeczności
-- **[GitHub Issues](https://github.com/diegosouzapw/OmniRoute/issues)** — Zgłaszanie błędów
+- **[GitHub Issues](https://github.com/LMPrado-DZ23/OmniRoute/issues)** — Zgłaszanie błędów

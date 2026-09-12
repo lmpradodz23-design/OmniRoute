@@ -39,6 +39,7 @@ import {
   QUOTA_AUTOPING_TICK_INTERVAL_MS,
   type QuotaAutoPingProviderConfig,
 } from "@/shared/constants/quotaAutoPing";
+import { registerShutdownHook } from "../shutdownHooks";
 
 const log = logger("QuotaAutoPing");
 
@@ -545,6 +546,8 @@ export function startQuotaAutoPing(): void {
   if (schedulerInterval) return;
   log.info("scheduler started");
   runQuotaAutoPingTick(createDefaultQuotaAutoPingDeps(), schedulerState).catch(() => undefined);
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("quota-auto-ping", stopQuotaAutoPing);
   schedulerInterval = setInterval(() => {
     runQuotaAutoPingTick(createDefaultQuotaAutoPingDeps(), schedulerState).catch(() => undefined);
   }, QUOTA_AUTOPING_TICK_INTERVAL_MS);

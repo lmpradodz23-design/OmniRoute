@@ -1,5 +1,7 @@
 # ── Common base with runtime deps ──────────────────────────────────────────
-FROM node:26-trixie-slim AS base
+# SC-8: base image pinned by tag AND digest (multi-arch index, resolved 2026-09-10).
+# Bump the tag and the digest together; a tag alone can be re-pointed upstream.
+FROM node:26-trixie-slim@sha256:14bf3eac4bf209d906d3c41256597d3ab1f926b2e93a79e9bdfe1efd32454239 AS base
 WORKDIR /app
 
 # `apt-get upgrade` pulls the security-patched versions of the Debian (trixie)
@@ -41,7 +43,7 @@ RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-apt-cache,targe
 # --install-strategy=nested makes each replacement self-contained, so it cannot
 # perturb the versions the rest of npm's flat tree resolves.
 RUN set -eux; \
-  npm install -g npm@latest; \
+  npm install -g npm@11.15.0; \
   npm install --prefix /tmp/npm-cve-patch --no-audit --no-fund --ignore-scripts \
     --install-strategy=nested \
     brace-expansion@5.0.9 ip-address@10.5.0 tar@7.5.22 undici@6.28.0; \
@@ -208,7 +210,7 @@ FROM base AS runner-base
 LABEL org.opencontainers.image.title="omniroute" \
   org.opencontainers.image.description="Unified AI proxy — route any LLM through one endpoint" \
   org.opencontainers.image.url="https://omniroute.online" \
-  org.opencontainers.image.source="https://github.com/diegosouzapw/OmniRoute" \
+  org.opencontainers.image.source="https://github.com/LMPrado-DZ23/OmniRoute" \
   org.opencontainers.image.licenses="MIT"
 
 ENV NODE_ENV=production

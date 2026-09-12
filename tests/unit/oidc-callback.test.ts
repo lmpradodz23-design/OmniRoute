@@ -19,8 +19,24 @@ const { updateSettings } = await import("@/lib/db/settings");
 const localDb = { updateSettings };
 // @ts-ignore - intentional for test harness timing
 const callbackRoute = await import("../../src/app/api/auth/oidc/callback/route.ts");
+// @ts-ignore - intentional for test harness timing
+const oidcDiscovery = await import("../../src/lib/auth/oidcDiscovery.ts");
 
-import type { default as CookieStore } from "next/headers"; // not really, just for shape
+// S-4: discovery/token I/O now goes through `oidcDiscoveryInternals.transport` (a pinned client
+// in production, which cannot be intercepted by mocking globalThis.fetch). Route it through
+// whatever globalThis.fetch each test installs so the existing URL-routed mocks keep serving the
+// discovery + token responses with no real DNS. jose still fetches the JWKS via globalThis.fetch.
+const originalTransport = oidcDiscovery.oidcDiscoveryInternals.transport;
+function installFetchBackedTransport() {
+  oidcDiscovery.oidcDiscoveryInternals.transport = async (url, options) => {
+    const r = await globalThis.fetch(url.toString(), {
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+    });
+    return { status: r.status, ok: r.ok, bodyText: await r.text() };
+  };
+}
 
 interface CapturedCookie {
   value: string;
@@ -54,10 +70,12 @@ test.beforeEach(async () => {
   await resetStorage();
   callbackRoute.oidcCallbackInternals.clearJwksCache?.();
   callbackRoute.oidcCallbackInternals.getCookieStore = async () => makeTestCookieStore();
+  installFetchBackedTransport();
 });
 
 test.afterEach(() => {
   callbackRoute.oidcCallbackInternals.getCookieStore = originalGetCookieStore;
+  oidcDiscovery.oidcDiscoveryInternals.transport = originalTransport;
 });
 
 test.after(() => {
@@ -110,7 +128,7 @@ test("OIDC callback happy path: exchanges code, validates ID token, mints identi
 
   const originalFetch = globalThis.fetch;
 
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = typeof input === "string" ? input : (input as URL).toString();
 
     if (url.includes("/.well-known/openid-configuration")) {

@@ -24,7 +24,9 @@ test("resolveCallerScopeContext prioritizes authInfo scopes", () => {
   assert.deepEqual(context.scopes, ["read:health", "read:combos"]);
 });
 
-test("resolveCallerScopeContext falls back to _meta scopes", () => {
+// M-1: `_meta` is the client's own request payload and is never a scope source. A caller
+// without per-key scopes gets only the operator's env fallback (or nothing).
+test('resolveCallerScopeContext ignores _meta scopes (never source "meta")', () => {
   const context = resolveCallerScopeContext(
     {
       _meta: {
@@ -36,8 +38,8 @@ test("resolveCallerScopeContext falls back to _meta scopes", () => {
   );
 
   assert.equal(context.callerId, "session-meta");
-  assert.equal(context.source, "meta");
-  assert.deepEqual(context.scopes, ["read:quota", "read:models"]);
+  assert.equal(context.source, "env");
+  assert.deepEqual(context.scopes, ["read:usage"]);
 });
 
 test("resolveCallerScopeContext uses env fallback when caller has no scopes", () => {

@@ -379,6 +379,43 @@ curl -X POST http://localhost:20128/api/db-backups/restore \
 
 > **Warning**: Restore overwrites the entire DB. Stop all clients first.
 
+### Rolling back a failed migration
+
+Migrations are forward-only (no `down` scripts). Rolling an upgrade back means
+**restoring the pre-migration snapshot** the runner takes before touching an existing
+database:
+
+- Location: `DATA_DIR/db_backups/db_state-<sha256>_pre-migration.sqlite`. The file name
+  is the SHA-256 of its content; the runner refuses to migrate if the snapshot changed
+  before use, and `restoreDbBackup` re-hashes the file and refuses a snapshot whose bytes
+  no longer match its name.
+- A failed migration aborts startup with the original SQLite error **plus a
+  `Restore point (...)` line naming that exact file**, and closes the database so the
+  file can be replaced immediately (also inside the Electron host).
+- The failed migration ran inside its own transaction: nothing of it is kept and it is
+  not recorded in `_omniroute_migrations`.
+
+Restore it through any of:
+
+```bash
+# Dashboard → Storage → Backups → Restore "db_state-<sha256>_pre-migration.sqlite"
+
+# API (management auth)
+curl -X POST http://localhost:20128/api/db-backups \
+  -H "Authorization: Bearer $MANAGEMENT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"backupId": "db_state-<sha256>_pre-migration.sqlite"}'
+
+# Offline (server stopped): copy the snapshot over the database and drop WAL sidecars
+cp "$DATA_DIR/db_backups/db_state-<sha256>_pre-migration.sqlite" "$DATA_DIR/storage.sqlite"
+rm -f "$DATA_DIR/storage.sqlite-wal" "$DATA_DIR/storage.sqlite-shm"
+```
+
+Then **run the previous OmniRoute version** against the restored database: starting the
+newer version again re-applies the same pending migration. If the restored snapshot was
+taken from a database whose migration ledger had been wiped, the mass-migration guard may
+abort startup; see `OMNIROUTE_MAX_PENDING_MIGRATIONS` in the abort message.
+
 ### Automated Backups
 
 ```bash

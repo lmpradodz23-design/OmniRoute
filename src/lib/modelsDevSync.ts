@@ -49,6 +49,7 @@ export type {
   CapabilitiesByProvider,
   PricingByProvider,
 } from "./modelsDevSync/transform";
+import { registerShutdownHook } from "./shutdownHooks";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -702,6 +703,8 @@ export function startPeriodicSync(intervalMs?: number): void {
       console.warn("[MODELS_DEV] Initial sync error:", err instanceof Error ? err.message : err);
     });
 
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("models-dev-sync", stopPeriodicSync);
   syncTimer = setInterval(() => {
     launchSync()
       .then((result) => {

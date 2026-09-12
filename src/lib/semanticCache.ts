@@ -144,6 +144,11 @@ export function clearMemoryCache(): void {
  * @param {number} temperature
  * @param {number} topP
  * @param {string} [apiKeyId] - API key ID for per-key isolation (prevents cross-user cache hits)
+ * @param {string} [clientFormat] - wire format the CLIENT speaks ("openai", "claude",
+ *   "openai-responses", …). The cache stores the response already translated to the
+ *   client's format, so a hit is only valid for a client of the SAME format: without this
+ *   a /v1/messages (Anthropic-shaped) body was served to a /v1/responses client with the
+ *   same prompt (found by the real-provider E2E). Omitted = "openai" (chat completions).
  * @returns {string} hex signature
  */
 export function generateSignature(
@@ -151,13 +156,20 @@ export function generateSignature(
   conversation,
   temperature = 0,
   topP = 1,
-  apiKeyId?: string
+  apiKeyId?: string,
+  clientFormat?: string,
+  context?: SignatureContext | null
 ) {
   const payload = JSON.stringify({
     model,
     messages: normalizeConversation(conversation),
     temperature,
     top_p: topP,
+    format: clientFormat || DEFAULT_CLIENT_FORMAT,
+    // Everything else that steers the answer for the same turn (final audit X-2 follow-up):
+    // a different system prompt, tool set, response_format, reasoning budget or max_tokens
+    // must never share an entry with this one.
+    context: context && Object.keys(context).length > 0 ? stableStringify(context) : "",
   });
   const digest = crypto.createHash("sha256").update(payload).digest("hex");
   // Per-key cache isolation (#3740) namespaces the signature with the apiKeyId as a
@@ -168,6 +180,122 @@ export function generateSignature(
   // preserves isolation + determinism and avoids the false-positive
   // CodeQL js/insufficient-password-hash on a cache signature.
   return apiKeyId ? `${apiKeyId}.${digest}` : digest;
+}
+
+/** Chat Completions is the historical default client format of the cache. */
+export const DEFAULT_CLIENT_FORMAT = "openai";
+
+export type SignatureContext = Record<string, unknown>;
+
+/**
+ * Request fields, across the three client formats, that change the model's answer for the
+ * SAME conversation turn. Two requests that differ in any of them must not share a cache
+ * entry (Auditor B, cross-verification of X-2: system/instructions, tools, response_format,
+ * thinking and max_tokens were outside the signature).
+ */
+export const SIGNATURE_CONTEXT_FIELDS: readonly string[] = [
+  // steering text
+  "system",
+  "instructions",
+  // tools
+  "tools",
+  "tool_choice",
+  "functions",
+  "function_call",
+  "parallel_tool_calls",
+  // output shape
+  "response_format",
+  "text",
+  "modalities",
+  // reasoning / length
+  "thinking",
+  "reasoning",
+  "reasoning_effort",
+  "max_tokens",
+  "max_completion_tokens",
+  "max_output_tokens",
+  "stop",
+  "stop_sequences",
+  "seed",
+  "n",
+  "logit_bias",
+  "presence_penalty",
+  "frequency_penalty",
+  "top_k",
+];
+
+/** Pick the signature-relevant context out of a raw client body (undefined fields dropped). */
+export function extractSignatureContext(body: unknown): SignatureContext {
+  const out: SignatureContext = {};
+  if (!body || typeof body !== "object") return out;
+  const record = body as Record<string, unknown>;
+  for (const field of SIGNATURE_CONTEXT_FIELDS) {
+    if (record[field] !== undefined && record[field] !== null) out[field] = record[field];
+  }
+  return out;
+}
+
+/**
+ * Body-shaped object holding ONLY what the cache signature and the write-side cacheability
+ * check read: the conversation, `temperature`, `top_p` and the signature context.
+ */
+export type SignatureInputs = SignatureContext & {
+  messages: unknown;
+  temperature?: number;
+  top_p?: number;
+};
+
+/**
+ * Mutation-immune snapshot of the signature inputs of a request body, to be taken at cache
+ * READ time and handed to the cache WRITE paths.
+ *
+ * chatCore computes the read-time signature before the request pipeline runs and the write-time
+ * one after it, and that pipeline mutates the body object IN PLACE: sanitizeChatRequestBody()
+ * renames max_tokens → max_output_tokens (or back, depending on the target format) and replaces
+ * `tools` with their sanitized schemas. Keeping a reference to the body was enough while the
+ * signature only hashed the conversation, but once those fields joined the context (final audit
+ * X-2) the two signatures diverged for every request touched by the rename or by tool
+ * sanitization — the response was stored under a key no later request ever computed again
+ * (0% hit rate for those clients). So copy the inputs instead of pointing at the body.
+ *
+ * The conversation is stored already normalized (normalizeConversation is idempotent, so the
+ * store paths hashing it again produce the read-time digest); `temperature` / `top_p` are passed
+ * through verbatim so the read and write paths see the same raw values.
+ */
+export function snapshotSignatureInputs(body: unknown): SignatureInputs {
+  const record = asRecord(body);
+  return {
+    ...deepCopy(extractSignatureContext(record)),
+    messages: normalizeConversation(record.messages ?? record.input),
+    temperature: record.temperature as number | undefined,
+    top_p: record.top_p as number | undefined,
+  };
+}
+
+/** Deep copy of JSON-shaped data; falls back to the original when a value cannot be cloned. */
+function deepCopy<T>(value: T): T {
+  try {
+    return structuredClone(value);
+  } catch {
+    try {
+      return JSON.parse(JSON.stringify(value)) as T;
+    } catch {
+      return value;
+    }
+  }
+}
+
+/** JSON with sorted object keys so key order never changes the digest. */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify(record[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
 }
 
 function stringifyForSignature(value: unknown): string {

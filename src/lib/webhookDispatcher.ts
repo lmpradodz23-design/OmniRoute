@@ -6,7 +6,9 @@
 
 import crypto from "crypto";
 import { decrypt, encryptSensitive } from "./db/encryption";
-import { parseAndValidateWebhookUrl } from "@/shared/network/outboundUrlGuardPolicy";
+import { arePrivateProviderUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
+import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
+import { hardenedWebhookFetch, type WebhookLookupFn } from "@/shared/network/hardenedWebhookFetch";
 import type { WebhookEvent } from "./webhooks/eventDescriptions";
 
 export type { WebhookEvent };
@@ -36,34 +38,77 @@ export function decryptMetadata(encrypted: string | null): Record<string, string
   }
 }
 
-async function deliverRaw(
+/**
+ * Per-delivery overrides. `lookup` and `allowPrivate` exist so the SSRF properties are
+ * unit-testable without real DNS or the global opt-in. Production callers pass nothing and get
+ * real resolution plus the operator's `OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS` policy — the same
+ * policy `/api/webhooks/[id]/test` applies, so the diagnostic and the real delivery agree.
+ */
+export interface DeliverOptions {
+  lookup?: WebhookLookupFn;
+  allowPrivate?: boolean;
+  timeoutMs?: number;
+}
+
+const DELIVERY_TIMEOUT_MS = 10_000;
+
+/**
+ * URL-free description of a guard decision for the delivery log. The guard's own message
+ * embeds the full target URL — and for Telegram that URL carries the bot token in its path —
+ * so neither `error.message` nor `error.url` may ever be persisted or surfaced as the delivery
+ * error.
+ */
+function describeGuardBlock(error: OutboundUrlGuardError): string {
+  if (/redirect/i.test(error.message)) return "Blocked: redirect not followed (outbound guard)";
+  if (/metadata/i.test(error.message)) return "Blocked: cloud metadata target";
+  if (/No DNS records/i.test(error.message)) return "Blocked: hostname did not resolve";
+  if (error.code === "OUTBOUND_URL_INVALID") return "Blocked: invalid outbound URL";
+  return "Blocked: private/reserved outbound target";
+}
+
+function deliveryHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "User-Agent": "OmniRoute-Webhook/1.0",
+    ...extra,
+  };
+}
+
+/**
+ * Hardened single-shot delivery (SSRF finding S-1). `hardenedWebhookFetch` applies the
+ * string-level checks (scheme, embedded credentials, literal private/metadata hosts) BEFORE any
+ * DNS or socket — governed by `allowPrivate` rather than only the global flag — then resolves
+ * and validates every address, pins the connection to the validated ip (no rebinding between
+ * check and connect), never follows redirects, and never reads a private target's body. A guard
+ * decision is reported as `status: 0` with a URL-free error, so the delivery log can never act
+ * as a blind-SSRF oracle for an internal service's real status.
+ */
+export async function deliverRaw(
   url: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  options: DeliverOptions = {}
 ): Promise<{ success: boolean; status: number; latencyMs: number; error?: string }> {
   const start = Date.now();
   try {
-    parseAndValidateWebhookUrl(url);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10_000);
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "User-Agent": "OmniRoute-Webhook/1.0" },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      return { success: res.ok, status: res.status, latencyMs: Date.now() - start };
-    } finally {
-      // Always clear the abort timer — on a non-timeout fetch error the previous code skipped
-      // clearTimeout, leaving a dangling 10s timer (and AbortController) per failed call.
-      clearTimeout(timeoutId);
-    }
+    const res = await hardenedWebhookFetch(url, {
+      method: "POST",
+      headers: deliveryHeaders(),
+      body: JSON.stringify(body),
+      timeoutMs: options.timeoutMs ?? DELIVERY_TIMEOUT_MS,
+      allowPrivate: options.allowPrivate ?? arePrivateProviderUrlsAllowed(),
+      lookup: options.lookup,
+      maxBodyBytes: 0,
+    });
+    return { success: res.ok, status: res.status, latencyMs: Date.now() - start };
   } catch (error: any) {
     return {
       success: false,
       status: 0,
       latencyMs: Date.now() - start,
-      error: error.message || "Network error",
+      error:
+        error instanceof OutboundUrlGuardError
+          ? describeGuardBlock(error)
+          : error?.message || "Network error",
     };
   }
 }
@@ -72,60 +117,64 @@ export async function deliverWebhook(
   url: string,
   payload: WebhookPayload,
   secret?: string | null,
-  maxRetries = 3
+  maxRetries = 3,
+  options: DeliverOptions = {}
 ): Promise<{ success: boolean; status: number; error?: string }> {
-  try {
-    parseAndValidateWebhookUrl(url);
-  } catch (error: any) {
-    return { success: false, status: 0, error: error.message || "Blocked outbound URL" };
-  }
   const body = JSON.stringify(payload);
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "User-Agent": "OmniRoute-Webhook/1.0",
+  const headers = deliveryHeaders({
     "X-Webhook-Event": payload.event,
     "X-Webhook-Timestamp": payload.timestamp,
-  };
+  });
 
   if (secret) {
     headers["X-Webhook-Signature"] = signPayload(body, secret);
   }
 
+  // Resolved once, outside the retry loop: the policy read may touch the settings store.
+  const allowPrivate = options.allowPrivate ?? arePrivateProviderUrlsAllowed();
+
+  // Last genuine upstream status seen on a retried 5xx. Reported when retries are exhausted so
+  // the delivery log records the real upstream failure (e.g. 503) — as opposed to `status: 0`,
+  // which is reserved for "no HTTP response": guard blocks and network errors.
+  let lastStatus = 0;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10_000);
-
-      let res: Response;
-      try {
-        res = await fetch(url, {
-          method: "POST",
-          headers,
-          body,
-          signal: controller.signal,
-        });
-      } finally {
-        // Clear the abort timer on every path — a non-timeout fetch error previously skipped
-        // clearTimeout, leaking a dangling 10s timer + AbortController per failed attempt.
-        clearTimeout(timeoutId);
-      }
+      // The abort timer is owned by hardenedWebhookFetch and cleared in its `finally` on every
+      // path, so a rejected connection can no longer leak a dangling 10s timer per attempt.
+      const res = await hardenedWebhookFetch(url, {
+        method: "POST",
+        headers,
+        body,
+        timeoutMs: options.timeoutMs ?? DELIVERY_TIMEOUT_MS,
+        allowPrivate,
+        lookup: options.lookup,
+        maxBodyBytes: 0,
+      });
 
       if (res.ok || res.status < 500) {
         return { success: res.ok, status: res.status };
       }
 
+      lastStatus = res.status;
       if (attempt < maxRetries) {
         await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
       }
     } catch (error: any) {
+      if (error instanceof OutboundUrlGuardError) {
+        // A blocked or redirected target is a policy decision, not a transient fault. Retrying
+        // would re-resolve and re-probe the same internal address up to `maxRetries` more times
+        // and turn the delivery log into a blind-SSRF oracle — terminate immediately.
+        return { success: false, status: 0, error: describeGuardBlock(error) };
+      }
       if (attempt === maxRetries) {
-        return { success: false, status: 0, error: error.message || "Network error" };
+        return { success: false, status: 0, error: error?.message || "Network error" };
       }
       await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
     }
   }
 
-  return { success: false, status: 0, error: "Max retries exceeded" };
+  return { success: false, status: lastStatus, error: "Max retries exceeded" };
 }
 
 /**

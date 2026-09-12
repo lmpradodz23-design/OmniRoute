@@ -19,6 +19,7 @@
 import { MemoryType, type Memory } from "./types";
 import { listMemoriesForDecay, deleteMemory } from "./store";
 import { logger } from "../../../open-sse/utils/logger.ts";
+import { registerShutdownHook } from "../shutdownHooks.ts";
 
 const log = logger("MEMORY_TYPED_DECAY");
 
@@ -233,6 +234,8 @@ export function startMemoryDecaySweep(intervalMs?: number): void {
   };
 
   setTimeout(tick, 0);
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("memory-decay-sweep", stopMemoryDecaySweep);
   sweepTimer = setInterval(tick, interval);
   sweepTimer.unref?.();
 }

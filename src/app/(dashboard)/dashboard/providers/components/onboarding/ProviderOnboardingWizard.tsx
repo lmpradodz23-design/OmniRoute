@@ -15,6 +15,10 @@ import {
   OAuthModal,
 } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
+import {
+  isTransportFailureCode,
+  presentConnectionTestFailure,
+} from "@/shared/utils/apiErrorPresentation";
 
 import {
   buildProviderSpecificData,
@@ -204,19 +208,41 @@ function ProviderOptionCard({
   );
 }
 
-function ResultSummary({
+// Exported for the component test (final audit C-03): the failed-test card must show a
+// readable, translated cause and a "Retry test" button that re-runs the test in place.
+export function ResultSummary({
   connection,
   testResult,
   error,
   t,
+  tc,
+  onRetry,
+  retrying = false,
 }: {
   connection: OnboardingConnection | null;
   testResult: OnboardingTestResult | null;
   error: string | null;
   t: ProviderMessageTranslator;
+  /** `common` namespace translator, for `apiErrors.*` transport-failure sentences. */
+  tc?: ProviderMessageTranslator;
+  onRetry?: () => void;
+  retrying?: boolean;
 }) {
   const valid = testResult?.valid === true;
   const failed = Boolean(error || testResult?.valid === false);
+  const failure =
+    testResult && !valid
+      ? presentConnectionTestFailure(testResult, {
+          translate: (key, values) =>
+            tc && typeof tc.has === "function" && tc.has(key) ? tc(key, values) : null,
+          fallback: providerText(t, "onboardingTestFailed", "Test failed"),
+        })
+      : null;
+  // A typed transport failure never received an HTTP response; the synthetic 504/503 the
+  // transport layer attaches would misattribute the cause, so the HTTP badge is hidden.
+  const showHttpStatus =
+    typeof testResult?.statusCode === "number" && !isTransportFailureCode(failure?.code);
+  const canRetry = Boolean(onRetry && connection && (failed || error));
 
   return (
     <Card padding="lg">
@@ -264,14 +290,18 @@ function ResultSummary({
                   : providerText(t, "onboardingTestFailed", "Test failed")}
               </Badge>
               {typeof testResult.latencyMs === "number" && <span>{testResult.latencyMs} ms</span>}
-              {typeof testResult.statusCode === "number" && (
-                <span>HTTP {testResult.statusCode}</span>
-              )}
+              {showHttpStatus && <span>HTTP {testResult.statusCode}</span>}
             </div>
-            {(testResult.error || testResult.warning || testResult.diagnosis?.message) && (
-              <p className="mt-2">
-                {testResult.error || testResult.warning || testResult.diagnosis?.message}
-              </p>
+            {valid && testResult.warning && <p className="mt-2">{testResult.warning}</p>}
+            {failure && (
+              <>
+                <p className="mt-2" data-testid="connection-test-failure-message">
+                  {failure.message}
+                </p>
+                {failure.detail && (
+                  <p className="mt-1 text-xs text-text-muted/80">{failure.detail}</p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -283,6 +313,17 @@ function ResultSummary({
         )}
 
         <div className="flex flex-wrap gap-2">
+          {canRetry && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onRetry}
+              disabled={retrying}
+              data-testid="connection-test-retry"
+            >
+              {providerText(t, "onboardingRetryTest", "Retry test")}
+            </Button>
+          )}
           {(() => {
             const detailsHref = buildProviderDetailsHref(connection);
             return (
@@ -317,6 +358,7 @@ function ResultSummary({
 export default function ProviderOnboardingWizard() {
   const router = useRouter();
   const t = useTranslations("providers");
+  const tc = useTranslations("common");
   const text = (key: string, fallback: string, values?: Record<string, unknown>) =>
     providerText(t, key, fallback, values);
   const defaultConnectionName = (provider: string) =>
@@ -403,6 +445,28 @@ export default function ProviderOnboardingWizard() {
     setTestResult(result);
     setStatus("");
     return result;
+  };
+
+  // Final audit C-03: re-run the connection test from the result card without leaving
+  // the wizard. The previous failure is cleared first so the card shows the neutral
+  // "testing" state (primary styling) instead of the stale error while the probe runs.
+  const retryConnectionTest = async () => {
+    if (!createdConnection || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    setTestResult(null);
+    try {
+      await runConnectionTest(createdConnection);
+    } catch (retryError) {
+      setError(
+        retryError instanceof Error
+          ? retryError.message
+          : text("onboardingProviderFailed", "Provider onboarding failed")
+      );
+    } finally {
+      setSubmitting(false);
+      setStatus("");
+    }
   };
 
   const submitApiKeyProvider = async () => {
@@ -586,7 +650,13 @@ export default function ProviderOnboardingWizard() {
       </div>
 
       {status && (
-        <div className="rounded-lg border border-primary/25 bg-primary/10 p-3 text-sm text-primary">
+        <div
+          role="status"
+          aria-live="polite"
+          // Neutral surface: `primary` is red/pink in the default theme and a non-technical user
+          // read the in-progress test as an error (final audit D-3).
+          className="rounded-lg border border-border bg-bg-subtle p-3 text-sm text-text-muted"
+        >
           {status}
         </div>
       )}
@@ -916,7 +986,15 @@ export default function ProviderOnboardingWizard() {
       )}
 
       {step === "result" && (
-        <ResultSummary connection={createdConnection} testResult={testResult} error={error} t={t} />
+        <ResultSummary
+          connection={createdConnection}
+          testResult={testResult}
+          error={error}
+          t={t}
+          tc={tc}
+          onRetry={retryConnectionTest}
+          retrying={submitting}
+        />
       )}
 
       {selectedProvider &&

@@ -165,6 +165,63 @@ function isPoolEnabled(): boolean {
   return flag !== "off" && flag !== "0" && flag !== "false";
 }
 
+export interface BrowserRuntime {
+  env: NodeJS.ProcessEnv;
+  /** Effective uid; `undefined` on platforms without one (Windows). */
+  uid: number | undefined;
+}
+
+function currentBrowserRuntime(): BrowserRuntime {
+  return { env: process.env, uid: process.getuid?.() };
+}
+
+/**
+ * R-14 / E-8: the pool renders third-party pages, so Chromium keeps its renderer sandbox.
+ * `--no-sandbox` is added only where Chromium cannot start otherwise — running as root
+ * (the usual Docker case) — or when the operator opts out explicitly with
+ * OMNIROUTE_BROWSER_NO_SANDBOX=1.
+ */
+export function chromiumSandboxArgs(runtime: BrowserRuntime = currentBrowserRuntime()): string[] {
+  const override = runtime.env.OMNIROUTE_BROWSER_NO_SANDBOX;
+  if (override === "1" || override === "true") return ["--no-sandbox"];
+  return runtime.uid === 0 ? ["--no-sandbox"] : [];
+}
+
+const DEFAULT_MAX_POOLED_CONTEXTS = 8;
+
+function maxPooledContexts(): number {
+  const raw = Number.parseInt(process.env.OMNIROUTE_BROWSER_POOL_MAX_CONTEXTS ?? "", 10);
+  return Number.isInteger(raw) && raw > 0 ? raw : DEFAULT_MAX_POOLED_CONTEXTS;
+}
+
+/**
+ * Keys of the least recently used contexts that must go so that one more fits under
+ * `max` (a cap below 1 still keeps a single context). Pure, for the R-14 cap.
+ */
+export function selectContextsToEvict(
+  contexts: Iterable<readonly [string, { lastUsed: number }]>,
+  max: number
+): string[] {
+  const keep = Math.max(1, max) - 1;
+  const entries = [...contexts];
+  if (entries.length <= keep) return [];
+  return entries
+    .sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+    .slice(0, entries.length - keep)
+    .map(([key]) => key);
+}
+
+function enforceContextCap(): void {
+  for (const key of selectContextsToEvict(state.contexts, maxPooledContexts())) {
+    const pooled = state.contexts.get(key);
+    if (!pooled) continue;
+    console.log(`[BrowserPool] Context cap reached (${maxPooledContexts()}); evicting LRU ${key}`);
+    state.contexts.delete(key);
+    state.metrics.contextsEvicted++;
+    pooled.context.close().catch(() => {});
+  }
+}
+
 function resetIdleTimer(): void {
   if (state.idleTimer) clearTimeout(state.idleTimer);
   state.idleTimer = setTimeout(() => {
@@ -290,14 +347,15 @@ function clearBrowserLaunch(headless: boolean, launch: Promise<Browser>): void {
 }
 
 export function resolvePlainBrowserLaunchOptions(
-  options: Pick<BrowserPoolContextOptions, "headless" | "executablePath">
+  options: Pick<BrowserPoolContextOptions, "headless" | "executablePath">,
+  runtime: BrowserRuntime = currentBrowserRuntime()
 ): import("playwright").LaunchOptions {
   const headless = options.headless !== false;
   return {
     headless,
     ...(!headless && options.executablePath ? { executablePath: options.executablePath } : {}),
     args: [
-      "--no-sandbox",
+      ...chromiumSandboxArgs(runtime),
       "--disable-dev-shm-usage",
       "--disable-blink-features=AutomationControlled",
       ...(!headless ? ["--window-position=-32000,-32000"] : []),
@@ -331,7 +389,7 @@ async function launchBrowserInstance(
     state.engine = "cloakbrowser";
     return cloakLaunch({
       headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      args: [...chromiumSandboxArgs(), "--disable-dev-shm-usage"],
     });
   }
 
@@ -537,6 +595,8 @@ export async function acquireBrowserContext(
       lastUsed: Date.now(),
       isStealth,
     };
+    // R-14: bounded pool — evict the least recently used contexts beyond the cap.
+    enforceContextCap();
     state.contexts.set(poolKey, pooled);
     state.metrics.contextsCreated++;
     state.lastActivity = Date.now();

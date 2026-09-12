@@ -167,6 +167,43 @@ test("updateApiKeyPermissions setting same manage scope does not emit duplicate 
   );
 });
 
+// M-2: `*` (every MCP tool) and `admin` (documented superset of `manage`) are privileged
+// exactly like `manage` — their issuance must leave the same audit trail.
+for (const scope of ["*", "admin"]) {
+  test(`updateApiKeyPermissions granting "${scope}" emits apiKey.scopes.grant (privileged like manage)`, async () => {
+    const created = await apiKeysDb.createApiKey(`for-grant-${scope}`, MACHINE_ID);
+    assert.equal(await apiKeysDb.updateApiKeyPermissions(created.id, { scopes: [scope] }), true);
+    const grants = compliance
+      .getAuditLog({ limit: 100 })
+      .filter((e) => e.action === "apiKey.scopes.grant" && e.target === created.id);
+    assert.equal(grants.length, 1, `granting "${scope}" must be audited as a privileged grant`);
+  });
+
+  test(`updateApiKeyPermissions revoking "${scope}" emits apiKey.scopes.revoke`, async () => {
+    const created = await apiKeysDb.createApiKey(`for-revoke-${scope}`, MACHINE_ID, [scope]);
+    assert.equal(await apiKeysDb.updateApiKeyPermissions(created.id, { scopes: [] }), true);
+    const revokes = compliance
+      .getAuditLog({ limit: 100 })
+      .filter((e) => e.action === "apiKey.scopes.revoke" && e.target === created.id);
+    assert.equal(revokes.length, 1);
+  });
+}
+
+test("createApiKey leaves an audit trail that says whether the new key is privileged", async () => {
+  const plain = await apiKeysDb.createApiKey("audit-plain", MACHINE_ID, ["read:health"]);
+  const star = await apiKeysDb.createApiKey("audit-star", MACHINE_ID, ["*"]);
+
+  const log = compliance.getAuditLog({ limit: 100 });
+  const plainEvt = log.find((e) => e.action === "apiKey.create" && e.target === plain.id);
+  const starEvt = log.find((e) => e.action === "apiKey.create" && e.target === star.id);
+  assert.ok(plainEvt, "every key creation is audited");
+  assert.ok(starEvt);
+  assert.equal(plainEvt!.details?.privileged, false);
+  assert.equal(starEvt!.details?.privileged, true);
+  assert.deepEqual(starEvt!.details?.scopes, ["*"]);
+  assert.ok(!JSON.stringify(log).includes(star.key), "the key material never enters the audit log");
+});
+
 test("updateApiKeyPermissions changing non-manage scopes emits apiKey.scopes.update", async () => {
   const created = await apiKeysDb.createApiKey("non-manage-update", MACHINE_ID, []);
 

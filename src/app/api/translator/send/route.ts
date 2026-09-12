@@ -11,11 +11,44 @@ import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { logTranslationEvent } from "@/lib/translatorEvents";
 import { translatorSendSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { guardedFetch } from "@/shared/network/guardedFetch";
+import { OutboundUrlGuardError } from "@/shared/network/outboundUrlGuard";
+import { areIntegrationPrivateUrlsAllowed } from "@/shared/network/outboundUrlGuardPolicy";
+
+/** Bound on the time to response headers for the forwarded provider request. */
+const PROVIDER_SEND_TIMEOUT_MS = 120_000;
 
 function getProviderBaseUrl(providerSpecificData: unknown): string | undefined {
   if (!providerSpecificData || typeof providerSpecificData !== "object") return undefined;
   const baseUrl = (providerSpecificData as Record<string, unknown>).baseUrl;
   return typeof baseUrl === "string" && baseUrl.trim().length > 0 ? baseUrl : undefined;
+}
+
+/** Request facts every translation event of one forwarded send shares. */
+type SendOutcomeContext = {
+  provider: string;
+  body: Record<string, unknown>;
+  sourceFormat: ReturnType<typeof detectFormat>;
+  targetFormat: ReturnType<typeof getTargetFormat>;
+  startedAt: number;
+};
+
+/** Records the outcome of the forwarded send as a translation event (latency measured here). */
+function logSendOutcome(
+  { provider, body, sourceFormat, targetFormat, startedAt }: SendOutcomeContext,
+  status: "success" | "error",
+  statusCode: number
+) {
+  logTranslationEvent({
+    provider,
+    model: body.model || "test-model",
+    sourceFormat,
+    targetFormat,
+    status,
+    statusCode,
+    latency: Date.now() - startedAt,
+    endpoint: "/api/translator/send",
+  });
 }
 
 export async function POST(request) {
@@ -58,16 +91,7 @@ export async function POST(request) {
     ).find(({ candidate, blocked }) => candidate.isActive !== false && !blocked)?.candidate;
 
     if (!connection) {
-      logTranslationEvent({
-        provider,
-        model: body.model || "test-model",
-        sourceFormat,
-        targetFormat,
-        status: "error",
-        statusCode: 400,
-        latency: Date.now() - startedAt,
-        endpoint: "/api/translator/send",
-      });
+      logSendOutcome({ provider, body, sourceFormat, targetFormat, startedAt }, "error", 400);
       return NextResponse.json(
         {
           success: false,
@@ -95,12 +119,29 @@ export async function POST(request) {
     });
     const headers = buildProviderHeaders(provider, credentials, true, body);
 
-    // Send request to provider
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    // Send request to provider. SSRF S-6: for OpenAI-compatible connections the base URL is
+    // operator data (providerSpecificData.baseUrl) — resolved address validated (cloud
+    // metadata never; private/LAN under the local-first provider policy), connection pinned,
+    // redirects never followed. A guard decision is a configuration error, reported URL-free.
+    let response: Response;
+    try {
+      response = await guardedFetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        timeoutMs: PROVIDER_SEND_TIMEOUT_MS,
+        allowPrivate: areIntegrationPrivateUrlsAllowed(),
+      });
+    } catch (error) {
+      if (error instanceof OutboundUrlGuardError) {
+        logSendOutcome({ provider, body, sourceFormat, targetFormat, startedAt }, "error", 400);
+        return NextResponse.json(
+          { success: false, error: "Provider base URL blocked by the outbound guard" },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -108,16 +149,11 @@ export async function POST(request) {
         errorText,
         `Provider error: ${response.status} ${response.statusText}`
       );
-      logTranslationEvent({
-        provider,
-        model: body.model || "test-model",
-        sourceFormat,
-        targetFormat,
-        status: "error",
-        statusCode: response.status,
-        latency: Date.now() - startedAt,
-        endpoint: "/api/translator/send",
-      });
+      logSendOutcome(
+        { provider, body, sourceFormat, targetFormat, startedAt },
+        "error",
+        response.status
+      );
       return NextResponse.json(
         {
           success: false,
@@ -130,16 +166,7 @@ export async function POST(request) {
       );
     }
 
-    logTranslationEvent({
-      provider,
-      model: body.model || "test-model",
-      sourceFormat,
-      targetFormat,
-      status: "success",
-      statusCode: 200,
-      latency: Date.now() - startedAt,
-      endpoint: "/api/translator/send",
-    });
+    logSendOutcome({ provider, body, sourceFormat, targetFormat, startedAt }, "success", 200);
 
     // Return streaming response
     return new Response(response.body, {

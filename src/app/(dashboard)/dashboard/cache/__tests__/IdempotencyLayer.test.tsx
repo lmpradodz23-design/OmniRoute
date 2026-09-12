@@ -14,7 +14,9 @@ describe("IdempotencyLayer", () => {
     windowMs: 5000,
     activeKeys: 12,
     totalProcessed: 1200,
-    savedCalls: 47,
+    // Distinct from deduplicatedRequests: both render as stat values, and an exact
+    // `getByText("47")` must resolve to the deduplicated count unambiguously.
+    savedCalls: 31,
   };
 
   describe("renders with data", () => {

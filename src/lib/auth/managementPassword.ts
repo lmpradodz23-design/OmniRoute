@@ -54,6 +54,40 @@ export async function verifyManagementPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
+// One bcrypt compare per distinct stored hash: the login page asks on every visit.
+const insecureDefaultByHash = new Map<string, boolean>();
+
+/**
+ * Whether the ACTIVE management password is still one of the well-known defaults
+ * (`CHANGEME` from `.env.example`). Used by the login page (U2) to show the
+ * "default password" hint only while it is true — never as an unconditional caption.
+ * Resolution mirrors `ensurePersistentManagementPasswordHash`: stored hash, then stored
+ * plaintext (pre-migration), then `INITIAL_PASSWORD`.
+ */
+export async function isManagementPasswordInsecureDefault(
+  settings: JsonRecord | null | undefined,
+  initialPassword: string | null | undefined = process.env.INITIAL_PASSWORD
+): Promise<boolean> {
+  const stored = getStoredManagementPassword(settings);
+  if (isBcryptHash(stored)) {
+    const cached = insecureDefaultByHash.get(stored);
+    if (cached !== undefined) return cached;
+    let insecure = false;
+    for (const candidate of INSECURE_DEFAULT_PASSWORDS) {
+      if (await bcrypt.compare(candidate, stored)) {
+        insecure = true;
+        break;
+      }
+    }
+    if (insecureDefaultByHash.size > 16) insecureDefaultByHash.clear();
+    insecureDefaultByHash.set(stored, insecure);
+    return insecure;
+  }
+  if (stored) return INSECURE_DEFAULT_PASSWORDS.has(stored);
+  const bootstrap = getInitialPasswordValue(initialPassword);
+  return bootstrap !== null && INSECURE_DEFAULT_PASSWORDS.has(bootstrap);
+}
+
 export async function ensurePersistentManagementPasswordHash(
   options: EnsureManagementPasswordOptions = {}
 ): Promise<EnsuredManagementPassword> {

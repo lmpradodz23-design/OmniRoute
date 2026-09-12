@@ -6,6 +6,7 @@ import { getSettings, updateSettings } from "@/lib/db/settings";
 import {
   hasManagementPasswordConfigured,
   hashManagementPassword,
+  isManagementPasswordInsecureDefault,
 } from "@/lib/auth/managementPassword";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { getNodeRuntimeSupport } from "@/shared/utils/nodeRuntimeSupport.ts";
@@ -51,6 +52,9 @@ export async function GET() {
     const requireLogin = settings.requireLogin !== false;
     const authenticated = await checkSessionAuthenticated();
     const hasPassword = hasManagementPasswordConfigured(settings);
+    // U2: the login page shows the "default password" hint only while this is true.
+    const usingDefaultPassword =
+      hasPassword && (await isManagementPasswordInsecureDefault(settings));
     const setupComplete = !!settings.setupComplete;
     const oidcEnabled = !!settings.oidcEnabled;
     const oidcDisablePasswordLogin =
@@ -66,6 +70,7 @@ export async function GET() {
       setupComplete,
       oidcEnabled,
       oidcDisablePasswordLogin,
+      usingDefaultPassword,
       ...nodeInfo,
     });
   } catch (error) {
@@ -78,6 +83,7 @@ export async function GET() {
         setupComplete: true,
         oidcEnabled: false,
         oidcDisablePasswordLogin: false,
+        usingDefaultPassword: false,
         ...nodeInfo,
       },
       { status: 200 }
@@ -117,6 +123,25 @@ export async function POST(request: Request) {
     }
     const body = validation.data;
     const { requireLogin, password } = body;
+
+    // U3: requiring login with no way to sign in is a self-lockout; refuse unless a password
+    // is configured, arrives in this same body, or SSO is enabled.
+    if (
+      requireLogin === true &&
+      !password &&
+      !hasConfiguredPassword(settings) &&
+      settings.oidcEnabled !== true
+    ) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "PASSWORD_REQUIRED_TO_ENABLE_LOGIN",
+            message: "Set a password in the same request before requiring login",
+          },
+        },
+        { status: 400 }
+      );
+    }
 
     const updates: Record<string, any> = {};
 

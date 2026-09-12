@@ -10,7 +10,7 @@ import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { syncToCloud } from "@/lib/cloudSync";
 import { createKeySchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { isApiKeyRevealEnabled, maskStoredApiKey } from "@/lib/apiKeyExposure";
+import { maskStoredApiKey } from "@/lib/apiKeyExposure";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { normalizeSelfServiceScopesForCreate } from "@/shared/constants/selfServiceScopes";
 import * as log from "@/sse/utils/logger";
@@ -45,11 +45,9 @@ export async function GET(request: Request) {
       key: maskStoredApiKey(k.key),
     }));
 
-    return NextResponse.json({
-      keys: maskedKeys,
-      total,
-      allowKeyReveal: isApiKeyRevealEnabled(),
-    });
+    // #7 (reveal-once): listings are always masked; the full key exists only in the
+    // create/regenerate responses.
+    return NextResponse.json({ keys: maskedKeys, total });
   } catch (error) {
     log.error("keys", "Error fetching keys", error);
     return NextResponse.json({ error: "Failed to fetch keys" }, { status: 500 });

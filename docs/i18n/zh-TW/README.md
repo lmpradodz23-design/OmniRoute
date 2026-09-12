@@ -382,16 +382,16 @@ Result: 4 fallback layers reduce downtime; upstream availability is not guarante
 
 > 相同的應用程式，您的機器，您的規則。從全域 npm 安裝到透過 Termux **在手機上**執行。
 
-| 平台                     | 安裝方式                                     | 亮點                                            |
-| ------------------------ | -------------------------------------------- | ----------------------------------------------- |
-| 📦 **npm（全域）**       | `npm install -g omniroute`                   | 一條命令，任何作業系統                          |
-| 🐳 **Docker**            | `docker run … diegosouzapw/omniroute`        | 多架構 **AMD64 + ARM64**                        |
-| 🖥️ **桌面（Electron）**  | `npm run electron:build`                     | 原生視窗 + 系統匣 — **Windows / macOS / Linux** |
-| 💪 **ARM**               | 原生 `arm64`                                 | Raspberry Pi、ARM 伺服器、Apple Silicon         |
-| 📱 **Android（Termux）** | `pkg install nodejs-lts && npx -y omniroute` | **在手機上**執行，24/7，無需 root               |
-| 📲 **PWA**               | "新增到主畫面"                               | 全螢幕、離線、可從瀏覽器安裝                    |
-| 🧩 **OpenCode 插件**     | `@omniroute/opencode-provider`               | 原生 OpenCode 整合                              |
-| 🛠️ **從原始碼建構**      | `npm install && npm run dev`                 | 參與開發                                        |
+| 平台                     | 安裝方式                                      | 亮點                                            |
+| ------------------------ | --------------------------------------------- | ----------------------------------------------- |
+| 📦 **npm（全域）**       | `npm install -g omniroute`                    | 一條命令，任何作業系統                          |
+| 🐳 **Docker**            | `docker run … ghcr.io/lmprado-dz23/omniroute` | 多架構 **AMD64 + ARM64**                        |
+| 🖥️ **桌面（Electron）**  | `npm run electron:build`                      | 原生視窗 + 系統匣 — **Windows / macOS / Linux** |
+| 💪 **ARM**               | 原生 `arm64`                                  | Raspberry Pi、ARM 伺服器、Apple Silicon         |
+| 📱 **Android（Termux）** | `pkg install nodejs-lts && npx -y omniroute`  | **在手機上**執行，24/7，無需 root               |
+| 📲 **PWA**               | "新增到主畫面"                                | 全螢幕、離線、可從瀏覽器安裝                    |
+| 🧩 **OpenCode 插件**     | `@omniroute/opencode-provider`                | 原生 OpenCode 整合                              |
+| 🛠️ **從原始碼建構**      | `npm install && npm run dev`                  | 參與開發                                        |
 
 <sub>📖 [Docker Guide](../../guides/DOCKER_GUIDE.md) · [Desktop](../../electron/README.md) · [Termux](../../guides/TERMUX_GUIDE.md) · [PWA](../../guides/PWA_GUIDE.md) · [OpenCode](../../frameworks/OPENCODE.md)</sub>
 
@@ -614,7 +614,7 @@ Ollama tags:      http://localhost:20128/vscode/YOUR_KEY/api/tags
 
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
-  -p 20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
+  -p 20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
 **🛠️ 從原始碼建構**
@@ -698,7 +698,7 @@ podman compose --profile base up -d --build
 
 <div align="center">
 
-> 🎬 **製作了關於 OmniRoute 的影片？** 透過連結開啟 [issue](https://github.com/diegosouzapw/OmniRoute/issues/new) 或 [discussion](https://github.com/diegosouzapw/OmniRoute/discussions) — 我們會在此展示。
+> 🎬 **製作了關於 OmniRoute 的影片？** 透過連結開啟 [issue](https://github.com/LMPrado-DZ23/OmniRoute/issues/new) 或 [discussion](https://github.com/LMPrado-DZ23/OmniRoute/discussions) — 我們會在此展示。
 
 <br/>
 </div>
@@ -853,8 +853,8 @@ podman compose --profile base up -d --build
 > 💬 **與社群聊天** — Discord、Telegram 和 WhatsApp（🌍 / 🇧🇷）連結在[本 README 頂部](#-join-the-community)。
 
 - 🌍 **網站**：[omniroute.online](https://omniroute.online)
-- 🐙 **GitHub**：[github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)
-- 🐛 **Issue**：[回報錯誤](https://github.com/diegosouzapw/OmniRoute/issues)（請附上 `npm run system-info` 輸出）
+- 🐙 **GitHub**：[github.com/LMPrado-DZ23/OmniRoute](https://github.com/LMPrado-DZ23/OmniRoute)
+- 🐛 **Issue**：[回報錯誤](https://github.com/LMPrado-DZ23/OmniRoute/issues)（請附上 `npm run system-info` 輸出）
 - 🤝 **貢獻**：參見 [CONTRIBUTING.md](../../CONTRIBUTING.md) 或選擇 `good first issue`
 
 </div>
@@ -881,7 +881,7 @@ podman compose --profile base up -d --build
 - **CI/CD**：GitHub Actions（發布時自動 npm 發布 + Docker Hub）
 - **網站**：[omniroute.online](https://omniroute.online)
 - **套件**：[npmjs.com/package/omniroute](https://www.npmjs.com/package/omniroute)
-- **Docker**：[hub.docker.com/r/diegosouzapw/omniroute](https://hub.docker.com/r/diegosouzapw/omniroute)
+- **Docker**：[hub.docker.com/r/diegosouzapw/omniroute](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute)
 - **彈性**：斷路器、指數退避、反奔湧群、TLS 偽造、自動 Combo 自我修復
 
 <div align="center">
@@ -1149,7 +1149,7 @@ OmniRoute 是免費且開源的，在公開環境中建構和維護。如果它�
 
 - ⭐ **為倉庫加星** — 這確實有助於提高能見度
 - 💖 **[GitHub Sponsors](https://github.com/sponsors/diegosouzapw)** — 資助持續維護和新提供者
-- 🐛 **在 [Discussions](https://github.com/diegosouzapw/OmniRoute/discussions) 中回報錯誤和分享意見回饋**
+- 🐛 **在 [Discussions](https://github.com/LMPrado-DZ23/OmniRoute/discussions) 中回報錯誤和分享意見回饋**
 
 ## 📄 授權
 

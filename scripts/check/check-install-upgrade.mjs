@@ -35,7 +35,57 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+// Windows has neither process groups nor signals: `process.kill(-pid)` throws, and a
+// detached child keeps running after the parent is terminated. Terminate the whole tree
+// with taskkill /T /F there (TerminateProcess — no graceful phase exists on win32).
+function signalProcessGroup(pid, signal) {
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    return;
+  }
+  process.kill(-pid, signal);
+}
+
+// `npm install -g --prefix <p>` lays the package out as <p>/lib/node_modules/omniroute on
+// POSIX but <p>/node_modules/omniroute on Windows, where the bin entry is a `omniroute.cmd`
+// shim that cannot be spawned without a shell. Boot the installed CLI through the package's
+// own bin script under the current Node instead — same code path the shim resolves to.
+function installedPackageRoot(prefix) {
+  return process.platform === "win32"
+    ? path.join(prefix, "node_modules", "omniroute")
+    : path.join(prefix, "lib", "node_modules", "omniroute");
+}
+function installedCliLaunch(prefix) {
+  if (process.platform === "win32") {
+    return {
+      file: process.execPath,
+      args: [path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs")],
+      exists: path.join(installedPackageRoot(prefix), "bin", "omniroute.mjs"),
+    };
+  }
+  const bin = path.join(prefix, "bin", "omniroute");
+  return { file: bin, args: [], exists: bin };
+}
+
+// Windows: npm is `npm.cmd`, which Node refuses to spawn without a shell since the
+// CVE-2024-27980 fix (EINVAL). Every npm argument here is a fixed literal or a path we
+// built ourselves; under the shell they are quoted, never interpolated from user input.
+const NPM =
+  process.platform === "win32"
+    ? {
+        file: "npm.cmd",
+        shell: true,
+        args: (list) =>
+          list.map((value) =>
+            /[\s"]/.test(String(value)) ? `"${String(value).replace(/"/g, '\\"')}"` : value
+          ),
+      }
+    : { file: "npm", shell: false, args: (list) => list };
 import { DatabaseSync } from "node:sqlite";
 
 const BOOT_DEADLINE_MS = 180_000;
@@ -47,7 +97,7 @@ const warn = (msg) => console.log(`[install-upgrade] ⚠️  ${msg}`);
 
 /** Root of the installed package inside an `npm install -g --prefix` tree. */
 function packageRootFor(prefix) {
-  return path.join(prefix, "lib", "node_modules", "omniroute");
+  return installedPackageRoot(prefix);
 }
 
 /**
@@ -172,16 +222,16 @@ function findDb(dataDir) {
 
 /** Boot an installed CLI and poll health. Returns { ok, version, failures, tail }. */
 async function bootAndProbe({ prefix, dataDir, port, expectVersion, label }) {
-  const binPath = path.join(prefix, "bin", "omniroute");
-  if (!fs.existsSync(binPath)) {
-    return { ok: false, failures: [`${label}: bin not found at ${binPath}`], tail: [] };
+  const launch = installedCliLaunch(prefix);
+  if (!fs.existsSync(launch.exists)) {
+    return { ok: false, failures: [`${label}: bin not found at ${launch.exists}`], tail: [] };
   }
   const cliToken = derivePackagedCliToken(prefix);
   const probeHeaders = {
     [INTERNAL_SERVICE_HEADER]: INTERNAL_SERVICE_TOKEN,
     ...(cliToken ? { "x-omniroute-cli-token": cliToken } : {}),
   };
-  const child = spawn(binPath, ["serve", "--port", String(port)], {
+  const child = spawn(launch.file, [...launch.args, "serve", "--port", String(port)], {
     env: {
       ...process.env,
       PORT: String(port),
@@ -194,6 +244,7 @@ async function bootAndProbe({ prefix, dataDir, port, expectVersion, label }) {
     },
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
+    windowsHide: true,
   });
 
   const tail = [];
@@ -248,7 +299,7 @@ async function bootAndProbe({ prefix, dataDir, port, expectVersion, label }) {
   }
 
   try {
-    if (childExit === null) process.kill(-child.pid, "SIGTERM");
+    if (childExit === null) signalProcessGroup(child.pid, "SIGTERM");
   } catch {
     /* already gone */
   }
@@ -274,9 +325,9 @@ function npmInstallInto(prefix, spec, label = spec) {
   // parent's, so the ENOSPC warnings scrolled past in CI without the script ever seeing
   // them. spawnSync hands both streams back.
   const run = spawnSync(
-    "npm",
-    ["install", "-g", "--prefix", prefix, "--no-audit", "--no-fund", spec],
-    { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 }
+    NPM.file,
+    NPM.args(["install", "-g", "--prefix", prefix, "--no-audit", "--no-fund", spec]),
+    { encoding: "utf8", maxBuffer: 512 * 1024 * 1024, shell: NPM.shell }
   );
   const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
   // Keep the install log visible, but a truncated package emits thousands of identical
@@ -325,14 +376,20 @@ let workDirForMessages = os.tmpdir();
 
 function resolvePreviousVersion(current, explicit) {
   if (explicit) return explicit;
-  const out = execFileSync("npm", ["view", "omniroute", "dist-tags.latest"], { encoding: "utf8" });
+  const out = execFileSync(NPM.file, NPM.args(["view", "omniroute", "dist-tags.latest"]), {
+    encoding: "utf8",
+    shell: NPM.shell,
+  });
   const latest = out.trim();
   if (!latest) throw new Error("could not resolve omniroute@latest from npm");
   if (latest === current) {
     // The version under test is already published (re-run of a shipped release): step back
     // to the highest published version strictly below it.
     const all = JSON.parse(
-      execFileSync("npm", ["view", "omniroute", "versions", "--json"], { encoding: "utf8" })
+      execFileSync(NPM.file, NPM.args(["view", "omniroute", "versions", "--json"]), {
+        encoding: "utf8",
+        shell: NPM.shell,
+      })
     );
     const stable = all.filter((v) => !/-(rc|alpha|beta|pre|next)/.test(v) && v !== current);
     return stable[stable.length - 1];
@@ -373,11 +430,16 @@ async function main() {
     // only "packing…" then a timeout, which reads like a hang and is not.
     const packStarted = Date.now();
     log(`packing v${version}…`);
-    const packOut = execFileSync("npm", ["pack", "--json", "--pack-destination", tmp], {
-      cwd: ROOT,
-      encoding: "utf8",
-      maxBuffer: 128 * 1024 * 1024,
-    });
+    const packOut = execFileSync(
+      NPM.file,
+      NPM.args(["pack", "--json", "--pack-destination", tmp]),
+      {
+        shell: NPM.shell,
+        cwd: ROOT,
+        encoding: "utf8",
+        maxBuffer: 128 * 1024 * 1024,
+      }
+    );
     const tarball = path.join(tmp, pickTarball(packOut));
     const packMb = (fs.statSync(tarball).size / 1024 / 1024).toFixed(1);
     log(`packed in ${Math.round((Date.now() - packStarted) / 1000)}s (${packMb} MB)`);
@@ -540,10 +602,7 @@ async function main() {
 
 // Only run the (expensive) gate when invoked directly — importing this module for the pure
 // helper above must not pack, install or boot anything.
-if (
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)
-) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error(`[install-upgrade] crashed: ${err?.message ?? err}`);
     process.exit(1);

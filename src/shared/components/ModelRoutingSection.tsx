@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import Card from "./Card";
 import { matchesOnlyPaidModels } from "@/shared/utils/freeModels";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 export interface ModelMapping {
   id: string;
@@ -23,6 +24,7 @@ interface Combo {
 export default function ModelRoutingSection({ combos: externalCombos }: { combos?: Combo[] } = {}) {
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
+  const confirmDialog = useConfirmDialog();
   const [mappings, setMappings] = useState<ModelMapping[]>([]);
   const [internalCombos, setInternalCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +141,7 @@ export default function ModelRoutingSection({ combos: externalCombos }: { combos
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t("deleteRoutingRule"))) return;
+    if (!(await confirmDialog(t("deleteRoutingRule")))) return;
     try {
       await fetch(`/api/model-combo-mappings/${id}`, { method: "DELETE" });
       setMappings((prev) => prev.filter((m) => m.id !== id));

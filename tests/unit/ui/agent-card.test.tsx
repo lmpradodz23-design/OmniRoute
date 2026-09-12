@@ -52,6 +52,20 @@ const mockTarget = {
   viability: "supported" as const,
 };
 
+// Fix #8656 made `serverState` a required prop: the card falls back to the server-level
+// cert trust when the agent has no own `cert_trusted` (one MITM cert serves every agent).
+const mockServerState = {
+  running: false,
+  port: 8443,
+  certTrusted: false,
+  upstreamCa: null,
+  lastStartedAt: null,
+  activeConns: 0,
+  interceptedCount: 0,
+  dnsConfigured: false,
+  orphanedStateDetected: false,
+};
+
 describe("AgentCard", { timeout: 30000 }, () => {
   beforeEach(() => {
     (
@@ -66,9 +80,8 @@ describe("AgentCard", { timeout: 30000 }, () => {
   });
 
   it("renders agent name and hosts", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const container = makeContainer();
     await act(async () => {
@@ -78,6 +91,7 @@ describe("AgentCard", { timeout: 30000 }, () => {
           target: mockTarget,
           agentState: undefined,
           serverRunning: false,
+          serverState: mockServerState,
           mappings: [],
           onDnsToggle: vi.fn(),
           onMappingsSave: vi.fn(),
@@ -90,9 +104,8 @@ describe("AgentCard", { timeout: 30000 }, () => {
   }, 30000);
 
   it("expands on click and shows DNS toggle", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const container = makeContainer();
     await act(async () => {
@@ -102,6 +115,7 @@ describe("AgentCard", { timeout: 30000 }, () => {
           target: mockTarget,
           agentState: undefined,
           serverRunning: true,
+          serverState: mockServerState,
           mappings: [],
           onDnsToggle: vi.fn(),
           onMappingsSave: vi.fn(),
@@ -120,9 +134,8 @@ describe("AgentCard", { timeout: 30000 }, () => {
   }, 30000);
 
   it("calls onDnsToggle when DNS button clicked", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     // Simulate that the per-agent RiskNoticeModal (Fix4 M5) has already been
     // accepted for this agent — otherwise the DNS click opens the modal first
@@ -148,6 +161,7 @@ describe("AgentCard", { timeout: 30000 }, () => {
             last_error: null,
           },
           serverRunning: true,
+          serverState: mockServerState,
           mappings: [],
           onDnsToggle,
           onMappingsSave: vi.fn(),
@@ -175,9 +189,8 @@ describe("AgentCard", { timeout: 30000 }, () => {
   }, 30000);
 
   it("opens wizard when setup wizard button clicked", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const container = makeContainer();
     await act(async () => {
@@ -187,6 +200,7 @@ describe("AgentCard", { timeout: 30000 }, () => {
           target: mockTarget,
           agentState: undefined,
           serverRunning: true,
+          serverState: mockServerState,
           mappings: [],
           onDnsToggle: vi.fn(),
           onMappingsSave: vi.fn(),

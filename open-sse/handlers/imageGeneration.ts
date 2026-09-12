@@ -10,6 +10,11 @@ import {
 import { getImageProvider, parseImageModel } from "../config/imageRegistry.ts";
 import { HTTP_STATUS } from "../config/constants.ts";
 import { applyAntigravityClientProfileHeaders } from "../services/antigravityClientProfile.ts";
+import {
+  parseJsonOrNull,
+  sanitizeImageProviderError,
+  toStoredImageErrorText,
+} from "./imageGeneration/providerErrorText.ts";
 import { getAntigravityEnvelopeUserAgent } from "../services/antigravityIdentity.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { mapImageSize } from "../translator/image/sizeMapper.ts";
@@ -37,7 +42,7 @@ import {
   fetchWithTimeout,
   getConfiguredTimeout,
 } from "@/shared/utils/fetchTimeout";
-import { sanitizeErrorMessage, sanitizeUpstreamDetails } from "../utils/error.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 import {
   isMicrosoftDesignerWebRetiredProviderId,
   MICROSOFT_DESIGNER_WEB_RETIRED_MESSAGE,
@@ -244,22 +249,6 @@ function normalizeImageGenerationSize(snakeCaseValue: unknown, camelCaseValue: u
   if (typeof value !== "string") return "1K";
   const normalized = value.trim().toUpperCase();
   return IMAGE_SIZE_PATTERN.test(normalized) ? normalized : "1K";
-}
-
-function parseJsonOrNull(value: string): unknown | null {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function sanitizeImageProviderError(errorText: string): unknown {
-  const parsed = parseJsonOrNull(errorText);
-  if (parsed !== null) {
-    return sanitizeUpstreamDetails(parsed) || sanitizeErrorMessage(errorText);
-  }
-  return sanitizeErrorMessage(errorText);
 }
 
 // #8307 — some ChatGPT accounts can run Codex but lack entitlement for the specific
@@ -2810,7 +2799,7 @@ export function saveImageErrorResult({
     model: `${provider}/${model}`,
     provider,
     duration: Date.now() - startTime,
-    error: typeof error === "string" ? error.slice(0, 500) : String(error).slice(0, 500),
+    error: toStoredImageErrorText(error),
     requestBody,
   }).catch(() => {});
 

@@ -14,8 +14,8 @@ import {
 } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import { matchesSearch } from "@/shared/utils/turkishText";
-
-type EvalTargetType = "suite-default" | "model" | "combo";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
+import { getTargetLabel, parseTargetKey, type EvalTargetType } from "./evalTarget";
 
 interface EvalTargetOption {
   key: string;
@@ -356,36 +356,6 @@ function createDraftFromImportedSuite(
   };
 }
 
-function getTargetLabel(
-  target: { type: EvalTargetType; id: string | null },
-  t: (key: string, values?: Record<string, unknown>) => string
-): string {
-  if (target.type === "combo") {
-    return `${t("targetTypeCombo")}: ${target.id || "—"}`;
-  }
-
-  if (target.type === "model") {
-    return `${t("targetTypeModel")}: ${target.id || "—"}`;
-  }
-
-  return t("targetSuiteDefaults");
-}
-
-function parseTargetKey(value: string): { type: EvalTargetType; id: string | null } {
-  const [rawType, ...rawId] = value.split(":");
-  const idValue = rawId.join(":");
-
-  if (rawType === "combo") {
-    return { type: "combo", id: idValue || null };
-  }
-
-  if (rawType === "model") {
-    return { type: "model", id: idValue || null };
-  }
-
-  return { type: "suite-default", id: null };
-}
-
 function formatTimestamp(value: string): string {
   try {
     return new Intl.DateTimeFormat(undefined, {
@@ -430,6 +400,7 @@ function getResultDetails(
 
 export default function EvalsTab() {
   const t = useTranslations("usage");
+  const confirmDialog = useConfirmDialog();
   const notify = useNotificationStore();
   const [suites, setSuites] = useState<EvalSuite[]>([]);
   const [recentRuns, setRecentRuns] = useState<EvalRun[]>([]);
@@ -751,7 +722,7 @@ export default function EvalsTab() {
 
   async function handleDeleteSuite(suite: EvalSuite) {
     if (suite.source !== "custom") return;
-    const confirmDelete = window.confirm(
+    const confirmDelete = await confirmDialog(
       t("suiteBuilderDeleteConfirm", { name: suite.name || suite.id })
     );
     if (!confirmDelete) return;

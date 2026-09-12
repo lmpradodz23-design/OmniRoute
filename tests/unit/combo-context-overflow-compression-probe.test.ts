@@ -261,7 +261,13 @@ async function invokeChatCoreCapturingUpstream(body: Record<string, unknown>) {
         model: CHATCORE_PROBE_MODEL,
         extendedContext: false,
       },
-      credentials: { apiKey: "sk-test", providerSpecificData: {} },
+      // R-17: an unregistered provider is only dispatched when its connection carries a
+      // base URL (never to the OpenAI default endpoint). fetch is mocked above, so the
+      // host is irrelevant — it just has to be configured.
+      credentials: {
+        apiKey: "sk-test",
+        providerSpecificData: { baseUrl: "http://127.0.0.1:9/v1" },
+      },
       log: { debug() {}, info() {}, warn() {}, error() {} },
       clientRawRequest: {
         endpoint: "/v1/chat/completions",

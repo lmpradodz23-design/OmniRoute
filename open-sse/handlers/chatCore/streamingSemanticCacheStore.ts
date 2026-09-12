@@ -10,6 +10,7 @@
  * statement of the callback, so returning from this helper is equivalent.
  */
 import {
+  extractSignatureContext,
   generateSignature as defaultGenerateSignature,
   setCachedResponse as defaultSetCachedResponse,
   isCacheableForWrite as defaultIsCacheableForWrite,
@@ -49,6 +50,8 @@ interface StreamingCacheArgs {
   apiKeyId?: string;
   streamUsage?: Record<string, unknown> | null;
   log?: LoggerLike;
+  /** Client wire format the assembled (translated) stream body is shaped for. */
+  sourceFormat?: string;
 }
 
 function streamTokensSaved(streamUsage: Record<string, unknown> | null | undefined): number {
@@ -69,7 +72,9 @@ function writeStreamingCacheEntry(
       args.body.messages ?? args.body.input,
       args.body.temperature,
       args.body.top_p,
-      args.apiKeyId ?? undefined
+      args.apiKeyId ?? undefined,
+      args.sourceFormat,
+      extractSignatureContext(args.body)
     );
     const tokensSaved = streamTokensSaved(args.streamUsage);
     deps.setCachedResponse(sig, args.model, cleanBody, tokensSaved);

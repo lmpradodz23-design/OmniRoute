@@ -327,7 +327,7 @@ pending implementation).
 ### CodeQL ratchet: refresh cadence and manual trigger
 
 `check:codeql-ratchet` reads **repo state, refreshed on a schedule — not per PR.**
-`gh api repos/diegosouzapw/OmniRoute/code-scanning/default-setup` reports
+`gh api repos/LMPrado-DZ23/OmniRoute/code-scanning/default-setup` reports
 `state: configured`, `schedule: weekly`: GitHub's default-setup scan, not a per-push
 analysis. Consequence: after a PR that FIXES alerts merges, the ratchet keeps reading
 the old, higher count until the next scheduled scan runs — so it reports a regression

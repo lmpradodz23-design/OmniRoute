@@ -9596,14 +9596,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/keys/{id}/reveal:
-    get:
-      tags:
-        - Keys
-      summary: "GET keys › <id> › reveal"
-      responses:
-        "200":
-          description: OK
   /api/keys/{id}/usage-limits:
     get:
       tags:
@@ -13515,12 +13507,12 @@ components:
           type: string
           format: uri
           description: GitHub raw URL of the SKILL.md file
-          example: "https://raw.githubusercontent.com/diegosouzapw/OmniRoute/refs/heads/main/skills/omni-providers/SKILL.md"
+          example: "https://raw.githubusercontent.com/LMPrado-DZ23/OmniRoute/refs/heads/main/skills/omni-providers/SKILL.md"
         githubUrl:
           type: string
           format: uri
           description: GitHub blob URL for viewing the SKILL.md in the browser
-          example: "https://github.com/diegosouzapw/OmniRoute/blob/main/skills/omni-providers/SKILL.md"
+          example: "https://github.com/LMPrado-DZ23/OmniRoute/blob/main/skills/omni-providers/SKILL.md"
 
     SkillCoverage:
       type: object

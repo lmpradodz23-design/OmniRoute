@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getFile, getFileContent } from "@/lib/db/files";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { contentDispositionAttachment } from "@/shared/utils/contentDisposition";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireManagementAuth(request);
@@ -28,7 +29,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return new Response(content as unknown as BodyInit, {
     headers: {
       "Content-Type": file.mimeType || "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      // P-6: the stored filename is user-controlled — never interpolate it raw into a header.
+      "Content-Disposition": contentDispositionAttachment(filename, id),
     },
   });
 }

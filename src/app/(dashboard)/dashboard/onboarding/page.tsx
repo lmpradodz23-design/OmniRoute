@@ -6,8 +6,11 @@ import { useTranslations } from "next-intl";
 import { useDisplayBaseUrl } from "@/shared/hooks";
 import { FreeProviderOnboardingCard } from "./steps/FreeProviderOnboardingCard";
 import { TierTour } from "./steps/TierTour";
+import { presentApiError, presentConnectionTestFailure } from "@/shared/utils/apiErrorPresentation";
 
 const STEP_IDS = ["welcome", "tiers", "security", "provider", "test", "done"];
+/** U8: upper bound for the onboarding connection test (list + probe). */
+const PROVIDER_TEST_TIMEOUT_MS = 15_000;
 const STEP_ICONS = ["waving_hand", "layers", "lock", "dns", "play_circle", "check_circle"];
 
 const COMMON_PROVIDERS = [
@@ -73,15 +76,37 @@ export default function OnboardingWizard() {
   const currentStep = STEPS[step];
   const isLastStep = step === STEPS.length - 1;
 
+  // U1: API failures land here and are rendered (role="alert") inside the step that
+  // produced them; changing step clears it so a stale message never follows the user.
+  const [errorMessage, setErrorMessage] = useState("");
+  // U4: the body may be `{ error: "text" }` or `{ error: { code, message } }` — always a string here.
+  const describeFailure = async (res: Response, fallback: string) => {
+    const body = await res.json().catch(() => null);
+    return presentApiError(body, {
+      translate: (key) => (typeof tc.has !== "function" || tc.has(key) ? tc(key) : null),
+      fallback,
+      status: res.status,
+    }).message;
+  };
+
   const handleNext = () => {
+    setErrorMessage("");
     if (step < STEPS.length - 1) setStep(step + 1);
   };
 
   const handleBack = () => {
+    setErrorMessage("");
     if (step > 0) setStep(step - 1);
   };
 
-  const [errorMessage, setErrorMessage] = useState("");
+  const stepError = errorMessage ? (
+    <p
+      role="alert"
+      className="text-sm text-red-400 text-center rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 animate-in fade-in duration-200"
+    >
+      {errorMessage}
+    </p>
+  ) : null;
 
   const handleSetPassword = async () => {
     if (skipSecurity) {
@@ -105,8 +130,7 @@ export default function OnboardingWizard() {
         body: JSON.stringify({ requireLogin: true, password }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.error || t("failedSetPassword"));
+        setErrorMessage(await describeFailure(res, t("failedSetPassword")));
         return;
       }
       const loginRes = await fetch("/api/auth/login", {
@@ -115,8 +139,7 @@ export default function OnboardingWizard() {
         body: JSON.stringify({ password }),
       });
       if (!loginRes.ok) {
-        const data = await loginRes.json().catch(() => ({}));
-        setErrorMessage(data.error || t("connectionError"));
+        setErrorMessage(await describeFailure(loginRes, t("connectionError")));
         return;
       }
       handleNext();
@@ -150,8 +173,7 @@ export default function OnboardingWizard() {
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.error || t("failedAddProvider"));
+        setErrorMessage(await describeFailure(res, t("failedAddProvider")));
         return;
       }
       handleNext();
@@ -163,8 +185,11 @@ export default function OnboardingWizard() {
   const handleTestProvider = async () => {
     setTestStatus("testing");
     setTestMessage(t("testingConnection"));
+    // U8: a provider that never answers must not leave the wizard spinning forever.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROVIDER_TEST_TIMEOUT_MS);
     try {
-      const res = await fetch("/api/providers");
+      const res = await fetch("/api/providers", { signal: controller.signal });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       const conn = data.connections?.[0];
@@ -173,18 +198,51 @@ export default function OnboardingWizard() {
         setTestMessage(t("noProviderFound"));
         return;
       }
-      const testRes = await fetch(`/api/providers/${conn.id}/test`, { method: "POST" });
+      const testRes = await fetch(`/api/providers/${conn.id}/test`, {
+        method: "POST",
+        signal: controller.signal,
+      });
       if (testRes.ok) {
+        // The test route answers 200 for a probe that RAN; whether the provider is reachable
+        // is in the body (`valid`). Treating HTTP 200 as success told a first-time user
+        // "connection successful" for a dead host (found by the final audit's C-03 fix).
+        const result = (await testRes.json().catch(() => null)) as {
+          valid?: boolean;
+          error?: string | null;
+          warning?: string | null;
+          diagnosis?: { code?: string | null; message?: string | null } | null;
+        } | null;
+        if (result && result.valid === false) {
+          setTestStatus("error");
+          setTestMessage(
+            presentConnectionTestFailure(result, {
+              // Forward the interpolation values ({host}, {seconds}) — dropping them would
+              // render the typed message without the host the user needs to check.
+              translate: (key, values) =>
+                typeof tc.has !== "function" || tc.has(key) ? tc(key, values) : null,
+              fallback: t("testFailed"),
+            }).message
+          );
+          return;
+        }
         setTestStatus("success");
         setTestMessage(t("connectionSuccessful"));
       } else {
         const err = await testRes.json().catch(() => ({}));
         setTestStatus("error");
-        setTestMessage(err.error || t("testFailed"));
+        setTestMessage(
+          typeof err.error === "string" && err.error.trim() ? err.error : t("testFailed")
+        );
       }
-    } catch {
+    } catch (err) {
       setTestStatus("error");
-      setTestMessage(t("couldNotTest"));
+      setTestMessage(
+        controller.signal.aborted || (err as { name?: string })?.name === "AbortError"
+          ? t("testTimedOut")
+          : t("couldNotTest")
+      );
+    } finally {
+      clearTimeout(timeout);
     }
   };
 
@@ -280,7 +338,7 @@ export default function OnboardingWizard() {
             {currentStep.id === "welcome" && (
               <div className="text-center space-y-4">
                 <p className="text-text-muted">{t("welcomeDesc")}</p>
-                <div className="mt-6 grid grid-cols-3 gap-3 items-stretch">
+                <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3 items-stretch">
                   {[
                     { icon: "swap_horiz", label: t("multiProvider") },
                     { icon: "monitoring", label: t("usageTracking") },
@@ -328,6 +386,7 @@ export default function OnboardingWizard() {
                     <input
                       type="password"
                       placeholder={t("enterPassword")}
+                      aria-label={t("enterPassword")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
@@ -337,6 +396,7 @@ export default function OnboardingWizard() {
                     <input
                       type="password"
                       placeholder={t("confirmPasswordPlaceholder")}
+                      aria-label={t("confirmPasswordPlaceholder")}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
@@ -348,7 +408,7 @@ export default function OnboardingWizard() {
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                           keyboard_capslock
                         </span>
-                        Caps Lock is on
+                        {tc("capsLockOn")}
                       </p>
                     )}
                     {password && confirmPassword && password !== confirmPassword && (
@@ -356,6 +416,7 @@ export default function OnboardingWizard() {
                     )}
                   </div>
                 )}
+                {stepError}
               </div>
             )}
 
@@ -377,7 +438,7 @@ export default function OnboardingWizard() {
                   </div>
                 )}
                 {!skipSecurity && (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {COMMON_PROVIDERS.map((p) => (
                       <button
                         key={p.id}
@@ -401,6 +462,7 @@ export default function OnboardingWizard() {
                     <input
                       type="password"
                       placeholder={t("apiKeyRequired")}
+                      aria-label={t("apiKeyRequired")}
                       value={providerKey}
                       onChange={(e) => setProviderKey(e.target.value)}
                       className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -408,12 +470,14 @@ export default function OnboardingWizard() {
                     <input
                       type="text"
                       placeholder={t("customUrlOptional")}
+                      aria-label={t("customUrlOptional")}
                       value={providerUrl}
                       onChange={(e) => setProviderUrl(e.target.value)}
                       className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
                 )}
+                {stepError}
               </div>
             )}
 

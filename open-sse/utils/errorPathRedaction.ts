@@ -55,6 +55,22 @@ const POSIX_FILESYSTEM_ROOTS = [
   "/var",
   "/workspace",
 ] as const;
+// Public API route roots. Error prose routinely names the route a caller must use
+// ("cannot be used on /v1/chat/completions. Use POST /v1/images/generations",
+// "Invalid JSON response from /models"); none of these is a filesystem root and the
+// hint is useful to the caller, so a POSIX token rooted here is kept verbatim.
+// Every other absolute token keeps the fail-closed filesystem treatment.
+const PUBLIC_API_ROUTE_ROOTS = [
+  "/v1",
+  "/v1beta",
+  "/api",
+  "/models",
+  "/chat",
+  "/completions",
+  "/messages",
+  "/responses",
+  "/embeddings",
+] as const;
 const WINDOWS_ROOT_RELATIVE_ROOTS = new Set([
   "program files",
   "programdata",
@@ -199,6 +215,23 @@ function isKnownPosixFilesystemPath(value: string): boolean {
   return isKnownPosixFilesystemPathAt(value, 0);
 }
 
+function isPublicApiRouteAt(value: string, start: number): boolean {
+  if (value.charCodeAt(start) !== 0x2f || value.charCodeAt(start + 1) === 0x2f) return false;
+  for (const root of PUBLIC_API_ROUTE_ROOTS) {
+    if (!value.startsWith(root, start)) continue;
+    const rootEnd = start + root.length;
+    if (
+      rootEnd === value.length ||
+      value.charCodeAt(rootEnd) === 0x2f ||
+      isWhitespace(value[rootEnd]) ||
+      PATH_SPAN_END_PUNCTUATION.includes(value[rootEnd])
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function looksLikeAbsolutePath(token: string): boolean {
   // POSIX: common filesystem roots, with or without a source extension.
   // Windows: drive-letter, UNC, or extended-length absolute paths.
@@ -232,6 +265,7 @@ function redactAbsolutePathToken(token: string, followsRouteContext: boolean): s
   const isFileUri = hasAbsoluteFileUri(candidate);
   const pathCandidate = isFileUri ? candidate.slice(FILE_URI_PREFIX.length) : candidate;
 
+  if (!isFileUri && isPublicApiRouteAt(pathCandidate, 0)) return token;
   if (
     !isFileUri &&
     !isWindowsAbsolutePath(pathCandidate) &&
@@ -281,7 +315,7 @@ function redactQuotedAbsolutePaths(value: string): string {
     const isShieldedRoute =
       value.charCodeAt(candidateStart) === 0x2f &&
       !isWindowsAbsolutePathAt(value, candidateStart) &&
-      hasRouteContextBefore(value, index);
+      (hasRouteContextBefore(value, index) || isPublicApiRouteAt(value, candidateStart));
     // Route/API contexts use their first closing quote so a later quoted
     // filesystem path is still scanned independently. Filesystem candidates
     // take the last matching quote on the line: POSIX filenames may themselves
@@ -312,20 +346,8 @@ function findPathExtensionEnd(value: string, dot: number): number {
   if (end === dot + 1 || (end === maxExtensionEnd && isAsciiAlphaNumeric(value.charCodeAt(end)))) {
     return -1;
   }
-  let hasLetter = false;
-  for (let index = dot + 1; index < end; index++) {
-    if (isAsciiLetter(value.charCodeAt(index))) hasLetter = true;
-  }
-  if (!hasLetter) return -1;
-
-  while (value.charCodeAt(end) === 0x3a) {
-    let coordinateEnd = end + 1;
-    if (!isAsciiDigit(value.charCodeAt(coordinateEnd))) break;
-    while (coordinateEnd < value.length && isAsciiDigit(value.charCodeAt(coordinateEnd))) {
-      coordinateEnd++;
-    }
-    end = coordinateEnd;
-  }
+  if (!rangeHasAsciiLetter(value, dot + 1, end)) return -1;
+  end = skipLineColumnCoordinates(value, end);
 
   if (
     end === value.length ||
@@ -335,6 +357,26 @@ function findPathExtensionEnd(value: string, dot: number): number {
     return end;
   }
   return -1;
+}
+
+function rangeHasAsciiLetter(value: string, start: number, end: number): boolean {
+  for (let index = start; index < end; index++) {
+    if (isAsciiLetter(value.charCodeAt(index))) return true;
+  }
+  return false;
+}
+
+/** Advances past the `:line[:column]` coordinate suffixes that follow an extension (`file.ts:42:9`). */
+function skipLineColumnCoordinates(value: string, end: number): number {
+  while (value.charCodeAt(end) === 0x3a) {
+    let coordinateEnd = end + 1;
+    if (!isAsciiDigit(value.charCodeAt(coordinateEnd))) break;
+    while (coordinateEnd < value.length && isAsciiDigit(value.charCodeAt(coordinateEnd))) {
+      coordinateEnd++;
+    }
+    end = coordinateEnd;
+  }
+  return end;
 }
 
 function findTokenEnd(value: string, start: number): number {
@@ -418,32 +460,55 @@ function remainderContainsFilesystemSeparator(value: string, start: number): boo
     const tokenEnd = findTokenEnd(value, tokenStart);
     const token = value.slice(tokenStart, tokenEnd).toLowerCase();
     const isHttpUrl = token.includes("http://") || token.includes("https://");
-    let separatorIndex = tokenStart;
-    while (
+    const separatorIndex = findSeparatorInToken(value, tokenStart, tokenEnd);
+    if (
+      !isHttpUrl &&
       separatorIndex < tokenEnd &&
-      value.charCodeAt(separatorIndex) !== 0x2f &&
-      value.charCodeAt(separatorIndex) !== 0x5c
+      !isShieldedRouteSeparator(value, tokenStart, tokenEnd, separatorIndex, previousToken)
     ) {
-      separatorIndex++;
+      return true;
     }
-    const precedingSeparatorCode =
-      separatorIndex > tokenStart ? value.charCodeAt(separatorIndex - 1) : -1;
-    const contextIndex =
-      precedingSeparatorCode === 0x27 ||
-      precedingSeparatorCode === 0x22 ||
-      precedingSeparatorCode === 0x60
-        ? separatorIndex - 1
-        : separatorIndex;
-    const isShieldedRoute =
-      separatorIndex < tokenEnd &&
-      value.charCodeAt(separatorIndex) === 0x2f &&
-      !isWindowsAbsolutePathAt(value, separatorIndex) &&
-      (isRouteContextToken(previousToken) || hasRouteContextBefore(value, contextIndex));
-    if (!isHttpUrl && separatorIndex < tokenEnd && !isShieldedRoute) return true;
     previousToken = value.slice(tokenStart, tokenEnd);
     tokenStart = tokenEnd;
   }
   return false;
+}
+
+/** Index of the first `/` or `\\` inside the token, or `tokenEnd` when it has none. */
+function findSeparatorInToken(value: string, tokenStart: number, tokenEnd: number): number {
+  let index = tokenStart;
+  while (index < tokenEnd && value.charCodeAt(index) !== 0x2f && value.charCodeAt(index) !== 0x5c) {
+    index++;
+  }
+  return index;
+}
+
+/**
+ * A `/` that reads as an HTTP route rather than a filesystem separator: route context
+ * before it (previous token, or the text before an opening quote) or a public API route.
+ */
+function isShieldedRouteSeparator(
+  value: string,
+  tokenStart: number,
+  tokenEnd: number,
+  separatorIndex: number,
+  previousToken: string
+): boolean {
+  if (separatorIndex >= tokenEnd || value.charCodeAt(separatorIndex) !== 0x2f) return false;
+  if (isWindowsAbsolutePathAt(value, separatorIndex)) return false;
+  const precedingSeparatorCode =
+    separatorIndex > tokenStart ? value.charCodeAt(separatorIndex - 1) : -1;
+  const contextIndex =
+    precedingSeparatorCode === 0x27 ||
+    precedingSeparatorCode === 0x22 ||
+    precedingSeparatorCode === 0x60
+      ? separatorIndex - 1
+      : separatorIndex;
+  return (
+    isRouteContextToken(previousToken) ||
+    hasRouteContextBefore(value, contextIndex) ||
+    isPublicApiRouteAt(value, separatorIndex)
+  );
 }
 
 function trimPathSpanEnd(value: string, start: number, end: number): number {
@@ -459,6 +524,86 @@ function isClearProseBoundaryToken(value: string, start: number, end: number): b
   );
 }
 
+interface UnquotedPathScan {
+  firstTokenEnd: number;
+  firstTrimmedTokenEnd: number;
+  lastPathTokenEnd: number;
+  resolvedExtensionEnd: number;
+  resolvedCoordinateEnd: number;
+  hasFilesystemEvidence: boolean;
+  hasUnresolvedFragments: boolean;
+}
+
+function resolveUnquotedPathEndpoint(
+  scan: UnquotedPathScan,
+  valueLength: number,
+  acceptFirstTokenPunctuation: boolean,
+  failClosedAmbiguity: boolean
+): number {
+  if (scan.hasUnresolvedFragments) {
+    // A coordinate-terminated stack location (`file.ts:42:9`) is a definite
+    // endpoint: prefer it over failing closed so trailing prose such as
+    // "Authorization: Bearer <secret>" is not swallowed into <path> and can
+    // still be redacted independently by the sensitive-text pass.
+    if (scan.resolvedCoordinateEnd >= 0) return scan.resolvedCoordinateEnd;
+    return failClosedAmbiguity || scan.hasFilesystemEvidence ? valueLength : -1;
+  }
+  if (scan.resolvedExtensionEnd >= 0) return scan.resolvedExtensionEnd;
+  if (scan.hasFilesystemEvidence && scan.lastPathTokenEnd >= 0) return scan.lastPathTokenEnd;
+  if (
+    acceptFirstTokenPunctuation &&
+    scan.firstTrimmedTokenEnd >= 0 &&
+    scan.firstTrimmedTokenEnd < scan.firstTokenEnd
+  ) {
+    return scan.firstTrimmedTokenEnd;
+  }
+  return -1;
+}
+
+/** Folds one token's separator / extension / coordinate evidence into the scan state. */
+function noteUnquotedPathToken(
+  scan: UnquotedPathScan,
+  value: string,
+  tokenStart: number,
+  tokenEnd: number,
+  isFirstToken: boolean
+): void {
+  const extensionEnd = findExtensionEndInToken(value, tokenStart, tokenEnd);
+  const trimmedTokenEnd = trimPathSpanEnd(value, tokenStart, tokenEnd);
+  if (isFirstToken) {
+    scan.firstTokenEnd = tokenEnd;
+    scan.firstTrimmedTokenEnd = trimmedTokenEnd;
+    scan.lastPathTokenEnd = trimmedTokenEnd;
+  }
+  const containsSeparator = tokenContainsPathSeparator(value, tokenStart, tokenEnd);
+  const containsExtensionEvidence = tokenContainsPathExtensionEvidence(value, tokenStart, tokenEnd);
+  if (containsSeparator) {
+    scan.lastPathTokenEnd = trimmedTokenEnd;
+    scan.hasFilesystemEvidence = true;
+    scan.hasUnresolvedFragments = false;
+    scan.resolvedExtensionEnd = extensionEnd >= 0 ? extensionEnd : -1;
+    if (extensionEnd < 0 && containsExtensionEvidence) {
+      scan.resolvedExtensionEnd = trimmedTokenEnd;
+    }
+    if (extensionEnd >= 0 && extensionEndHasLineColumnSuffix(value, extensionEnd)) {
+      scan.resolvedCoordinateEnd = extensionEnd;
+    }
+  } else if (extensionEnd >= 0) {
+    scan.resolvedExtensionEnd = extensionEnd;
+    scan.hasFilesystemEvidence = true;
+    scan.hasUnresolvedFragments = false;
+    if (extensionEndHasLineColumnSuffix(value, extensionEnd)) {
+      scan.resolvedCoordinateEnd = extensionEnd;
+    }
+  } else if (containsExtensionEvidence) {
+    scan.resolvedExtensionEnd = trimmedTokenEnd;
+    scan.hasFilesystemEvidence = true;
+    scan.hasUnresolvedFragments = false;
+  } else if (!isFirstToken) {
+    scan.hasUnresolvedFragments = true;
+  }
+}
+
 function findUnquotedPathEnd(
   value: string,
   start: number,
@@ -466,88 +611,39 @@ function findUnquotedPathEnd(
   acceptEndpointBeforeAnotherAbsolute: boolean,
   failClosedAmbiguity: boolean
 ): number {
+  const scan: UnquotedPathScan = {
+    firstTokenEnd: -1,
+    firstTrimmedTokenEnd: -1,
+    lastPathTokenEnd: -1,
+    resolvedExtensionEnd: -1,
+    resolvedCoordinateEnd: -1,
+    hasFilesystemEvidence: false,
+    hasUnresolvedFragments: false,
+  };
+  const resolveEndpoint = (): number =>
+    resolveUnquotedPathEndpoint(
+      scan,
+      value.length,
+      acceptFirstTokenPunctuation,
+      failClosedAmbiguity
+    );
   let tokenStart = start;
   let isFirstToken = true;
-  let firstTokenEnd = -1;
-  let firstTrimmedTokenEnd = -1;
-  let lastPathTokenEnd = -1;
-  let resolvedExtensionEnd = -1;
-  let resolvedCoordinateEnd = -1;
-  let hasFilesystemEvidence = false;
-  let hasUnresolvedFragments = false;
-
-  const resolveEndpoint = (): number => {
-    if (hasUnresolvedFragments) {
-      // A coordinate-terminated stack location (`file.ts:42:9`) is a definite
-      // endpoint: prefer it over failing closed so trailing prose such as
-      // "Authorization: Bearer <secret>" is not swallowed into <path> and can
-      // still be redacted independently by the sensitive-text pass.
-      if (resolvedCoordinateEnd >= 0) return resolvedCoordinateEnd;
-      return failClosedAmbiguity || hasFilesystemEvidence ? value.length : -1;
-    }
-    if (resolvedExtensionEnd >= 0) return resolvedExtensionEnd;
-    if (hasFilesystemEvidence && lastPathTokenEnd >= 0) return lastPathTokenEnd;
-    if (
-      acceptFirstTokenPunctuation &&
-      firstTrimmedTokenEnd >= 0 &&
-      firstTrimmedTokenEnd < firstTokenEnd
-    ) {
-      return firstTrimmedTokenEnd;
-    }
-    return -1;
-  };
 
   while (tokenStart < value.length) {
     const tokenEnd = findTokenEnd(value, tokenStart);
-    const extensionEnd = findExtensionEndInToken(value, tokenStart, tokenEnd);
-    const trimmedTokenEnd = trimPathSpanEnd(value, tokenStart, tokenEnd);
-
-    if (isFirstToken) {
-      firstTokenEnd = tokenEnd;
-      firstTrimmedTokenEnd = trimmedTokenEnd;
-      lastPathTokenEnd = trimmedTokenEnd;
-      // A prose-looking token may itself be a directory name. It is a safe
-      // boundary only when no later token carries path-separator evidence;
-      // otherwise keep scanning so a filesystem suffix cannot survive.
-    } else if (
+    // A prose-looking token may itself be a directory name. It is a safe
+    // boundary only when no later token carries path-separator evidence;
+    // otherwise keep scanning so a filesystem suffix cannot survive.
+    if (
+      !isFirstToken &&
       isClearProseBoundaryToken(value, tokenStart, tokenEnd) &&
       (!remainderContainsFilesystemSeparator(value, tokenEnd) ||
-        (!failClosedAmbiguity && !hasFilesystemEvidence))
+        (!failClosedAmbiguity && !scan.hasFilesystemEvidence))
     ) {
       return resolveEndpoint();
     }
-
-    const containsSeparator = tokenContainsPathSeparator(value, tokenStart, tokenEnd);
-    const containsExtensionEvidence = tokenContainsPathExtensionEvidence(
-      value,
-      tokenStart,
-      tokenEnd
-    );
-    if (containsSeparator) {
-      lastPathTokenEnd = trimmedTokenEnd;
-      hasFilesystemEvidence = true;
-      hasUnresolvedFragments = false;
-      resolvedExtensionEnd = extensionEnd >= 0 ? extensionEnd : -1;
-      if (extensionEnd < 0 && containsExtensionEvidence) {
-        resolvedExtensionEnd = trimmedTokenEnd;
-      }
-      if (extensionEnd >= 0 && extensionEndHasLineColumnSuffix(value, extensionEnd)) {
-        resolvedCoordinateEnd = extensionEnd;
-      }
-    } else if (extensionEnd >= 0) {
-      resolvedExtensionEnd = extensionEnd;
-      hasFilesystemEvidence = true;
-      hasUnresolvedFragments = false;
-      if (extensionEndHasLineColumnSuffix(value, extensionEnd)) {
-        resolvedCoordinateEnd = extensionEnd;
-      }
-    } else if (containsExtensionEvidence) {
-      resolvedExtensionEnd = trimmedTokenEnd;
-      hasFilesystemEvidence = true;
-      hasUnresolvedFragments = false;
-    } else if (!isFirstToken) {
-      hasUnresolvedFragments = true;
-    }
+    noteUnquotedPathToken(scan, value, tokenStart, tokenEnd, isFirstToken);
 
     let nextTokenStart = tokenEnd;
     while (nextTokenStart < value.length && isWhitespace(value[nextTokenStart])) nextTokenStart++;
@@ -555,7 +651,7 @@ function findUnquotedPathEnd(
     if (isSyntacticallyAbsolutePathAt(value, nextTokenStart)) {
       const endpoint = resolveEndpoint();
       if (endpoint >= 0) return endpoint;
-      return acceptEndpointBeforeAnotherAbsolute ? lastPathTokenEnd : -1;
+      return acceptEndpointBeforeAnotherAbsolute ? scan.lastPathTokenEnd : -1;
     }
 
     tokenStart = nextTokenStart;
@@ -583,6 +679,52 @@ function isUnquotedPosixSpanCandidateAt(value: string, start: number): boolean {
   // default. Explicit Route/HTTP context is shielded by the caller before this
   // candidate check, so `/vault` is redacted while `Route /vault` is retained.
   return slashCount >= 1 && token.length > 1;
+}
+
+// A bare single-segment POSIX token (`/models`, `/vault`) carries no filesystem
+// evidence of its own. It stays a path candidate when it ends the line, is closed
+// by a clear prose boundary, is followed by another absolute path, or when a later
+// token before the next absolute path carries filesystem evidence (a separator or
+// a file extension — `/vault my secret file.txt`). Otherwise it is API/route prose
+// such as "Endpoint /models unavailable. Provide a Model ID …" (final audit C-03)
+// and must not anchor a fail-closed span that swallows the rest of the sentence.
+// Known POSIX roots (`/etc`, `/home`, …) are always paths.
+function isBarePosixSegmentFollowedByProseAt(value: string, start: number): boolean {
+  if (isKnownPosixFilesystemPathAt(value, start)) return false;
+  const tokenEnd = findTokenEnd(value, start);
+  const trimmedEnd = trimPathSpanEnd(value, start, tokenEnd);
+  if (trimmedEnd - start < 2) return false;
+  for (let index = start + 1; index < trimmedEnd; index++) {
+    const code = value.charCodeAt(index);
+    if (code === 0x2f || code === 0x5c) return false;
+  }
+  if (
+    findExtensionEndInToken(value, start, tokenEnd) >= 0 ||
+    tokenContainsPathExtensionEvidence(value, start, tokenEnd)
+  ) {
+    return false;
+  }
+
+  let cursor = tokenEnd;
+  while (cursor < value.length && isWhitespace(value[cursor])) cursor++;
+  if (cursor >= value.length) return false;
+  if (isSyntacticallyAbsolutePathAt(value, cursor)) return false;
+  if (isClearProseBoundaryToken(value, cursor, findTokenEnd(value, cursor))) return false;
+
+  while (cursor < value.length) {
+    if (isSyntacticallyAbsolutePathAt(value, cursor)) break;
+    const end = findTokenEnd(value, cursor);
+    if (
+      tokenContainsPathSeparator(value, cursor, end) ||
+      findExtensionEndInToken(value, cursor, end) >= 0 ||
+      tokenContainsPathExtensionEvidence(value, cursor, end)
+    ) {
+      return false;
+    }
+    cursor = end;
+    while (cursor < value.length && isWhitespace(value[cursor])) cursor++;
+  }
+  return true;
 }
 
 function redactUnquotedAbsolutePathSpans(value: string): string {
@@ -618,7 +760,9 @@ function redactUnquotedAbsolutePathSpans(value: string): string {
       value.charCodeAt(index) === 0x2f &&
       value.charCodeAt(index + 1) !== 0x2f &&
       !hasRouteContextBefore(value, index) &&
-      isUnquotedPosixSpanCandidateAt(value, index);
+      !isPublicApiRouteAt(value, index) &&
+      isUnquotedPosixSpanCandidateAt(value, index) &&
+      !isBarePosixSegmentFollowedByProseAt(value, index);
     const hasBoundary = hasCommonBoundary || (isWindowsPath && previous === ":");
     if (!hasBoundary || (!isWindowsPath && !isFileUriPath && !isPosixPath)) {
       index++;

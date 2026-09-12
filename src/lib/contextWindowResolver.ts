@@ -5,6 +5,7 @@ import {
   setModelContextOverride,
   removeModelContextOverride,
 } from "./db/modelContextOverrides";
+import { registerShutdownHook } from "./shutdownHooks";
 
 /**
  * Feature 5004 — self-correcting context-window reconciler.
@@ -139,6 +140,8 @@ export function startContextWindowReconcile(intervalMs?: number): void {
 
   // Initial non-blocking pass, then on the interval.
   setTimeout(tick, 0);
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("context-window-reconcile", stopContextWindowReconcile);
   reconcileTimer = setInterval(tick, interval);
   reconcileTimer.unref?.();
 }

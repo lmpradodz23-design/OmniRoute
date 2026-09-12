@@ -25,6 +25,8 @@ test.beforeEach(() => {
 });
 
 test.after(() => {
+  // Close the SQLite handle before removing the directory (Windows: EPERM otherwise).
+  core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 

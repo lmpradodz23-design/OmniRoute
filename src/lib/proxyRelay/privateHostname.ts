@@ -60,6 +60,54 @@ export function isPrivateRelayHostname(h: string): boolean {
     if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA fc00::/7
     // Link-local is fe80::/10 — fe80 through febf, not only the `fe80:` spelling.
     if (/^fe[89ab]/.test(host)) return true;
+    // The `startsWith("::")` test above only sees the compressed spelling; the same
+    // ::/96 and ::ffff:0:0/96 addresses written out (`0:0:0:0:0:ffff:7f00:1`,
+    // `0:0:0:0:0:0:0:1`) must be blocked too (final audit B-1). Expand inline —
+    // this function is embedded verbatim into edge workers and cannot import.
+    let text = host;
+    const lastColon = text.lastIndexOf(":");
+    const tail = text.slice(lastColon + 1);
+    if (tail.includes(".")) {
+      const o = tail.split(".").map((s) => Number(s));
+      if (o.length !== 4 || o.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
+      text = `${text.slice(0, lastColon + 1)}${((o[0] << 8) | o[1]).toString(16)}:${((o[2] << 8) | o[3]).toString(16)}`;
+    }
+    const halves = text.split("::");
+    if (halves.length > 2) return true;
+    const head = halves[0] ? halves[0].split(":") : [];
+    const rest = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+    const missing = 8 - head.length - rest.length;
+    if (halves.length === 2 ? missing < 1 : missing !== 0) return true;
+    const groups = [...head, ...new Array(halves.length === 2 ? missing : 0).fill("0"), ...rest];
+    if (groups.length !== 8 || groups.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return true;
+    const g = groups.map((x) => x.padStart(4, "0"));
+    if (
+      g[0] === "0000" &&
+      g[1] === "0000" &&
+      g[2] === "0000" &&
+      g[3] === "0000" &&
+      g[4] === "0000"
+    ) {
+      return true; // ::/80 — unspecified, loopback, IPv4-compatible, IPv4-mapped
+    }
+    if (
+      g[0] === "0064" &&
+      g[1] === "ff9b" &&
+      g[2] === "0000" &&
+      g[3] === "0000" &&
+      g[4] === "0000" &&
+      g[5] === "0000"
+    ) {
+      // NAT64 64:ff9b::/96 — apply the IPv4 rules to the embedded address.
+      const a = parseInt(g[6].slice(0, 2), 16);
+      const b = parseInt(g[6].slice(2), 16);
+      if (a === 0 || a === 10 || a === 127) return true;
+      if (a === 169 && b === 254) return true;
+      if (a === 192 && b === 168) return true;
+      if (a === 172 && b >= 16 && b <= 31) return true;
+      if (a === 100 && b >= 64 && b <= 127) return true;
+      return false;
+    }
     return false;
   }
 

@@ -282,6 +282,10 @@ const SAFE_PUBLIC_ERROR_IDENTIFIERS = new Set([
   "vision",
   "claude_web_protocol_error",
   "wreq_unavailable",
+  // Provider-typed stream failure codes emitted by our own executors; the public
+  // projection must keep them instead of collapsing to the status default.
+  "huggingchat_generation_error",
+  "zai_stream_error",
 ]);
 
 function isSafePublicErrorIdentifier(value: string): boolean {

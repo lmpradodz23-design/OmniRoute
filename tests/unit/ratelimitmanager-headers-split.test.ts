@@ -14,6 +14,14 @@
  *
  * The host import is released in a test.after hook (watchdog timers) so the
  * native runner does not hang — mirrors the DB-handle teardown discipline.
+ *
+ * The host is imported BEFORE the first test() registration on purpose. node:test
+ * starts running the file's tests as soon as they are registered; a top-level
+ * `await import()` placed between registrations races the runner: the host chain
+ * (DB, schedulers, hundreds of modules) evaluates while tests 1–5 run, the root
+ * run is already winding down when tests 6–7 are registered late, and the async
+ * test 7 is cancelled with "Promise resolution is still pending but the event
+ * loop has already resolved" (any `await import()` in that late test hangs).
  */
 
 import test from "node:test";
@@ -25,6 +33,18 @@ import {
   parseResetTime,
   toPlainHeaders,
 } from "../../open-sse/services/rateLimitManager/headers.ts";
+
+const host = await import("../../open-sse/services/rateLimitManager.ts");
+
+test.after(async () => {
+  // release watchdog timers / limiter state so the runner exits cleanly
+  try {
+    await host.__resetRateLimitManagerForTests?.();
+  } catch {
+    /* ignore */
+  }
+  host.stopRateLimitWatchdog?.();
+});
 
 // ── 1. pure helpers ──────────────────────────────────────────────────────────
 
@@ -59,18 +79,6 @@ test("rateLimitManager/headers — STANDARD/ANTHROPIC header maps are objects wi
 });
 
 // ── 2. host public API surface (17) ──────────────────────────────────────────
-
-const host = await import("../../open-sse/services/rateLimitManager.ts");
-
-test.after(async () => {
-  // release watchdog timers / limiter state so the runner exits cleanly
-  try {
-    await host.__resetRateLimitManagerForTests?.();
-  } catch {
-    /* ignore */
-  }
-  host.stopRateLimitWatchdog?.();
-});
 
 test("rateLimitManager.ts public API surface (17 names)", () => {
   const expected = [

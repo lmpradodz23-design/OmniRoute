@@ -52,7 +52,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "diegosouzapw",
+      "owner": "LMPrado-DZ23",
       "repo": "OmniRoute"
     },
     "files": [
@@ -70,8 +70,12 @@
       "lib/loginHeaderCapture.js",
       "lib/resolveRemoteServerUrl.js",
       "lib/ipcOriginGuard.js",
+      "lib/ownerOnlyFile.js",
       "lib/remoteServerPreferences.js",
       "lib/serverReadiness.js",
+      "lib/loadFailure.js",
+      "lib/trayStrings.js",
+      "lib/preUpdateSnapshot.js",
       "lib/windowClosePolicy.js",
       "assets/remoteServerPrompt.html",
       "package.json",

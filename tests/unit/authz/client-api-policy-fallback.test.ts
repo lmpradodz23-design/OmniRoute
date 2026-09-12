@@ -30,7 +30,7 @@ const POLICY_IMPORT_TARGET = "src/lib/db/apiKeys";
   function patched(this: unknown, request: string, ...rest: unknown[]) {
     if (request.includes(POLICY_IMPORT_TARGET)) {
       // Resolve to a stub file we create below
-      const stubPath = new URL("./__stub_apiKeys.mjs", import.meta.url).pathname;
+      const stubPath = fileURLToPath(new URL("./__stub_apiKeys.mjs", import.meta.url));
       // @ts-expect-error - rest spread to original
       return originalResolve.call(this, stubPath, ...rest);
     }
@@ -59,12 +59,15 @@ fs.writeFileSync(
 (globalThis as unknown as { __mockValidateApiKey: ValidateFn }).__mockValidateApiKey = (key) =>
   mockValidateApiKey(key);
 
-test.after(() => {
+test.after(async () => {
   try {
     fs.unlinkSync(STUB_PATH);
   } catch {
     /* ignore */
   }
+  // Windows: close the SQLite handle opened under TEST_DATA_DIR before removing it (EPERM).
+  const core = await import("../../../src/lib/db/core.ts");
+  core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = ORIGINAL_DATA_DIR;

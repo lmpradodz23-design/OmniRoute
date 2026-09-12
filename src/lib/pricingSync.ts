@@ -13,6 +13,7 @@
 import { getDbInstance } from "./db/core";
 import { invalidateDbCache, getModelCatalogCacheVersion } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
+import { registerShutdownHook } from "./shutdownHooks";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -473,6 +474,8 @@ export function startPeriodicSync(intervalMs?: number): void {
       console.warn("[PRICING_SYNC] Initial sync error:", err instanceof Error ? err.message : err);
     });
 
+  // R-6: stop this scheduler at the start of graceful shutdown, before the database closes.
+  registerShutdownHook("pricing-sync", stopPeriodicSync);
   syncTimer = setInterval(() => {
     syncPricingFromSources()
       .then((result) => {

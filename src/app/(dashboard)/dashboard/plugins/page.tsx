@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, Button, EmptyState } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useTranslations } from "next-intl";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 interface PluginInfo {
   name: string;
@@ -18,6 +19,7 @@ interface PluginInfo {
 export default function PluginsPage() {
   const { addNotification } = useNotificationStore();
   const t = useTranslations("plugins");
+  const confirmDialog = useConfirmDialog();
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -77,7 +79,7 @@ export default function PluginsPage() {
   };
 
   const handleUninstall = async (name: string) => {
-    if (!confirm(t("uninstallConfirm", { name }))) return;
+    if (!(await confirmDialog(t("uninstallConfirm", { name })))) return;
     try {
       const res = await fetch(`/api/plugins/${name}`, { method: "DELETE" });
       if (res.ok) {
@@ -97,6 +99,15 @@ export default function PluginsPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t("title")}</h1>
+      </div>
+
+      {/* P-2/P-3: plugins are trusted code — say so where the operator decides to run one. */}
+      <div
+        role="note"
+        className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm"
+      >
+        <p className="font-medium text-amber-700 dark:text-amber-300">{t("trustNoticeTitle")}</p>
+        <p className="mt-1 text-text-muted">{t("trustNotice")}</p>
       </div>
 
       <div className="flex items-center justify-end">

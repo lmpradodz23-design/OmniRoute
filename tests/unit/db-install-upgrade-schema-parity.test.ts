@@ -116,3 +116,41 @@ test("the model_capabilities migration does not drift from ensureCapabilitiesTab
       "an upgraded database keeps the old shape while a clean install gets the new one"
   );
 });
+
+// ── compression_run_telemetry (Fase 9, check:install-upgrade on v3.8.51) ──────────────
+// Same divergence class as model_capabilities: the table was only ever created lazily by
+// ensureCompressionRunTelemetryTable() (src/lib/db/compressionRunTelemetry.ts) the first time
+// compression telemetry ran, so the v3.8.51 gate reported it as "present only after
+// upgrade" (upgraded 132 tables vs clean 131). A migration makes both paths converge.
+
+test("compression_run_telemetry comes from the migration set, not from a lazy runtime CREATE", () => {
+  assert.ok(
+    hasTable("compression_run_telemetry"),
+    "compression_run_telemetry must be created by a migration so a clean install and an upgrade " +
+      "converge deterministically instead of depending on whether compression telemetry ran"
+  );
+});
+
+test("the compression_run_telemetry migration does not drift from ensureCompressionRunTelemetryTable()", () => {
+  const source = fs.readFileSync(
+    path.join(REPO_ROOT, "src", "lib", "db", "compressionRunTelemetry.ts"),
+    "utf8"
+  );
+  const ddl = /CREATE TABLE IF NOT EXISTS compression_run_telemetry\s*\(([\s\S]*?)\n\s*\)/.exec(
+    source
+  );
+  assert.ok(ddl, "ensureCompressionRunTelemetryTable() DDL not found");
+
+  const runtimeColumns = ddl[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !/^PRIMARY KEY/i.test(line))
+    .map((line) => line.replace(/,$/, "").split(/\s+/)[0])
+    .sort();
+  const migrationColumns = (
+    db.prepare("PRAGMA table_info(compression_run_telemetry)").all() as Array<{ name: string }>
+  )
+    .map((column) => column.name)
+    .sort();
+  assert.deepEqual(migrationColumns, runtimeColumns);
+});

@@ -8,25 +8,46 @@ import IPFilterSection from "./IPFilterSection";
 import SessionInfoCard from "./SessionInfoCard";
 import AuthzSection from "./AuthzSection";
 import { useTranslations } from "next-intl";
+import { presentApiError, type PresentedApiError } from "@/shared/utils/apiErrorPresentation";
+import { ErrorNotice, type StatusNotice } from "./ErrorNotice";
+import SecurityPasswordForm from "./SecurityPasswordForm";
+
+/** Response body as JSON, or `null` when there is none / it does not parse. */
+async function readBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 export default function SecurityTab() {
   const [settings, setSettings] = useState<any>({ requireLogin: false, hasPassword: false });
   const [loading, setLoading] = useState(true);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
-  const [passStatus, setPassStatus] = useState({ type: "", message: "" });
+  const [passStatus, setPassStatus] = useState<StatusNotice>({ type: "", message: "" });
   const [passLoading, setPassLoading] = useState(false);
 
   const [requireLoginModalOpen, setRequireLoginModalOpen] = useState(false);
   const [pendingRequireLoginVal, setPendingRequireLoginVal] = useState<boolean | null>(null);
   const [requireLoginPassword, setRequireLoginPassword] = useState("");
-  const [requireLoginError, setRequireLoginError] = useState("");
+  const [requireLoginError, setRequireLoginError] = useState<PresentedApiError | null>(null);
   const [requireLoginLoading, setRequireLoginLoading] = useState(false);
+  const [toggleError, setToggleError] = useState<PresentedApiError | null>(null);
+  // U3: "Require login" with no password yet — the password is asked for inline and sent
+  // together with `requireLogin: true`; nothing is persisted before it exists.
+  const [enablingLogin, setEnablingLogin] = useState(false);
   const [newBannedKeyword, setNewBannedKeyword] = useState("");
 
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const getSettingsLabel = (key: string, fallback: string) =>
     typeof t.has === "function" && t.has(key) ? t(key) : fallback;
+  // `common.apiErrors.*` lookup that tolerates a missing key (older catalogs).
+  const translateApiError = (key: string) =>
+    typeof tc.has !== "function" || tc.has(key) ? tc(key) : null;
+  const describeError = (body: unknown, fallback: string, status?: number) =>
+    presentApiError(body, { translate: translateApiError, fallback, status });
 
   useEffect(() => {
     fetch("/api/settings")
@@ -39,12 +60,24 @@ export default function SecurityTab() {
   }, []);
 
   const updateRequireLogin = async (requireLogin: boolean) => {
+    setToggleError(null);
     if (settings.hasPassword) {
       setPendingRequireLoginVal(requireLogin);
       setRequireLoginPassword("");
-      setRequireLoginError("");
+      setRequireLoginError(null);
       setRequireLoginModalOpen(true);
       return;
+    }
+
+    if (requireLogin) {
+      setEnablingLogin(true);
+      setPassStatus({ type: "", message: "" });
+      return;
+    }
+    if (enablingLogin) {
+      setEnablingLogin(false);
+      setPasswords({ current: "", new: "", confirm: "" });
+      if (settings.requireLogin !== true) return; // only cancelling the inline prompt
     }
 
     try {
@@ -55,16 +88,20 @@ export default function SecurityTab() {
       });
       if (res.ok) {
         setSettings((prev: any) => ({ ...prev, requireLogin }));
+      } else {
+        // U4: a failed toggle used to be silent — the switch just snapped back.
+        setToggleError(describeError(await readBody(res), t("errorOccurred"), res.status));
       }
     } catch (err) {
       console.error("Failed to update require login:", err);
+      setToggleError(describeError(null, t("errorOccurred")));
     }
   };
 
   const confirmRequireLoginUpdate = async () => {
     if (pendingRequireLoginVal === null) return;
     setRequireLoginLoading(true);
-    setRequireLoginError("");
+    setRequireLoginError(null);
 
     try {
       const res = await fetch("/api/settings", {
@@ -80,12 +117,11 @@ export default function SecurityTab() {
         setSettings((prev: any) => ({ ...prev, requireLogin: pendingRequireLoginVal }));
         setRequireLoginModalOpen(false);
       } else {
-        const data = await res.json();
-        setRequireLoginError(data?.error?.message || t("errorOccurred"));
+        setRequireLoginError(describeError(await readBody(res), t("errorOccurred"), res.status));
       }
     } catch (err) {
       console.error("Failed to update require login:", err);
-      setRequireLoginError(t("errorOccurred"));
+      setRequireLoginError(describeError(null, t("errorOccurred")));
     } finally {
       setRequireLoginLoading(false);
     }
@@ -143,17 +179,24 @@ export default function SecurityTab() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentPassword: passwords.current,
+          ...(enablingLogin ? { requireLogin: true } : {}),
+          ...(settings.hasPassword ? { currentPassword: passwords.current } : {}),
           newPassword: passwords.new,
         }),
       });
-      const data = await res.json();
+      const data = await readBody(res);
       if (res.ok) {
         setPassStatus({ type: "success", message: t("passwordUpdated") });
         setPasswords({ current: "", new: "", confirm: "" });
-        setSettings((prev: any) => ({ ...prev, hasPassword: true }));
+        setSettings((prev: any) => ({
+          ...prev,
+          hasPassword: true,
+          requireLogin: enablingLogin ? true : prev.requireLogin,
+        }));
+        setEnablingLogin(false);
       } else {
-        setPassStatus({ type: "error", message: data.error || t("failedUpdatePassword") });
+        const presented = describeError(data, t("failedUpdatePassword"), res.status);
+        setPassStatus({ type: "error", message: presented.message, detail: presented.detail });
       }
     } catch {
       setPassStatus({ type: "error", message: t("errorOccurred") });
@@ -163,6 +206,8 @@ export default function SecurityTab() {
   };
 
   const blockedProviders: string[] = settings.blockedProviders || [];
+  // Stored policy, or the inline "enable login" prompt in progress (U3).
+  const loginRequired = settings.requireLogin === true || enablingLogin;
 
   return (
     <div className="flex flex-col gap-6">
@@ -182,11 +227,12 @@ export default function SecurityTab() {
               <p className="text-sm text-text-muted">{t("requireLoginDesc")}</p>
             </div>
             <Toggle
-              checked={settings.requireLogin === true}
-              onChange={() => updateRequireLogin(!settings.requireLogin)}
+              checked={loginRequired}
+              onChange={() => updateRequireLogin(!loginRequired)}
               disabled={loading}
             />
           </div>
+          {toggleError && <ErrorNotice error={toggleError} showDetailsLabel={tc("showDetails")} />}
 
           <Modal
             isOpen={requireLoginModalOpen}
@@ -207,7 +253,9 @@ export default function SecurityTab() {
                 autoFocus
                 disabled={requireLoginLoading}
               />
-              {requireLoginError && <p className="text-sm text-red-500">{requireLoginError}</p>}
+              {requireLoginError && (
+                <ErrorNotice error={requireLoginError} showDetailsLabel={tc("showDetails")} />
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <Button
                   variant="ghost"
@@ -228,54 +276,17 @@ export default function SecurityTab() {
             </div>
           </Modal>
 
-          {settings.requireLogin === true && (
-            <form
+          {loginRequired && (
+            <SecurityPasswordForm
+              passwords={passwords}
+              onPasswordsChange={setPasswords}
+              passStatus={passStatus}
+              passLoading={passLoading}
+              enablingLogin={enablingLogin}
+              hasPassword={settings.hasPassword}
               onSubmit={handlePasswordChange}
-              className="flex flex-col gap-4 pt-4 border-t border-border/50"
-            >
-              {settings.hasPassword && (
-                <Input
-                  label={t("currentPassword")}
-                  type="password"
-                  placeholder={t("enterCurrentPassword")}
-                  value={passwords.current}
-                  onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                  required
-                />
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label={t("newPassword")}
-                  type="password"
-                  placeholder={t("enterNewPassword")}
-                  value={passwords.new}
-                  onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                  required
-                />
-                <Input
-                  label={t("confirmPassword")}
-                  type="password"
-                  placeholder={t("confirmPasswordPlaceholder")}
-                  value={passwords.confirm}
-                  onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                  required
-                />
-              </div>
-
-              {passStatus.message && (
-                <p
-                  className={`text-sm ${passStatus.type === "error" ? "text-red-500" : "text-green-500"}`}
-                >
-                  {passStatus.message}
-                </p>
-              )}
-
-              <div className="pt-2">
-                <Button type="submit" variant="primary" loading={passLoading}>
-                  {settings.hasPassword ? t("updatePassword") : t("setPassword")}
-                </Button>
-              </div>
-            </form>
+              onCancelEnableLogin={() => updateRequireLogin(false)}
+            />
           )}
         </div>
       </Card>

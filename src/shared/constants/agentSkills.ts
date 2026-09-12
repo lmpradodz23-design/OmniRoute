@@ -3,9 +3,10 @@
 // at runtime by src/lib/agentSkills/catalog.ts (via OpenAPI + CLI parsers).
 
 import type { AgentSkill, SkillArea, SkillCategory } from "@/lib/agentSkills/types";
+import { DEFAULT_BRANCH, GITHUB_REPO_SLUG } from "@/shared/constants/distribution";
 
-const REPO = "diegosouzapw/OmniRoute";
-const BRANCH = "main";
+const REPO = GITHUB_REPO_SLUG;
+const BRANCH = DEFAULT_BRANCH;
 const SKILL_PATH = "skills";
 
 export const AGENT_SKILLS_RAW_BASE = `https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/${SKILL_PATH}`;

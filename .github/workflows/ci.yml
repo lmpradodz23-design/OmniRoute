@@ -39,7 +39,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
       # Refuse a PR that targets its own head branch before spending anything on it. #8912 has
@@ -91,11 +91,11 @@ jobs:
       API_KEY_SECRET: ci-lint-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -103,7 +103,7 @@ jobs:
       - run: npm run check:node-runtime
       - run: npm run audit:deps
       - name: Restore ESLint file cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             .eslintcache
@@ -120,7 +120,7 @@ jobs:
         run: npm run lint:json
       - name: Upload ESLint results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: eslint-results
           path: .artifacts/eslint-results.json
@@ -197,16 +197,16 @@ jobs:
       contents: read
       security-events: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
       - name: Restore ESLint file cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             .eslintcache
@@ -222,7 +222,7 @@ jobs:
       # SKIPPED (shard flaky). Nesse caso collect-metrics pula coverage.* (ausente sem
       # erro) e o ratchet roda com --allow-missing — as métricas determinísticas
       # (eslint/complexity/cognitive) seguem BLOQUEANTES.
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         continue-on-error: true
         with:
           name: coverage-report
@@ -230,7 +230,7 @@ jobs:
       # Prefer lint job's ESLint JSON (one inventory, two consumers).
       - name: Download ESLint results
         continue-on-error: true
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: eslint-results
           path: .artifacts/
@@ -279,7 +279,7 @@ jobs:
         run: cat .artifacts/quality-ratchet.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload ratchet report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: quality-ratchet
           path: .artifacts/quality-ratchet.md
@@ -308,11 +308,11 @@ jobs:
       # fetch-depth: 0 — the OpenAPI breaking-change gate (oasdiff) reads the base
       # spec via `git show <base_ref>:docs/openapi.yaml`; a shallow clone
       # would lack the base ref and the gate would self-skip (base-unresolved).
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -352,16 +352,35 @@ jobs:
         run: |
           set +e
           mkdir -p "$HOME/.local/bin"
-          # gitleaks — download latest linux x64 tarball via gh (authed), extract binary
+          # SC-4 (readiness audit): every auditor is PINNED to a release tag and its
+          # binary is verified against the checksum file published by that same release
+          # (same versions as quality.yml so ratchet counts stay comparable). A checksum
+          # mismatch leaves the tool uninstalled → its gate reports SKIP, never a value
+          # produced by an unverified download.
+          GITLEAKS_VERSION=8.30.1
+          OSV_SCANNER_VERSION=v2.3.8
+          ACTIONLINT_VERSION=1.7.12
+          OASDIFF_VERSION=1.19.1
+          # gitleaks — pinned linux x64 tarball + checksums from the same release
           rm -rf /tmp/gl && mkdir -p /tmp/gl
-          gh release download --repo gitleaks/gitleaks --pattern '*linux_x64.tar.gz' --dir /tmp/gl
-          tar -xzf /tmp/gl/*linux_x64.tar.gz -C "$HOME/.local/bin" gitleaks
-          # osv-scanner — download latest linux amd64 bare binary via gh (authed)
+          gh release download "v${GITLEAKS_VERSION}" --repo gitleaks/gitleaks --dir /tmp/gl \
+            --pattern "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            --pattern "gitleaks_${GITLEAKS_VERSION}_checksums.txt" \
+            && (cd /tmp/gl && sha256sum --check --ignore-missing "gitleaks_${GITLEAKS_VERSION}_checksums.txt") \
+            && tar -xzf "/tmp/gl/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -C "$HOME/.local/bin" gitleaks
+          # osv-scanner — pinned linux amd64 bare binary + SHA256SUMS from the same release
           rm -rf /tmp/osv && mkdir -p /tmp/osv
-          gh release download --repo google/osv-scanner --pattern '*linux_amd64' --dir /tmp/osv
-          install -m 0755 /tmp/osv/*linux_amd64 "$HOME/.local/bin/osv-scanner"
-          # actionlint — official download script
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) latest "$HOME/.local/bin"
+          gh release download "$OSV_SCANNER_VERSION" --repo google/osv-scanner --dir /tmp/osv \
+            --pattern 'osv-scanner_linux_amd64' --pattern 'osv-scanner_SHA256SUMS' \
+            && (cd /tmp/osv && sha256sum --check --ignore-missing osv-scanner_SHA256SUMS) \
+            && install -m 0755 /tmp/osv/osv-scanner_linux_amd64 "$HOME/.local/bin/osv-scanner"
+          # actionlint — pinned release tarball + checksums (no more `main` download script)
+          rm -rf /tmp/al && mkdir -p /tmp/al
+          gh release download "v${ACTIONLINT_VERSION}" --repo rhysd/actionlint --dir /tmp/al \
+            --pattern "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            --pattern "actionlint_${ACTIONLINT_VERSION}_checksums.txt" \
+            && (cd /tmp/al && sha256sum --check --ignore-missing "actionlint_${ACTIONLINT_VERSION}_checksums.txt") \
+            && tar -xzf "/tmp/al/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -C "$HOME/.local/bin" actionlint
           # zizmor — PyPI (pipx preferred, pip --user fallback); lands in ~/.local/bin.
           # PINNED on purpose. Unpinned, the runner installed whatever PyPI served that day and
           # measured 1 finding MORE than the devbox on the identical commit (190 vs 189) during
@@ -372,10 +391,12 @@ jobs:
           # to the count so the new number is traceable to the tool that produced it.
           ZIZMOR_VERSION=1.25.2
           pipx install "zizmor==$ZIZMOR_VERSION" || pip install --user "zizmor==$ZIZMOR_VERSION"
-          # oasdiff — download latest linux amd64 tarball via gh (authed), extract binary
+          # oasdiff — pinned linux amd64 tarball + checksums from the same release
           rm -rf /tmp/oasd && mkdir -p /tmp/oasd
-          gh release download --repo oasdiff/oasdiff --pattern '*linux_amd64.tar.gz' --dir /tmp/oasd
-          tar -xzf /tmp/oasd/*linux_amd64.tar.gz -C "$HOME/.local/bin" oasdiff
+          gh release download "v${OASDIFF_VERSION}" --repo oasdiff/oasdiff --dir /tmp/oasd \
+            --pattern "oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz" --pattern 'checksums.txt' \
+            && (cd /tmp/oasd && sha256sum --check --ignore-missing checksums.txt) \
+            && tar -xzf "/tmp/oasd/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz" -C "$HOME/.local/bin" oasdiff
           # ALWAYS export the bin dir (even if any step above failed)
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           # diagnostics — prove what installed on the next CI run
@@ -425,10 +446,10 @@ jobs:
     # Run when docs OR code change: API/route code can break doc/OpenAPI contract gates.
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && (needs.changes.outputs.docs == 'true' || needs.changes.outputs.code == 'true')) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -461,10 +482,10 @@ jobs:
     # existing doc corpus is brought up to style. Promote to blocking once it converges.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -473,7 +494,7 @@ jobs:
       - name: Vale prose lint (Microsoft style, advisory)
         # Non-fatal: a Vale/reviewdog setup error must not turn this advisory job red.
         continue-on-error: true
-        uses: errata-ai/vale-action@reviewdog
+        uses: errata-ai/vale-action@518a9136acc6e6668ce7c00d367051e0941e87ff # reviewdog (branch, pinned 2026-09-10)
         with:
           files: docs
           fail_on_error: false
@@ -492,11 +513,11 @@ jobs:
       # fetch-depth: 0 — the value-drift gate diffs en.json against the merge base to
       # find rewritten English strings. On a shallow clone the base ref is missing and
       # the gate self-skips (base-unresolved), so it would never actually run.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -526,10 +547,10 @@ jobs:
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && (needs.changes.outputs.i18n == 'true' || needs.changes.outputs.code == 'true')) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -552,10 +573,10 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.i18n == 'true') }}
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
       - name: Validate all languages
@@ -579,7 +600,7 @@ jobs:
           exit "$FAIL"
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: i18n-results
           path: i18n-results/
@@ -589,11 +610,11 @@ jobs:
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
       - name: Fetch base branch
@@ -640,10 +661,10 @@ jobs:
       cancel-in-progress: false
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -675,7 +696,7 @@ jobs:
             --exclude='.build/next/cache' \
             .build/next
       - name: Upload Next.js build for downstream jobs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: next-build
           path: ${{ runner.temp }}/e2e-build.tar.gz
@@ -688,17 +709,17 @@ jobs:
     env:
       JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
       - run: npm run check:node-runtime
       - name: Download Next.js build artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: next-build
           # Workspace-relative on purpose: the matrix below includes windows-latest, whose
@@ -783,17 +804,17 @@ jobs:
       JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
       - run: npm run check:node-runtime
       - name: Download Next.js build artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: next-build
           # Workspace-relative on purpose: the matrix below includes windows-latest, whose
@@ -854,10 +875,10 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -896,7 +917,7 @@ jobs:
             npm run test:unit:ci:shard
       - name: Upload raw shard coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage-shard-${{ matrix.shard }}
           path: coverage-shard/*.json
@@ -914,23 +935,18 @@ jobs:
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
-      - name: Install Bun (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          powershell -c "iwr bun.sh/install.ps1 -useb | iex"
-          echo "$env:USERPROFILE\.bun\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-      - name: Install Bun (non-Windows)
-        if: runner.os != 'Windows'
-        run: npm install -g bun
+      # SC-4: bun is pinned to the version in package.json devDependencies (1.4.0) on every
+      # OS — no `iwr … | iex` of a moving installer, no unversioned global install.
+      - name: Install Bun (pinned)
+        run: npm install -g bun@1.4.0
       - run: npm run test:bun:db
 
   test-vitest:
@@ -952,10 +968,10 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -1001,16 +1017,16 @@ jobs:
       JWT_SECRET: ci-test-secret-with-sufficient-length-for-validation
       API_KEY_SECRET: ci-test-api-key-secret-long
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
       - name: Download all shard coverage
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: coverage-shard-*
           path: coverage-shards/
@@ -1084,7 +1100,7 @@ jobs:
           fail_ci_if_error: false
       - name: Upload coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage-report
           path: |
@@ -1105,7 +1121,7 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -1113,7 +1129,7 @@ jobs:
       # lcov.info directly — download into coverage/ so it lands at coverage/lcov.info,
       # where sonar.javascript.lcov.reportPaths expects it (path: . left the Sonar
       # new-code coverage at 0% every scan).
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: coverage-report
           path: coverage/
@@ -1137,7 +1153,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: SonarQube Scan
         if: ${{ github.event_name == 'pull_request' && env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
-        uses: SonarSource/sonarqube-scan-action@v8
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8
         env:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
@@ -1164,7 +1180,7 @@ jobs:
       - name: Download coverage artifact
         if: ${{ needs.test-coverage.result != 'cancelled' }}
         continue-on-error: true
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: coverage-report
           path: .
@@ -1193,7 +1209,7 @@ jobs:
               echo "This PR changes production code in \`src/\`, \`open-sse/\`, \`electron/\`, or \`bin/\` without accompanying automated tests."
             fi
           } > .artifacts/pr-coverage-comment.md
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require("fs");
@@ -1251,24 +1267,24 @@ jobs:
       DISABLE_SQLITE_AUTO_BACKUP: "true"
       OMNIROUTE_PLAYWRIGHT_SKIP_BUILD: "1"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
       - run: npm run check:node-runtime
       - name: Cache Playwright browsers
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: playwright-chromium-${{ runner.os }}-
       - run: npx playwright install --with-deps chromium
       - name: Download Next.js build artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: next-build
           # Workspace-relative on purpose: the matrix below includes windows-latest, whose
@@ -1326,10 +1342,10 @@ jobs:
       DATA_DIR: /tmp/omniroute-ci-${{ matrix.shard }}
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -1351,10 +1367,10 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -1379,10 +1395,10 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -1408,10 +1424,10 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -1446,7 +1462,7 @@ jobs:
     steps:
       - name: Download i18n results
         continue-on-error: true
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: i18n-*
           path: results

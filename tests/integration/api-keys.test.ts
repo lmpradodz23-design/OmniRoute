@@ -19,12 +19,10 @@ const localDb = { updateSettings };
 const compliance = await import("../../src/lib/compliance/index.ts");
 const listRoute = await import("../../src/app/api/keys/route.ts");
 const keyRoute = await import("../../src/app/api/keys/[id]/route.ts");
-const revealRoute = await import("../../src/app/api/keys/[id]/reveal/route.ts");
 
 const MACHINE_ID = "1234567890abcdef";
 
 async function resetStorage() {
-  delete process.env.ALLOW_API_KEY_REVEAL;
   delete process.env.INITIAL_PASSWORD;
   core.resetDbInstance();
   apiKeysDb.resetApiKeyState();
@@ -79,8 +77,8 @@ test("API keys routes require management auth when login protection is enabled",
     })
   );
 
-  const unauthenticatedBody = (await unauthenticated.json()) as any;
-  const invalidTokenBody = (await invalidToken.json()) as any;
+  const unauthenticatedBody = await unauthenticated.json();
+  const invalidTokenBody = await invalidToken.json();
 
   assert.equal(unauthenticated.status, 401);
   assert.equal(unauthenticatedBody.error.message, "Authentication required");
@@ -105,8 +103,8 @@ test("API keys POST also requires management auth when login protection is enabl
     })
   );
 
-  const unauthenticatedBody = (await unauthenticated.json()) as any;
-  const invalidTokenBody = (await invalidToken.json()) as any;
+  const unauthenticatedBody = await unauthenticated.json();
+  const invalidTokenBody = await invalidToken.json();
 
   assert.equal(unauthenticated.status, 401);
   assert.equal(unauthenticatedBody.error.message, "Authentication required");
@@ -123,7 +121,7 @@ test("POST /api/keys creates a key, preserves special characters, and persists n
       body: { name: "Key / Prod #1", noLog: true },
     })
   );
-  const body = (await response.json()) as any;
+  const body = await response.json();
   const stored = await apiKeysDb.getApiKeyById(body.id);
 
   assert.equal(response.status, 201);
@@ -236,7 +234,7 @@ test("POST /api/keys returns a server error for malformed JSON payloads", async 
       body: "{",
     })
   );
-  const body = (await response.json()) as any;
+  const body = await response.json();
 
   assert.equal(response.status, 500);
   assert.equal(body.error, "Failed to create key");
@@ -256,8 +254,8 @@ test("GET /api/keys lists masked keys with pagination and GET /api/keys/[id] sta
     { params: Promise.resolve({ id: createdB.id }) }
   );
 
-  const listBody = (await listResponse.json()) as any;
-  const getBody = (await getResponse.json()) as any;
+  const listBody = await listResponse.json();
+  const getBody = await getResponse.json();
 
   assert.equal(listResponse.status, 200);
   assert.equal(listBody.total, 3);
@@ -281,7 +279,7 @@ test("GET /api/keys falls back to default pagination for invalid query params", 
   const response = await listRoute.GET(
     await makeManagementSessionRequest("http://localhost/api/keys?limit=0&offset=-25")
   );
-  const body = (await response.json()) as any;
+  const body = await response.json();
 
   assert.equal(response.status, 200);
   assert.equal(body.total, 3);
@@ -298,7 +296,7 @@ test("GET /api/keys treats non-numeric pagination params as defaults", async () 
   const response = await listRoute.GET(
     await makeManagementSessionRequest("http://localhost/api/keys?limit=abc&offset=xyz")
   );
-  const body = (await response.json()) as any;
+  const body = await response.json();
 
   assert.equal(response.status, 200);
   assert.equal(body.total, 3);
@@ -309,9 +307,8 @@ test("GET /api/keys treats non-numeric pagination params as defaults", async () 
   );
 });
 
-test("GET /api/keys uses default pagination when query params are absent and reports reveal support", async () => {
+test("GET /api/keys uses default pagination when query params are absent and only ever lists masked keys (#7 reveal-once)", async () => {
   await enableManagementAuth();
-  process.env.ALLOW_API_KEY_REVEAL = "true";
   const authKey = await createManagementKey();
   const createdA = await apiKeysDb.createApiKey("Alpha", MACHINE_ID);
   const createdB = await apiKeysDb.createApiKey("Beta", MACHINE_ID);
@@ -319,17 +316,23 @@ test("GET /api/keys uses default pagination when query params are absent and rep
   const response = await listRoute.GET(
     await makeManagementSessionRequest("http://localhost/api/keys")
   );
-  const body = (await response.json()) as any;
+  const body = await response.json();
 
   assert.equal(response.status, 200);
   assert.equal(body.total, 3);
-  assert.equal(body.allowKeyReveal, true);
+  assert.equal(body.allowKeyReveal, undefined, "no reveal capability is advertised");
   assert.equal(body.keys.length, 3);
   assert.deepEqual(
     body.keys.map((entry) => entry.id).sort(),
     [authKey.id, createdA.id, createdB.id].sort()
   );
   assert.ok(body.keys.every((entry) => entry.key !== undefined && entry.key !== ""));
+  // Masked form only — never the value returned once at creation.
+  for (const created of [createdA, createdB]) {
+    const listed = body.keys.find((entry) => entry.id === created.id);
+    assert.notEqual(listed.key, created.key);
+    assert.match(listed.key, /\*\*\*\*/);
+  }
 });
 
 test("POST /api/keys triggers cloud sync when cloud mode is enabled", async () => {
@@ -350,7 +353,7 @@ test("POST /api/keys triggers cloud sync when cloud mode is enabled", async () =
         body: { name: "Cloud Synced Key" },
       })
     );
-    const body = (await response.json()) as any;
+    const body = await response.json();
 
     assert.equal(response.status, 201);
     assert.equal(body.name, "Cloud Synced Key");
@@ -390,7 +393,7 @@ test("GET /api/keys returns 500 when the key store throws unexpectedly", async (
 
   try {
     const response = await listRoute.GET(new Request("http://localhost/api/keys"));
-    const body = (await response.json()) as any;
+    const body = await response.json();
 
     assert.equal(response.status, 500);
     assert.equal(body.error, "Failed to fetch keys");
@@ -421,7 +424,7 @@ test("POST /api/keys still succeeds when cloud sync fails after creation", async
         body: { name: "Cloud Failure Tolerated" },
       })
     );
-    const body = (await response.json()) as any;
+    const body = await response.json();
     const stored = await apiKeysDb.getApiKeyById(body.id);
 
     assert.equal(response.status, 201);
@@ -438,36 +441,25 @@ test("POST /api/keys still succeeds when cloud sync fails after creation", async
   }
 });
 
-test("GET /api/keys/[id] returns 404 for an unknown key and reveal is gated by the feature flag", async () => {
+test("GET /api/keys/[id] returns 404 for an unknown key and there is no reveal endpoint (#7 reveal-once)", async () => {
   await enableManagementAuth();
   await createManagementKey();
-  const created = await apiKeysDb.createApiKey("Reveal Target", MACHINE_ID);
 
   const missingResponse = await keyRoute.GET(
     await makeManagementSessionRequest("http://localhost/api/keys/missing"),
     { params: Promise.resolve({ id: "missing" }) }
   );
-  const revealDisabled = await revealRoute.GET(
-    await makeManagementSessionRequest(`http://localhost/api/keys/${created.id}/reveal`),
-    { params: Promise.resolve({ id: created.id }) }
-  );
-
-  process.env.ALLOW_API_KEY_REVEAL = "true";
-  const revealEnabled = await revealRoute.GET(
-    await makeManagementSessionRequest(`http://localhost/api/keys/${created.id}/reveal`),
-    { params: Promise.resolve({ id: created.id }) }
-  );
-
-  const missingBody = (await missingResponse.json()) as any;
-  const revealDisabledBody = (await revealDisabled.json()) as any;
-  const revealEnabledBody = (await revealEnabled.json()) as any;
+  const missingBody = await missingResponse.json();
 
   assert.equal(missingResponse.status, 404);
   assert.equal(missingBody.error, "Key not found");
-  assert.equal(revealDisabled.status, 403);
-  assert.equal(revealDisabledBody.error, "API key reveal is disabled");
-  assert.equal(revealEnabled.status, 200);
-  assert.equal(revealEnabledBody.key, created.key);
+
+  // The reveal route module no longer exists: the only places a full key appears are the
+  // create and regenerate responses.
+  await assert.rejects(
+    () => import("../../src/app/api/keys/[id]/reveal/route.ts" as string),
+    /Cannot find module|ERR_MODULE_NOT_FOUND/
+  );
 });
 
 test("PATCH /api/keys/[id] updates permissions and rejects invalid payloads", async () => {
@@ -504,9 +496,9 @@ test("PATCH /api/keys/[id] updates permissions and rejects invalid payloads", as
     { params: Promise.resolve({ id: "missing" }) }
   );
 
-  const patchBody = (await patchResponse.json()) as any;
-  const invalidJsonBody = (await invalidJsonResponse.json()) as any;
-  const missingKeyBody = (await missingKeyResponse.json()) as any;
+  const patchBody = await patchResponse.json();
+  const invalidJsonBody = await invalidJsonResponse.json();
+  const missingKeyBody = await missingKeyResponse.json();
   const updated = await apiKeysDb.getApiKeyById(created.id);
 
   assert.equal(patchResponse.status, 200);
@@ -537,7 +529,7 @@ test("PATCH /api/keys/[id] renames a key and rejects invalid names", async () =>
     }),
     { params: Promise.resolve({ id: created.id }) }
   );
-  const renameBody = (await renameResponse.json()) as any;
+  const renameBody = await renameResponse.json();
   const renamed = await apiKeysDb.getApiKeyById(created.id);
 
   assert.equal(renameResponse.status, 200);
@@ -583,8 +575,8 @@ test("DELETE /api/keys/[id] removes keys and reports missing resources", async (
     { params: Promise.resolve({ id: "missing" }) }
   );
 
-  const deleteBody = (await deleteResponse.json()) as any;
-  const missingDeleteBody = (await missingDeleteResponse.json()) as any;
+  const deleteBody = await deleteResponse.json();
+  const missingDeleteBody = await missingDeleteResponse.json();
 
   assert.equal(deleteResponse.status, 200);
   assert.equal(deleteBody.message, "Key deleted successfully");

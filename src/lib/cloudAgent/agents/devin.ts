@@ -26,7 +26,7 @@ export class DevinAgent extends CloudAgentBase {
       body.branch = params.source.branch;
     }
 
-    const response = await fetch(`${this.baseUrl}/sessions`, {
+    const response = await this.agentFetch(`${this.baseUrl}/sessions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -57,7 +57,7 @@ export class DevinAgent extends CloudAgentBase {
   }
 
   async getStatus(externalId: string, credentials: AgentCredentials): Promise<GetStatusResult> {
-    const response = await fetch(`${this.baseUrl}/sessions/${externalId}`, {
+    const response = await this.agentFetch(`${this.baseUrl}/sessions/${externalId}`, {
       headers: {
         Authorization: `Bearer ${credentials.apiKey}`,
       },
@@ -107,7 +107,7 @@ export class DevinAgent extends CloudAgentBase {
     message: string,
     credentials: AgentCredentials
   ): Promise<CloudAgentActivity> {
-    const response = await fetch(`${this.baseUrl}/sessions/${externalId}/message`, {
+    const response = await this.agentFetch(`${this.baseUrl}/sessions/${externalId}/message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

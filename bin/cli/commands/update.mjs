@@ -17,6 +17,28 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(SCRIPT_DIR, "..", "..", "..");
 const BIN_DIR = path.join(PKG_ROOT, "bin");
 
+// Fase 8 — distribution identity (mirrors src/shared/constants/distribution.ts; the CLI
+// cannot import TypeScript). The npm package name is shared with upstream, so an npm
+// "latest" is only trusted when the registry manifest points at THIS repository —
+// otherwise `omniroute update --apply` would install another fork over this one.
+const GITHUB_REPO_SLUG = "LMPrado-DZ23/OmniRoute";
+const GITHUB_RELEASES_URL = `https://github.com/${GITHUB_REPO_SLUG}/releases`;
+const NPM_PACKAGE_NAME = "omniroute";
+
+export function isOurRepositoryUrl(url) {
+  if (typeof url !== "string") return false;
+  const normalized = url
+    .trim()
+    .toLowerCase()
+    .replace(/^git\+/, "")
+    .replace(/^(?:https?|ssh|git):\/\/(?:[^@/]+@)?/, "")
+    .replace(/^git@github\.com:/, "github.com/")
+    .replace(/^github:/, "github.com/")
+    .replace(/\.git$/, "")
+    .replace(/\/+$/, "");
+  return normalized === `github.com/${GITHUB_REPO_SLUG.toLowerCase()}`;
+}
+
 export async function getCurrentVersion() {
   try {
     const { readFileSync } = await import("node:fs");
@@ -34,13 +56,25 @@ export async function getCurrentVersion() {
 export async function getLatestVersion(execFn = execFileAsync) {
   try {
     // argv is all literals, so enabling the shell on win32 cannot splice a
-    // runtime value into the command line (Hard Rule #13).
+    // runtime value into the command line (Hard Rule #13). `repository.url` is
+    // requested with `version` so the answer can be verified (see isOurRepositoryUrl);
+    // npm returns a JSON object when more than one field is asked for.
     const { stdout } = await execFn(
       npmBin(),
-      ["view", "omniroute", "version", "--prefer-online"],
+      ["view", NPM_PACKAGE_NAME, "version", "repository.url", "--json", "--prefer-online"],
       npmExecOptions(process.platform, { timeoutMs: 15000 })
     );
-    return stdout.trim();
+    const parsed = JSON.parse(String(stdout).trim());
+    if (!parsed || typeof parsed !== "object") return null; // a bare version cannot be verified
+    if (typeof parsed.version !== "string" || !parsed.version) return null;
+    if (!isOurRepositoryUrl(parsed["repository.url"])) {
+      printWarning(
+        `npm package "${NPM_PACKAGE_NAME}" is not published from ${GITHUB_REPO_SLUG} — ` +
+          `not using it for updates. Releases: ${GITHUB_RELEASES_URL}`
+      );
+      return null;
+    }
+    return parsed.version;
   } catch {
     return null;
   }
@@ -108,9 +142,13 @@ export async function printPostApplyGuidance(latest, deps = { readPidFile, isPid
     printInfo("  Run `omniroute restart` now to apply this update.");
   } else {
     printInfo(`No running OmniRoute server was detected via the CLI's PID file.`);
-    printInfo(`  Start it with \`omniroute serve\` (or restart your existing process) to run ${latest}.`);
+    printInfo(
+      `  Start it with \`omniroute serve\` (or restart your existing process) to run ${latest}.`
+    );
   }
-  printInfo("`omniroute --version` will keep reporting the old version until the process restarts.");
+  printInfo(
+    "`omniroute --version` will keep reporting the old version until the process restarts."
+  );
 }
 
 export function registerUpdate(program) {
@@ -147,7 +185,8 @@ export async function runUpdateCommand(opts = {}) {
   }
 
   if (!latest) {
-    printError("Could not check latest version. Is npm available?");
+    printError("Could not determine the latest version from npm.");
+    printInfo(`  Releases for this build are published at ${GITHUB_RELEASES_URL}`);
     return 1;
   }
 
@@ -161,10 +200,10 @@ export async function runUpdateCommand(opts = {}) {
       if (stdout.trim()) {
         console.log(stdout.trim());
       } else {
-        console.log(`Changelog: https://github.com/your-org/omniroute/releases/tag/v${latest}`);
+        console.log(`Changelog: ${GITHUB_RELEASES_URL}/tag/v${latest}`);
       }
     } catch {
-      console.log(`Changelog: https://github.com/your-org/omniroute/releases/tag/v${latest}`);
+      console.log(`Changelog: ${GITHUB_RELEASES_URL}/tag/v${latest}`);
     }
     return 0;
   }

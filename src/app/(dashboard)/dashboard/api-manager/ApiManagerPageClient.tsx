@@ -13,13 +13,11 @@ import {
   isExpired,
   isRestricted as isKeyRestricted,
   buildModelAccessSavePayload,
-  classifyKeyStatus,
   computeApiKeyCounts,
   formatProviderModelPermissionSummary,
   formatUsdCost,
   restoreProviderScopeSelection,
   toLocalDateTimeInputValue,
-  toggleKeyVisibility,
 } from "./apiManagerPageUtils";
 import type { KeyStatus, KeyType } from "./apiManagerPageUtils";
 import { readActiveOnlyPreference, writeActiveOnlyPreference } from "./apiManagerPageStorage";
@@ -35,6 +33,7 @@ import { AllowedCombosSection } from "./components/AllowedCombosSection";
 import ProviderModelPermissionList from "./components/ProviderModelPermissionList";
 import ReasoningRoutingRules from "@/shared/components/ReasoningRoutingRules";
 import { ALL_COMBOS_ACCESS_RULE } from "@/shared/constants/comboAccess";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 // Constants for validation
 const MAX_KEY_NAME_LENGTH = 200;
@@ -213,6 +212,7 @@ export default function ApiManagerPageClient() {
   const t = useTranslations("apiManager");
   const tc = useTranslations("common");
   const locale = useLocale();
+  const confirmDialog = useConfirmDialog();
   const newKeyNameInputId = useId();
   const createKeyFormRef = useRef<HTMLDivElement | null>(null);
   const [keys, setKeys] = useState<ApiKey[]>([]);
@@ -238,11 +238,8 @@ export default function ApiManagerPageClient() {
   const [usageStats, setUsageStats] = useState<Record<string, KeyUsageStats>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [deviceCounts, setDeviceCounts] = useState<Record<string, number>>({});
-  const [allowKeyReveal, setAllowKeyReveal] = useState(false);
-  // Per-row API key visibility toggle (eye / eye-off). Keys default to masked.
-  // Map id -> fully revealed key string fetched on demand from /api/keys/{id}/reveal.
-  const [revealedKeys, setRevealedKeys] = useState<Map<string, string>>(new Map());
-  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+  // #7 (reveal-once): rows only ever show the masked key. The full value is shown exactly once —
+  // in the "API key created" / regenerate dialogs — and there is no reveal endpoint.
   const createKeyNameFieldRef = useRef<HTMLDivElement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -251,7 +248,7 @@ export default function ApiManagerPageClient() {
   const [typeFilter, setTypeFilter] = useState<KeyType | null>(null);
   const [quotaPoolGroup, setQuotaPoolGroup] = useState<Record<string, string>>({});
 
-  const { copied, copy } = useCopyToClipboard();
+  const { copied, failed: copyFailed, copy } = useCopyToClipboard();
 
   const scrollCreateKeyFormToTop = useCallback(() => {
     const scrollContainer = createKeyFormRef.current?.parentElement;
@@ -533,7 +530,6 @@ export default function ApiManagerPageClient() {
       if (res.ok) {
         const data = await res.json();
         setKeys(data.keys || []);
-        setAllowKeyReveal(data.allowKeyReveal === true);
         // Fetch usage stats after keys are loaded
         fetchUsageStats(data.keys || []);
         fetchSessionCounts(data.keys || []);
@@ -676,7 +672,7 @@ export default function ApiManagerPageClient() {
       return;
     }
 
-    if (!confirm(t("deleteConfirm"))) return;
+    if (!(await confirmDialog(t("deleteConfirm")))) return;
 
     setIsSubmitting(true);
     clearPageError();
@@ -685,14 +681,6 @@ export default function ApiManagerPageClient() {
       const res = await fetch(`/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (res.ok) {
         setKeys((prev) => prev.filter((k) => k.id !== id));
-        // Clean up any cached reveal/visibility state for this key.
-        setRevealedKeys((prev) => {
-          if (!prev.has(id)) return prev;
-          const next = new Map(prev);
-          next.delete(id);
-          return next;
-        });
-        setVisibleKeys((prev) => (prev.has(id) ? toggleKeyVisibility(prev, id) : prev));
       } else {
         const data = await res.json();
         setPageError(extractApiErrorMessage(data, t("failedDeleteKey")));
@@ -707,7 +695,7 @@ export default function ApiManagerPageClient() {
 
   const handleRegenerateKey = async (id: string) => {
     if (!id) return;
-    if (!confirm(t("regenerateConfirm"))) return;
+    if (!(await confirmDialog(t("regenerateConfirm")))) return;
 
     setIsSubmitting(true);
     clearPageError();
@@ -733,64 +721,6 @@ export default function ApiManagerPageClient() {
     if (!key || !key.id) return;
     setEditingKey(key);
     setShowPermissionsModal(true);
-  };
-
-  const handleCopyExistingKey = async (keyId: string) => {
-    if (!keyId) return;
-
-    try {
-      const res = await fetch(`/api/keys/${encodeURIComponent(keyId)}/reveal`);
-      if (!res.ok) {
-        console.log("Error revealing key:", await res.text());
-        return;
-      }
-
-      const data = await res.json();
-      if (typeof data?.key === "string") {
-        // Cache the revealed value so a subsequent show-toggle does not refetch.
-        setRevealedKeys((prev) => {
-          const next = new Map(prev);
-          next.set(keyId, data.key);
-          return next;
-        });
-        await copy(data.key, `existing_key_${keyId}`);
-      }
-    } catch (error) {
-      console.log("Error copying existing key:", error);
-    }
-  };
-
-  /**
-   * Toggle the visibility of one key inline (eye / eye-off button).
-   * Lazy-fetches the full key from /api/keys/{id}/reveal on the FIRST show,
-   * then caches it in `revealedKeys` so re-toggling is instant. Hiding only
-   * flips the visibility set — the cached reveal stays so a re-show is free.
-   */
-  const handleToggleKeyVisibility = async (keyId: string) => {
-    if (!keyId) return;
-    const isCurrentlyVisible = visibleKeys.has(keyId);
-
-    if (!isCurrentlyVisible && !revealedKeys.has(keyId)) {
-      try {
-        const res = await fetch(`/api/keys/${encodeURIComponent(keyId)}/reveal`);
-        if (!res.ok) {
-          console.log("Error revealing key:", await res.text());
-          return;
-        }
-        const data = await res.json();
-        if (typeof data?.key !== "string") return;
-        setRevealedKeys((prev) => {
-          const next = new Map(prev);
-          next.set(keyId, data.key);
-          return next;
-        });
-      } catch (error) {
-        console.log("Error revealing key:", error);
-        return;
-      }
-    }
-
-    setVisibleKeys((prev) => toggleKeyVisibility(prev, keyId));
   };
 
   const handleUpdatePermissions = async (
@@ -964,10 +894,15 @@ export default function ApiManagerPageClient() {
           <span className="material-symbols-outlined text-red-500">error</span>
           <p className="text-sm text-red-700 dark:text-red-300 flex-1">{pageError}</p>
           <button
+            type="button"
             onClick={clearPageError}
+            aria-label={tc("close")}
+            title={tc("close")}
             className="text-red-500 hover:text-red-700 transition-colors"
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              close
+            </span>
           </button>
         </div>
       )}
@@ -1150,41 +1085,15 @@ export default function ApiManagerPageClient() {
                     </span>
                   </div>
                   <div className="col-span-3 flex items-center gap-1.5">
-                    <code className="text-sm text-text-muted font-mono truncate">
-                      {visibleKeys.has(key.id) ? (revealedKeys.get(key.id) ?? key.key) : key.key}
-                    </code>
-                    {allowKeyReveal ? (
-                      <>
-                        <button
-                          onClick={() => handleToggleKeyVisibility(key.id)}
-                          className="p-1 text-text-muted/60 hover:text-primary transition-colors shrink-0"
-                          title={visibleKeys.has(key.id) ? t("hideKey") : t("showKey")}
-                          aria-label={visibleKeys.has(key.id) ? t("hideKey") : t("showKey")}
-                          aria-pressed={visibleKeys.has(key.id)}
-                        >
-                          <span className="material-symbols-outlined text-[14px]">
-                            {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => handleCopyExistingKey(key.id)}
-                          className="p-1 text-text-muted/60 hover:text-primary transition-colors shrink-0"
-                          title={tc("copy")}
-                          aria-label={tc("copy")}
-                        >
-                          <span className="material-symbols-outlined text-[14px]">
-                            {copied === `existing_key_${key.id}` ? "check" : "content_copy"}
-                          </span>
-                        </button>
-                      </>
-                    ) : (
-                      <span
-                        className="p-1 text-text-muted/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all shrink-0 cursor-help"
-                        title={t("keyOnlyAvailableAtCreation")}
-                      >
-                        <span className="material-symbols-outlined text-[14px]">lock</span>
-                      </span>
-                    )}
+                    <code className="text-sm text-text-muted font-mono truncate">{key.key}</code>
+                    {/* #7 (reveal-once): no eye/copy on existing keys — the full value was shown at
+                        creation; "Regenerate" issues a new one and shows it once. */}
+                    <span
+                      className="p-1 text-text-muted/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all shrink-0 cursor-help"
+                      title={t("keyOnlyAvailableAtCreation")}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">lock</span>
+                    </span>
                   </div>
                   <div className="col-span-2 flex items-center">
                     <div className="flex flex-col items-start gap-1">
@@ -1654,10 +1563,20 @@ export default function ApiManagerPageClient() {
             <Input value={createdKey || ""} readOnly className="flex-1 font-mono text-sm" />
             <Button
               variant="secondary"
-              icon={copied === "created_key" ? "check" : "content_copy"}
+              icon={
+                copied === "created_key"
+                  ? "check"
+                  : copyFailed === "created_key"
+                    ? "error"
+                    : "content_copy"
+              }
               onClick={() => copy(createdKey, "created_key")}
             >
-              {copied === "created_key" ? tc("copied") : tc("copy")}
+              {copied === "created_key"
+                ? tc("copied")
+                : copyFailed === "created_key"
+                  ? tc("copyFailed")
+                  : tc("copy")}
             </Button>
           </div>
           <Button onClick={() => setCreatedKey(null)} fullWidth>

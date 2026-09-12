@@ -864,7 +864,14 @@ async function testApiKeyConnection(connection: any) {
   const error = result.valid ? null : result.error || "Invalid API key";
   const diagnosis = result.valid
     ? makeDiagnosis("ok", "upstream", null, null)
-    : classifyFailure({ error, statusCode: result.statusCode, provider: connection.provider });
+    : classifyFailure({
+        error,
+        statusCode: result.statusCode,
+        provider: connection.provider,
+        code: result.code,
+        host: result.host,
+        timeoutMs: result.timeoutMs,
+      });
 
   return buildApiKeyConnectionTestResult(result, error, diagnosis);
 }

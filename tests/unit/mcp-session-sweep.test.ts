@@ -38,12 +38,13 @@ test("module exports isMcpHttpActive", () => {
 
 // ── Source-level invariant: StreamableSession type has lastActivityAt ─────────
 
-test("StreamableSession type includes lastActivityAt field", () => {
-  const typeBlock = src.match(/type StreamableSession\s*=\s*\{([^}]+)\}/);
-  assert.ok(typeBlock, "StreamableSession type definition must exist");
+// R-9: sessions are per-client (`McpHttpSession`, kind sse | streamable-http).
+test("McpHttpSession type includes lastActivityAt field", () => {
+  const typeBlock = src.match(/type McpHttpSession\s*=\s*\{([^}]+)\}/);
+  assert.ok(typeBlock, "McpHttpSession type definition must exist");
   assert.ok(
     typeBlock[1].includes("lastActivityAt"),
-    "StreamableSession must have lastActivityAt field"
+    "McpHttpSession must have lastActivityAt field"
   );
 });
 
@@ -69,12 +70,12 @@ test("MCP_SESSION_IDLE_MS is 5 minutes (5 * 60 * 1000)", () => {
 
 // ── Source-level invariant: createStreamableSession sets lastActivityAt ───────
 
-test("createStreamableSession initializes lastActivityAt to Date.now()", () => {
-  const fnBlock = src.match(/function createStreamableSession\(\)[\s\S]*?return session;\s*\}/);
-  assert.ok(fnBlock, "createStreamableSession function must exist");
+test("createSession initializes lastActivityAt to Date.now()", () => {
+  const fnBlock = src.match(/function createSession\([^)]*\)[\s\S]*?return session;\s*\}/);
+  assert.ok(fnBlock, "createSession function must exist");
   assert.ok(
     fnBlock[0].includes("lastActivityAt: Date.now()"),
-    "createStreamableSession must set lastActivityAt: Date.now()"
+    "createSession must set lastActivityAt: Date.now()"
   );
 });
 
@@ -149,14 +150,14 @@ test("sweep timer is unref'd to avoid preventing process exit", () => {
 
 // ── Source-level invariant: sweep calls closeStreamableSession for idle ───────
 
-test("sweep closes idle sessions via closeStreamableSession", () => {
+test("sweep closes idle sessions via closeSession", () => {
   const sweepBlock = src.match(
     /_mcpSessionSweep\s*=\s*setInterval\(\(\)\s*=>\s*\{([\s\S]*?)\},\s*60_000\)/
   );
   assert.ok(sweepBlock, "sweep block must exist");
   assert.ok(
-    sweepBlock[1].includes("closeStreamableSession(sessionId)"),
-    "sweep must call closeStreamableSession for idle sessions"
+    sweepBlock[1].includes("closeSession(sessionId)"),
+    "sweep must call closeSession for idle sessions"
   );
 });
 

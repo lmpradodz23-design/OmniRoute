@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Button } from "@/shared/components";
 import { useTranslations } from "next-intl";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 type McpTransport = "stdio" | "sse" | "streamable-http";
 
@@ -181,6 +182,7 @@ function formatPercent(value: number | null | undefined) {
 
 export default function McpDashboardPage() {
   const t = useTranslations("mcpDashboard");
+  const confirmDialog = useConfirmDialog();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<McpStatusResponse | null>(null);
   const [tools, setTools] = useState<McpTool[]>([]);
@@ -286,9 +288,9 @@ export default function McpDashboardPage() {
     const nextState = selectedCombo.isActive === false;
     const confirmLabel = nextState ? t("activate") : t("deactivate");
     if (
-      !globalThis.confirm(
+      !(await confirmDialog(
         t("confirmSwitchCombo", { action: confirmLabel, combo: selectedCombo.name })
-      )
+      ))
     )
       return;
 
@@ -322,7 +324,7 @@ export default function McpDashboardPage() {
       conservative: t("profileConservative"),
     };
     const profileLabel = profileLabelById[selectedProfile];
-    if (!globalThis.confirm(t("confirmApplyProfile", { profile: profileLabel }))) return;
+    if (!(await confirmDialog(t("confirmApplyProfile", { profile: profileLabel })))) return;
 
     setActionBusy("resilience");
     setActionMessage("");
@@ -347,7 +349,7 @@ export default function McpDashboardPage() {
   };
 
   const handleResetCircuitBreakers = async () => {
-    if (!globalThis.confirm(t("confirmResetBreakers"))) return;
+    if (!(await confirmDialog(t("confirmResetBreakers")))) return;
 
     setActionBusy("reset");
     setActionMessage("");

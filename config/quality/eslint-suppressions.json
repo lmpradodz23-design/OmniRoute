@@ -21,7 +21,7 @@
   },
   "open-sse/config/providers/registry/claude/index.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 7
+      "count": 6
     }
   },
   "open-sse/config/providers/registry/vertex/index.ts": {
@@ -305,27 +305,6 @@
   "open-sse/mcp-server/__tests__/toolSearch.tool.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "open-sse/mcp-server/audit.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "open-sse/mcp-server/httpTransport.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "open-sse/mcp-server/server.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "open-sse/mcp-server/tools/advancedTools.ts": {
@@ -633,11 +612,6 @@
       "count": 1
     }
   },
-  "open-sse/services/tlsClientBase.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "open-sse/services/tokenLimitCounter.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -811,11 +785,6 @@
       "count": 1
     }
   },
-  "src/app/(dashboard)/dashboard/api-manager/ApiManagerPageClient.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/(dashboard)/dashboard/batch/components/wizard/InputStep.tsx": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -889,11 +858,6 @@
   "src/app/(dashboard)/dashboard/mcp/page.tsx": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
-    }
-  },
-  "src/app/(dashboard)/dashboard/onboarding/page.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/(dashboard)/dashboard/playground/components/tabs/CompareTab.tsx": {
@@ -1304,11 +1268,6 @@
       "count": 10
     }
   },
-  "src/app/api/v1/models/catalogCache.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/v1/models/catalogOpenrouter.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -1332,11 +1291,6 @@
   "src/app/api/v1/providers/[provider]/embeddings/route.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
-    }
-  },
-  "src/app/api/v1/rerank/route.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
     }
   },
   "src/app/api/v1/search/route.ts": {
@@ -1367,16 +1321,6 @@
   "src/app/api/v1/vscode/raw/[token]/combos/route.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/app/api/webhooks/[id]/test/route.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/app/login/page.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
     }
   },
   "src/domain/assessment/assessor.ts": {
@@ -1477,11 +1421,6 @@
   "src/lib/copilot/tools.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
-    }
-  },
-  "src/lib/db/apiKeys.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
     }
   },
   "src/lib/db/comboForecast.ts": {
@@ -1604,17 +1543,7 @@
       "count": 1
     }
   },
-  "src/lib/memory/__tests__/generic-backend.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 4
-    }
-  },
   "src/lib/memory/__tests__/schemas.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/lib/memory/genericBackend.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
@@ -1655,11 +1584,6 @@
   "src/lib/ngrokTunnel.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/lib/notion/api.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
     }
   },
   "src/lib/oauth/providers.ts": {
@@ -1705,11 +1629,6 @@
   "src/lib/oauth/utils/claudeAuthImport.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
-    }
-  },
-  "src/lib/obsidian/api.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
     }
   },
   "src/lib/piiSanitizer.ts": {
@@ -2211,11 +2130,6 @@
       "count": 1
     }
   },
-  "tests/integration/api-keys.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 23
-    }
-  },
   "tests/integration/api-routes-critical.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 39
@@ -2408,11 +2322,6 @@
       "count": 9
     }
   },
-  "tests/integration/qdrant-routes.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
   "tests/integration/quota-pools-usage.test.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -2575,11 +2484,6 @@
   "tests/unit/api-key-mask-fix.test.mjs": {
     "@typescript-eslint/no-unused-vars": {
       "count": 4
-    }
-  },
-  "tests/unit/api-key-reveal-route.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 8
     }
   },
   "tests/unit/api/compression/compression-api.test.ts": {
@@ -2750,7 +2654,7 @@
   },
   "tests/unit/build/check-licenses.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 4
     }
   },
   "tests/unit/bypass-handler.test.ts": {
@@ -2816,11 +2720,6 @@
       "count": 10
     }
   },
-  "tests/unit/chat-helpers.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 13
-    }
-  },
   "tests/unit/chat-rate-limit-body-lock.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
@@ -2859,7 +2758,7 @@
   },
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 31
+      "count": 30
     }
   },
   "tests/unit/check-docs-symbols.test.ts": {
@@ -3237,11 +3136,6 @@
       "count": 3
     }
   },
-  "tests/unit/cloud-agent-cursor-4227.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "tests/unit/cloudflare-models-uuid-4259.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
@@ -3345,7 +3239,7 @@
   },
   "tests/unit/combo-routing-engine.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 268
+      "count": 267
     }
   },
   "tests/unit/combo-same-provider-cascade.test.ts": {
@@ -4289,11 +4183,6 @@
       "count": 8
     }
   },
-  "tests/unit/oidc-callback.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    }
-  },
   "tests/unit/openai-tool-opaque-object-schema.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
@@ -4312,11 +4201,6 @@
   "tests/unit/openapi-spec-route.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "tests/unit/openapi-try-route.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 6
     }
   },
   "tests/unit/opencode-executor.test.ts": {
@@ -5364,31 +5248,8 @@
       "count": 1
     }
   },
-  "tests/unit/ui/use-improve-prompt.test.tsx": {
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
-  "tests/unit/ui/use-presets.test.tsx": {
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
   "tests/unit/ui/use-stream-metrics.test.tsx": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
-  "tests/unit/ui/use-structured-output.test.tsx": {
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
-  "tests/unit/ui/use-tools-builder.test.tsx": {
-    "react-hooks/immutability": {
       "count": 1
     }
   },
@@ -5443,14 +5304,6 @@
     }
   },
   "tests/unit/vercel-deploy-sso-protection-check.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "tests/unit/version-manager.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
@@ -5519,11 +5372,6 @@
   "tests/unit/web-session-pool-health.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "tests/unit/webhook-abort-timer-cleanup.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
     }
   },
   "tests/unit/xiaomi-providers-registry.test.ts": {

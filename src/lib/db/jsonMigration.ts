@@ -16,6 +16,7 @@ import { normalizeRoutingStrategy } from "@/shared/constants/routingStrategies";
 import { normalizeComboRecord } from "@/lib/combos/steps";
 import { validateComboInvariant } from "@/lib/combos/invariants";
 import { parseModelAccessMode } from "./apiKeys/modelAccessMode";
+import { deriveApiKeyStorageFields, ensureApiKeysColumns } from "./apiKeys";
 import {
   resolveImportedUsageAccountIdentity,
   resolveOrphanedUsageAccountIdentity,
@@ -99,11 +100,16 @@ export function runJsonMigration(
     VALUES (@id, @name, @data, @sortOrder, @createdAt, @updatedAt)
   `);
 
+  // key_hash/key_prefix are how validateApiKey/getApiKeyMetadata find a row — an import
+  // that writes only `key` produces keys that never authenticate (see
+  // deriveApiKeyStorageFields). Both columns are lazily-added fallbacks, so make sure
+  // they exist before preparing the statement on a fresh database.
+  ensureApiKeysColumns(db);
   const insertKey = db.prepare(`
     INSERT OR REPLACE INTO api_keys (
-      id, name, key, machine_id, model_access_mode, allowed_models, no_log, created_at
+      id, name, key, key_hash, key_prefix, machine_id, model_access_mode, allowed_models, no_log, created_at
     ) VALUES (
-      @id, @name, @key, @machineId, @modelAccessMode, @allowedModels, @noLog, @createdAt
+      @id, @name, @key, @keyHash, @keyPrefix, @machineId, @modelAccessMode, @allowedModels, @noLog, @createdAt
     )
   `);
 
@@ -224,10 +230,13 @@ export function runJsonMigration(
     // 6. API Keys
     for (const apiKey of data.apiKeys ?? []) {
       const allowedModels = Array.isArray(apiKey.allowedModels) ? apiKey.allowedModels : [];
+      const storage = deriveApiKeyStorageFields(apiKey.key);
       insertKey.run({
         id: apiKey.id,
         name: apiKey.name,
-        key: apiKey.key,
+        key: storage.key,
+        keyHash: storage.keyHash,
+        keyPrefix: storage.keyPrefix,
         machineId: apiKey.machineId ?? null,
         modelAccessMode: parseModelAccessMode(apiKey.modelAccessMode, allowedModels),
         allowedModels: JSON.stringify(allowedModels),

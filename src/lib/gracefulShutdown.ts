@@ -30,6 +30,80 @@ declare global {
   var __omnirouteCustomServerOwnsShutdown: boolean | undefined;
 }
 
+import { getShutdownHooks, registerShutdownHook } from "./shutdownHooks";
+
+// Unregistering and the hook type live in ./shutdownHooks (the registry); only the
+// registration entry point is re-exported here for the schedulers that adopted it.
+export { registerShutdownHook };
+
+/** Per-step budget while stopping background work; a stuck stopper must not block exit. */
+const STOP_STEP_TIMEOUT_MS = 5_000;
+
+async function stopQuietly(name: string, stop: () => void | Promise<void>): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve().then(stop),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`[Shutdown] ${name} did not stop within ${STOP_STEP_TIMEOUT_MS}ms.`);
+          resolve();
+        }, STOP_STEP_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (err) {
+    console.warn(`[Shutdown] ${name} failed to stop:`, (err as Error).message);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Stop every background scheduler before draining (R-6): the job registry (budget reset,
+ * log export, token health, cache cleanup), the backup schedule, proxy health / free-proxy
+ * sync, the credential auto-refresh daemon, then the hooks modules registered for their
+ * own timers. Each step is guarded and time-boxed; nothing here may keep the process up.
+ */
+async function stopBackgroundWork(): Promise<void> {
+  const registry = (globalThis as { __omnirouteJobRegistry?: { dispose(): void } })
+    .__omnirouteJobRegistry;
+  if (registry) await stopQuietly("job registry", () => registry.dispose());
+
+  const builtIns: Array<[string, () => Promise<void>]> = [
+    [
+      "backup schedule job",
+      () => import("@/lib/jobs/backupScheduleJob").then((m) => m.stopBackupScheduleJob()),
+    ],
+    [
+      "proxy health check",
+      () => import("@/lib/proxyHealth/scheduler").then((m) => m.stopProxyHealthCheck()),
+    ],
+    [
+      "free-proxy auto-sync",
+      () => import("@/lib/freeProxyProviders/scheduler").then((m) => m.stopFreeProxyAutoSync()),
+    ],
+    [
+      "auto-refresh daemon",
+      () =>
+        import("@omniroute/open-sse/services/autoRefreshDaemon").then((m) =>
+          m.autoRefreshDaemon.stop()
+        ),
+    ],
+    // R-14: close pooled Chromium contexts/browsers so a SIGTERM never leaves them behind.
+    [
+      "browser pool",
+      () =>
+        import("@omniroute/open-sse/services/browserPool.ts").then((m) =>
+          m.shutdownPool("process-shutdown")
+        ),
+    ],
+  ];
+  for (const [name, stop] of builtIns) await stopQuietly(name, stop);
+
+  for (const [name, hook] of [...getShutdownHooks()]) await stopQuietly(`hook ${name}`, hook);
+  console.log("[Shutdown] Background schedulers stopped.");
+}
+
 function getShutdownState() {
   if (!globalThis.__omnirouteShutdown) {
     globalThis.__omnirouteShutdown = { init: false, shuttingDown: false, activeRequests: 0 };
@@ -175,6 +249,9 @@ export function requestGracefulShutdown(signal: string): Promise<void> {
   state.shutdownPromise = (async () => {
     console.log(`\n[Shutdown] Received ${signal}. Draining ${state.activeRequests} request(s)...`);
 
+    // R-6: stop background work first so no scheduler fires into the drain window or
+    // touches the database after cleanup() closes it.
+    await stopBackgroundWork();
     await waitForDrain();
     await cleanup();
 

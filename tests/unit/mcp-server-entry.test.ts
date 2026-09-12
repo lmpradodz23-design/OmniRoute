@@ -1,13 +1,15 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("../..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 const { resolveMcpEntry } = await import("../../bin/mcp-server.mjs");
 
 describe("resolveMcpEntry (#MCP — dist/ path resolution)", () => {
-  const FAKE_ROOT = "/fake/omniroute";
+  // join() so the fake root uses the platform separator (resolveMcpEntry joins onto it).
+  const FAKE_ROOT = join("/fake", "omniroute");
 
   it("returns dist/open-sse/mcp-server/server.js when it exists", () => {
     const distJs = join(FAKE_ROOT, "dist", "open-sse", "mcp-server", "server.js");

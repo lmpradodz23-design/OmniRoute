@@ -44,11 +44,23 @@ export class BaseGuardrail {
   enabled: boolean;
   name: string;
   priority: number;
+  /**
+   * A mandatory guardrail is a security control (credential masking, PII masking,
+   * prompt-injection guard): the request body/headers cannot disable it — only the
+   * operator's per-key policy can — and when it throws, the registry fails CLOSED
+   * (the request/response is rejected) instead of passing the payload through
+   * unchecked. Media bridges and custom rules default to optional.
+   */
+  mandatory: boolean;
 
-  constructor(name: string, options: { enabled?: boolean; priority?: number } = {}) {
+  constructor(
+    name: string,
+    options: { enabled?: boolean; priority?: number; mandatory?: boolean } = {}
+  ) {
     this.name = name;
     this.enabled = options.enabled !== false;
     this.priority = options.priority ?? 100;
+    this.mandatory = options.mandatory === true;
   }
 
   async preCall(

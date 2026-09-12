@@ -168,7 +168,7 @@ Touch points:
 
 - `open-sse/executors/antigravity.ts` — reads `process.env.ANTIGRAVITY_CREDITS`
 - `src/lib/oauth/providers/antigravity.ts` — credential plumbing
-- Original incident report: Discussion [#1183](https://github.com/diegosouzapw/OmniRoute/discussions/1183)
+- Original incident report: Discussion [#1183](https://github.com/LMPrado-DZ23/OmniRoute/discussions/1183)
 
 ---
 

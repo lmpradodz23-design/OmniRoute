@@ -41,10 +41,10 @@ jobs:
             mutate: "open-sse/handlers/chatCore/telemetryHelpers.ts,open-sse/handlers/chatCore/memorySkillsInjection.ts,open-sse/handlers/chatCore/semanticCache.ts"
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
           cache: npm
@@ -55,7 +55,7 @@ jobs:
         run: npx stryker run --config-file stryker.disablebail.json --mutate "$BATCH_MUTATE"
       - name: Upload mutation report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: mutation-nobail-${{ matrix.batch.name }}
           path: reports/mutation/

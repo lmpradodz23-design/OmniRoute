@@ -178,3 +178,71 @@ describe("isOriginAllowed", () => {
     assert.equal(isOriginAllowed(undefined, env2), true);
   });
 });
+
+describe("buildAllowedOrigins derives from the runtime port configuration (final audit C-01)", () => {
+  // The dashboard is served on whatever port the operator configured (tray,
+  // `PORT=`, `DASHBOARD_PORT=`, Docker). Its WS Origin is `http://<loopback>:<that port>`,
+  // so the allow-list must follow the configured ports - not a compiled-in 20128.
+  it("allows every loopback spelling of DASHBOARD_PORT", () => {
+    const env = { ...EMPTY_ENV, DASHBOARD_PORT: "20413" };
+    assert.equal(isOriginAllowed("http://127.0.0.1:20413", env), true);
+    assert.equal(isOriginAllowed("http://localhost:20413", env), true);
+    assert.equal(isOriginAllowed("http://[::1]:20413", env), true);
+    assert.equal(isOriginAllowed("http://0.0.0.0:20413", env), true);
+  });
+
+  it("allows the PORT / OMNIROUTE_PORT / API_PORT listeners too", () => {
+    assert.equal(isOriginAllowed("http://127.0.0.1:20413", { ...EMPTY_ENV, PORT: "20413" }), true);
+    assert.equal(
+      isOriginAllowed("http://127.0.0.1:20413", { ...EMPTY_ENV, OMNIROUTE_PORT: "20413" }),
+      true
+    );
+    // Split listeners (serve.mjs exports all three): every one of them is a
+    // page the browser can be on when it opens the live socket.
+    const split = {
+      ...EMPTY_ENV,
+      OMNIROUTE_PORT: "20128",
+      DASHBOARD_PORT: "21288",
+      API_PORT: "20129",
+    };
+    assert.equal(isOriginAllowed("http://127.0.0.1:21288", split), true);
+    assert.equal(isOriginAllowed("http://127.0.0.1:20129", split), true);
+    assert.equal(isOriginAllowed("http://127.0.0.1:20128", split), true);
+  });
+
+  it("does not weaken the allow-list: a non-loopback host on the configured port is still denied", () => {
+    const env = { ...EMPTY_ENV, DASHBOARD_PORT: "20413" };
+    assert.equal(isOriginAllowed("http://evil.example:20413", env), false);
+    assert.equal(isOriginAllowed("http://192.168.0.10:20413", env), false);
+    assert.equal(isOriginAllowed("https://127.0.0.1:20413", env), false);
+  });
+
+  it("does not allow a port that is not configured anywhere", () => {
+    assert.equal(isOriginAllowed("http://127.0.0.1:20413", EMPTY_ENV), false);
+    // Every listener moved to 20413: the compiled-in 20128 is no longer a
+    // page of this instance, so it is no longer an allowed Origin.
+    const env = { ...EMPTY_ENV, PORT: "20413" };
+    assert.equal(isOriginAllowed("http://127.0.0.1:20128", env), false);
+    // Only the dashboard moved: the API listener still sits on 20128 and its
+    // pages may open the live socket too.
+    const split = { ...EMPTY_ENV, DASHBOARD_PORT: "20413" };
+    assert.equal(isOriginAllowed("http://127.0.0.1:20128", split), true);
+    assert.equal(isOriginAllowed("http://127.0.0.1:20413", split), true);
+  });
+
+  it("keeps LIVE_WS_ALLOWED_ORIGINS as an explicit extension on top of the derived list", () => {
+    const env = {
+      ...EMPTY_ENV,
+      DASHBOARD_PORT: "20413",
+      LIVE_WS_ALLOWED_ORIGINS: "https://dash.example.com",
+    };
+    const out = buildAllowedOrigins(env);
+    assert.equal(out.has("http://127.0.0.1:20413"), true);
+    assert.equal(out.has("https://dash.example.com"), true);
+  });
+
+  it("ignores an invalid port value and falls back to the default listener", () => {
+    const env = { ...EMPTY_ENV, DASHBOARD_PORT: "not-a-port" };
+    assert.equal(isOriginAllowed("http://127.0.0.1:20128", env), true);
+  });
+});

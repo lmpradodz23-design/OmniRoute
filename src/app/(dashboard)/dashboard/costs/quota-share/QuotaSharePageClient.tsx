@@ -15,6 +15,7 @@ import QuotaConceptCard from "./components/QuotaConceptCard";
 import QuotaEndpointsCard from "./components/QuotaEndpointsCard";
 import PoolCard from "./components/PoolCard";
 import PoolWizard from "./components/PoolWizard";
+import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Local types (display layer only)
@@ -126,6 +127,7 @@ function PoolCardWithUsage({
 
 export default function QuotaSharePageClient() {
   const t = useTranslations("quotaShare");
+  const confirmDialog = useConfirmDialog();
   const { pools, loading, mutate } = usePools();
   const emailsVisible = useEmailPrivacyStore((s) => s.emailsVisible);
 
@@ -267,7 +269,7 @@ export default function QuotaSharePageClient() {
   // pools (HTTP 409) and protects the seed "group-demo"; surface both to the user.
   const handleDeleteGroup = useCallback(async () => {
     if (selectedGroupId === "all" || selectedGroupId === "group-demo") return;
-    if (!confirm(t("deleteGroupConfirm"))) return;
+    if (!(await confirmDialog(t("deleteGroupConfirm")))) return;
     try {
       const res = await fetch(`/api/quota/groups/${selectedGroupId}`, { method: "DELETE" });
       if (res.ok) {
@@ -280,7 +282,7 @@ export default function QuotaSharePageClient() {
     } catch {
       // fail open
     }
-  }, [selectedGroupId, fetchGroups, mutate, t]);
+  }, [selectedGroupId, fetchGroups, mutate, t, confirmDialog]);
 
   // ── Derived ──────────────────────────────────────────────────────────────
 
@@ -385,7 +387,7 @@ export default function QuotaSharePageClient() {
    */
   const handleRemovePool = useCallback(
     async (id: string) => {
-      if (!confirm(t("removeConfirm"))) return;
+      if (!(await confirmDialog(t("removeConfirm")))) return;
       setRemoveError(null);
       try {
         const res = await fetch(`/api/quota/pools/${id}`, { method: "DELETE" });
@@ -404,7 +406,7 @@ export default function QuotaSharePageClient() {
       }
       await mutate();
     },
-    [mutate, t]
+    [mutate, t, confirmDialog]
   );
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -456,7 +458,7 @@ export default function QuotaSharePageClient() {
           <span className="font-semibold">{t("betaTitle")}</span> — {t("betaText")}
         </span>
         <a
-          href="https://github.com/diegosouzapw/OmniRoute/issues/new?labels=quota-share,beta&title=%5Bquota-share%5D%20"
+          href="https://github.com/LMPrado-DZ23/OmniRoute/issues/new?labels=quota-share,beta&title=%5Bquota-share%5D%20"
           target="_blank"
           rel="noopener noreferrer"
           className="shrink-0 inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-300 hover:underline"

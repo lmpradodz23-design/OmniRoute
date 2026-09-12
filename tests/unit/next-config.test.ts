@@ -120,6 +120,30 @@ test("next config declares Turbopack aliases, runtime assets and server external
     tracingExcludes.some((p) => p.includes(".claude")),
     "outputFileTracingExcludes should exclude .claude worktrees"
   );
+  // The install-upgrade gate keeps installed trees, SQLite databases and tarballs under
+  // .install-upgrade/ inside the repo; tracing pulled them into the standalone bundle and
+  // a build aborted with ENOENT when the gate removed its workspace mid-copy.
+  assert.ok(
+    tracingExcludes.includes("**/.install-upgrade/**"),
+    "outputFileTracingExcludes should exclude the install-upgrade gate workspaces"
+  );
+  assert.ok(
+    tracingExcludes.includes("**/dist-electron/**"),
+    "outputFileTracingExcludes should exclude the Electron packaging output"
+  );
+  for (const secret of ["**/.env", "**/.env.*", "**/server.env", "**/audit/**"]) {
+    assert.ok(
+      tracingExcludes.includes(secret),
+      `outputFileTracingExcludes should exclude ${secret}`
+    );
+  }
+  // Excluding the dist dir itself strips the bundle's OWN chunks from every route trace
+  // (build #6 booted with ChunkLoadError: 93 of ~22 000 chunks copied). Sibling dist dirs are
+  // handled by the post-build prune (STANDALONE_PRUNE_TARGETS / pruneStandaloneDir), never here.
+  assert.ok(
+    !tracingExcludes.some((p) => p === "**/.build/**" || p === "**/.next/**"),
+    "outputFileTracingExcludes must never exclude the dist dir (.build/** or .next/**)"
+  );
 
   for (const packageName of [
     "thread-stream",
