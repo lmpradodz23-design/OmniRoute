@@ -6,7 +6,7 @@ import test from "node:test";
 import { advance, createLoopRun, proposeStep } from "@omniroute/open-sse/loop-engine/index.ts";
 
 import { getDbInstance } from "@/lib/db/core";
-import { getLoopRun, listLoopRuns, saveLoopRun } from "@/lib/db/loopEngine";
+import { getLoopRun, listLoopRuns, LoopRunConflictError, saveLoopRun } from "@/lib/db/loopEngine";
 
 // Garante o schema da migracao 175 no DB isolado do teste (IF NOT EXISTS -> idempotente).
 function ensureSchema(): void {
@@ -65,4 +65,40 @@ test("loopEngine repo: runs sao ISOLADOS por tenant (get/list nao vazam entre te
   // O proprio tenant enxerga
   assert.ok(getLoopRun(run.id, "tenantA"));
   assert.ok(listLoopRuns(undefined, "tenantA").some((r) => r.id === run.id));
+});
+
+test("loopEngine repo (M2): dois saves a partir do MESMO snapshot -> o segundo falha (guarda otimista)", () => {
+  ensureSchema();
+  const run = createLoopRun({ pattern: "race" });
+  saveLoopRun(run);
+  const snapshot = getLoopRun(run.id)!; // sequence 0
+  const a = advance(snapshot, { policy: { reportOnly: true } }).run; // sequence 1
+  const b = advance(snapshot, { policy: { reportOnly: true } }).run; // sequence 1, mesmo snapshot
+  saveLoopRun(a);
+  assert.throws(() => saveLoopRun(b), LoopRunConflictError);
+  const persisted = getLoopRun(run.id)!;
+  assert.equal(persisted.sequenceNumber, 1);
+  assert.equal(persisted.phase, "plan");
+});
+
+test("loopEngine repo (L7): outro tenant com o MESMO id nao sobrescreve o run (clausula de tenant no upsert)", () => {
+  ensureSchema();
+  const run = createLoopRun({ pattern: "tenant-guard" });
+  saveLoopRun(run, "tenantA");
+  const hijack = advance(run, { policy: { reportOnly: true } }).run; // sequence 1, phase plan
+  assert.throws(() => saveLoopRun(hijack, "tenantB"), LoopRunConflictError);
+  const kept = getLoopRun(run.id, "tenantA")!;
+  assert.equal(kept.sequenceNumber, 0);
+  assert.equal(kept.phase, "discover");
+  assert.equal(getLoopRun(run.id, "tenantB"), null);
+});
+
+test("loopEngine repo (L2): createdAt sobrevive ao round-trip e nao muda no update", () => {
+  ensureSchema();
+  const run = createLoopRun({ pattern: "created-at" });
+  saveLoopRun(run);
+  const loaded = getLoopRun(run.id)!;
+  assert.equal(loaded.createdAt, run.createdAt);
+  saveLoopRun(advance(loaded, { policy: { reportOnly: true } }).run);
+  assert.equal(getLoopRun(run.id)!.createdAt, run.createdAt);
 });

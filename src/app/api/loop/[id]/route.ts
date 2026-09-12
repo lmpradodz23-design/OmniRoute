@@ -2,14 +2,14 @@
  * GET /api/loop/[id] — retorna um run do Loop Engine (com suas etapas).
  * Autenticado + gated por LOOP_ENGINE_ENABLED.
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { getLoopRun } from "@/lib/loopRunner";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 
 export async function GET(
-  req: NextRequest,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   const auth = await requireManagementAuth(req);
