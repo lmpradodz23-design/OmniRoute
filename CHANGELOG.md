@@ -90,7 +90,27 @@
 - **feat(cli):** run `omniroute serve --tray` as a detached desktop process after server and tray readiness, with graphical login auto-start support.
 - **feat(routing):** add client-, provider-, and model-neutral exclusive managed session connection leases with API-key-bound generation fencing, durable SQLite ownership, explicit allowlist policy, and bounded 429 capacity retry semantics.
 
-## [3.8.51] — TBD
+## [3.8.52] — 2026-09-12
+
+_Patch release of the `LMPrado-DZ23/OmniRoute` fork. It closes the four limitations published with v3.8.51._
+
+### ✨ New Features
+
+- **feat(mcp):** MCP approvals are now stored on the server, so `POST /api/mcp/review` can reach `approved` again without trusting the request body. `POST /api/mcp/review/approve` (admin, behind `MCP_REVIEW_ENABLED`) records a human approval keyed by the candidate's `name` + `source` and refuses with `422 MCP_REVIEW_DENIED` anything the gate denies; `POST /api/mcp/review/revoke` revokes it. A later review carries the approval only when permissions are not broadened and the publisher is explicitly verified (migration `177`) ([#17](https://github.com/LMPrado-DZ23/OmniRoute/pull/17))
+- **feat(browser):** the Browser Use domain allowlist is configurable from Settings → Security and through `GET`/`PUT /api/browser/allowlist`, so callers of `POST /api/browser/check` no longer have to send the domains themselves. Entries are hosts only: schemes, paths, ports, wildcards, IP literals and single-label names are rejected with a per-entry reason, and a saved list that fails validation on read is dropped rather than widened ([#19](https://github.com/LMPrado-DZ23/OmniRoute/pull/19))
+
+### 🐛 Bug Fixes
+
+- **fix(loop):** `GET /api/loop/{id}/stream` now streams incrementally instead of returning one buffered body that made `EventSource` reconnect every few seconds: snapshot first, `STATE_DELTA` only when the run changes, `: ping` heartbeats, `RUN_FINISHED`/`RUN_ERROR` and close on a terminal status, a 10-minute per-connection cap, timers cleared on disconnect, and `Last-Event-ID` resume without replay (`204` once the terminal event was delivered) ([#16](https://github.com/LMPrado-DZ23/OmniRoute/pull/16))
+- **fix(electron):** the Windows leg of the desktop release no longer fails on a symlink that only looks different: the shared web bundle is packed on Linux, and a `.bin` shim whose target is an absolute POSIX path reads back on Windows with a drive prefix and backslashes. Both sides are normalized for the comparison, and a link that genuinely points elsewhere still fails ([#15](https://github.com/LMPrado-DZ23/OmniRoute/pull/15))
+
+### 📝 Maintenance
+
+- **ci(electron):** the desktop release pipeline signs the installers as soon as the owner adds the signing repository secrets — a Developer ID certificate plus App Store Connect or Apple ID notarization on macOS, an Authenticode certificate or Azure Trusted Signing on Windows — and keeps producing the unsigned build, green, while they are absent. The exact secrets are listed in `docs/guides/ELECTRON_GUIDE.md` ([#18](https://github.com/LMPrado-DZ23/OmniRoute/pull/18))
+
+---
+
+## [3.8.51] — 2026-09-12
 
 _Living section — cycle opened at the v3.8.50 freeze (parallel-cycle model). Bullets are aggregated from `changelog.d/` fragments at each `/generate-release` phase._
 
