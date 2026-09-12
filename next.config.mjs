@@ -335,7 +335,10 @@ const nextConfig = {
       "**/.env.*",
       "**/server.env",
       "**/audit/**",
-      "**/.build/**",
+      // NOT "**/.build/**": the route traces list the bundle's OWN chunks under
+      // <distDir>/server/chunks, and that glob removed them (build #6 booted with
+      // ChunkLoadError: 93 of 22 000 chunks copied). Sibling dist dirs are pruned by
+      // STANDALONE_PRUNE_TARGETS / pruneStandaloneDir() after the build instead.
       "**/.github/**",
       "**/.husky/**",
     ],
