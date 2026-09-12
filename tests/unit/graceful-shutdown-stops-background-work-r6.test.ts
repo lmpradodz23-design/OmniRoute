@@ -21,6 +21,7 @@ const gracefulShutdownUrl = pathToFileURL(
 ).href;
 
 const core = await import("../../src/lib/db/core.ts");
+const hooks = await import("../../src/lib/shutdownHooks.ts");
 const { getJobRegistry, __resetJobRegistry } = await import("../../src/lib/jobRegistry/index.ts");
 const { autoRefreshDaemon } = await import("../../open-sse/services/autoRefreshDaemon.ts");
 
@@ -111,7 +112,7 @@ test("registerShutdownHook is idempotent per name and returns an unregister hand
       1,
       "a stale handle does not remove the hook that replaced it"
     );
-    shutdown.unregisterShutdownHook("r6-dup");
+    hooks.unregisterShutdownHook("r6-dup");
     assert.equal(globalThis.__omnirouteShutdownHooks?.size, 0);
   } finally {
     if (previousHooks === undefined) delete globalThis.__omnirouteShutdownHooks;

@@ -16,10 +16,7 @@ export const GITHUB_REPO = "OmniRoute";
 export const GITHUB_REPO_SLUG = `${GITHUB_OWNER}/${GITHUB_REPO}`;
 export const GITHUB_REPO_URL = `https://github.com/${GITHUB_REPO_SLUG}`;
 export const GITHUB_RAW_BASE_URL = `https://raw.githubusercontent.com/${GITHUB_REPO_SLUG}`;
-export const GITHUB_RELEASES_URL = `${GITHUB_REPO_URL}/releases`;
 export const GITHUB_RELEASES_LATEST_API_URL = `https://api.github.com/repos/${GITHUB_REPO_SLUG}/releases/latest`;
-export const GITHUB_ISSUES_URL = `${GITHUB_REPO_URL}/issues`;
-export const GITHUB_DISCUSSIONS_URL = `${GITHUB_REPO_URL}/discussions`;
 export const DEFAULT_BRANCH = "main";
 
 /** Original project this fork descends from — attribution only. */

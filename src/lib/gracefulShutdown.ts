@@ -30,15 +30,11 @@ declare global {
   var __omnirouteCustomServerOwnsShutdown: boolean | undefined;
 }
 
-import {
-  getShutdownHooks,
-  registerShutdownHook,
-  unregisterShutdownHook,
-  type ShutdownHook,
-} from "./shutdownHooks";
+import { getShutdownHooks, registerShutdownHook } from "./shutdownHooks";
 
-export { registerShutdownHook, unregisterShutdownHook };
-export type { ShutdownHook };
+// Unregistering and the hook type live in ./shutdownHooks (the registry); only the
+// registration entry point is re-exported here for the schedulers that adopted it.
+export { registerShutdownHook };
 
 /** Per-step budget while stopping background work; a stuck stopper must not block exit. */
 const STOP_STEP_TIMEOUT_MS = 5_000;
