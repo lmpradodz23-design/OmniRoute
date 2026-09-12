@@ -17,7 +17,7 @@ npm install -g omniroute
 ### Opcja B: Docker
 
 ```bash
-docker run -d --name omniroute -p 20128:20128 ghcr.io/lmprado-dz23/omniroute:latest
+docker run -d --name omniroute -p 20128:20128 ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 ### Opcja C: Ze źródeł

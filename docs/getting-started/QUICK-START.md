@@ -29,7 +29,7 @@ If the Releases page has no installers yet, use **Option B** or **Option C**.
 This fork's image is `ghcr.io/lmprado-dz23/omniroute` (that is what the repository's publish workflow produces). If the `docker run` below reports that the image cannot be found, it has not been published yet — use **Option C**.
 
 ```bash
-docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
+docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 Your data lives in the `omniroute-data` volume (`/app/data` inside the container). `:latest` is the highest **published** stable SemVer. It does **not** track git `main`. Pin `ghcr.io/lmprado-dz23/omniroute:X.Y.Z` for GitOps. See [Image Tags / Release Channels](../guides/DOCKER_GUIDE.md#release-channels).

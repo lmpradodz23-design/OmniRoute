@@ -42,7 +42,7 @@ Request → CORS → Authz pipeline (classify → policies → enforce)
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dashboard Login**   | Uwierzytelnianie hasłem z tokenami JWT (ciasteczka HttpOnly)                                                                                        |
 | **API Key Auth**      | Klucze podpisane HMAC z walidacją CRC                                                                                                               |
-| **OAuth 2.0 + PKCE** | Przepływy OAuth w przeglądarce/na urządzeniu używają PKCE, gdy dostawca je obsługuje; importowane poświadczenia Devin są obsługiwane osobno. |
+| **OAuth 2.0 + PKCE**  | Przepływy OAuth w przeglądarce/na urządzeniu używają PKCE, gdy dostawca je obsługuje; importowane poświadczenia Devin są obsługiwane osobno.        |
 | **Token Refresh**     | Automatyczne odświeżanie tokenów OAuth przed wygaśnięciem                                                                                           |
 | **Secure Cookies**    | `AUTH_COOKIE_SECURE=true` dla środowisk HTTPS                                                                                                       |
 | **Authz Pipeline**    | Klasyfikacja tras (PUBLIC / CLIENT_API / MANAGEMENT) — zob. `docs/architecture/AUTHZ_GUIDE.md`                                                      |
@@ -186,7 +186,7 @@ docker run -d \
   -e JWT_SECRET="$(openssl rand -base64 48)" \
   -e API_KEY_SECRET="$(openssl rand -hex 32)" \
   -e STORAGE_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 ---
