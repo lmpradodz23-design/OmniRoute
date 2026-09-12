@@ -3,7 +3,8 @@
  * Body: { action: BrowserAction, allowedDomains?: string[] }.
  *
  * Autenticado (management, escopo admin nas mutações) e gated por BROWSER_USE_ENABLED. Se
- * allowedDomains não vier no corpo, usa a allowlist persistida (`db/browserGuard.ts`). Efeito
+ * allowedDomains não vier no corpo, usa a allowlist persistida (`db/browserGuard.ts`), que o
+ * painel configura em Settings → Security via `PUT /api/browser/allowlist`. Efeito
  * externo → aprovação humana; ação originada na página que não seja leitura → deny (prompt
  * injection não escala). Não executa nada.
  */

@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Loop Engine / Buzz Hub pages — "this module is turned off" notice: names the feature
+ * Loop Engine / Buzz Hub pages (and the Browser Use allowlist card in Settings → Security) —
+ * "this module is turned off" notice: names the feature
  * flag and deep-links to the flag grid pre-filtered on it
  * (`/dashboard/settings/feature-flags?q=<FLAG>`, handled by FeatureFlagsGrid).
  */
 import type { ReactNode } from "react";
 
 interface FlagDisabledNoticeProps {
-  flagKey: "LOOP_ENGINE_ENABLED" | "BUZZ_HUB_ENABLED";
+  flagKey: "LOOP_ENGINE_ENABLED" | "BUZZ_HUB_ENABLED" | "BROWSER_USE_ENABLED";
   title: string;
   description: ReactNode;
   linkLabel: string;

@@ -111,9 +111,15 @@ então `0,5,NaN,2,3` validava limpo apesar da regressão 5 → 2. **Correção:*
 
 ## 4. Pendências honestas (não corrigidas aqui)
 
-- A allowlist do navegador é lida de `key_value['browser']['allowed_domains']`, e **nada no
-  repositório escreve essa chave**. O "override persistido no painel" descrito no cabeçalho da rota
-  ainda não existe; o chamador precisa passar `allowedDomains` no corpo.
+- ~~A allowlist do navegador é lida de `key_value["browser"]["allowed_domains"]`, e nada no
+  repositório escreve essa chave.~~ **Resolvido** (branch `feat/browser-allowlist-ui`):
+  `setBrowserAllowedDomains` em `src/lib/db/browserGuard.ts` normaliza e valida (sem
+  esquema/caminho/porta/curinga, sem IP literal, ao menos dois rótulos, teto de 256) e grava
+  tudo-ou-nada; `GET`/`PUT /api/browser/allowlist` expõem a leitura (escopo `read`) e a escrita
+  (escopo `admin`), sem gate da flag para permitir preparar a lista antes de ligar o Browser Use;
+  o card "Browser Use domain allowlist" em Settings → Security edita a lista e avisa quando
+  `BROWSER_USE_ENABLED` está desligada. `POST /api/browser/check` sem `allowedDomains` passa a
+  usar a lista configurada (coberto por `tests/unit/browser-allowlist-route.test.ts`).
 - `GET /api/loop/{id}/stream` monta o corpo inteiro em memória em vez de streamar, então um cliente
   `EventSource` reconecta em laço (~3 s), reexecutando auth e leituras de banco.
 - **Resolvido — loja de aprovações de MCP.** Antes, sem ela, o estado `approved` não era
