@@ -506,8 +506,19 @@ jobs:
   publish-npm:
     name: Publish to npm
     needs: [validate, release]
-    # A re-dispatch that only re-attaches desktop assets must not publish the npm package again.
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_npm }}
+    # Opt-in, and off unless the repository variable ENABLE_NPM_PUBLISH is "true".
+    #
+    # This fork does not own the `omniroute` name on npm — upstream publishes it, and the
+    # README says three times that this fork ships only through the container image and
+    # from source. The leg's only other brake is a "already on npm" check against the
+    # version being released, and that brake does not hold here: upstream is on 3.8.50
+    # while this repository is at 3.8.51, so a `v3.8.51` tag would resolve skip=false and
+    # go on to attempt a real publish of someone else's package name. Publishing is also
+    # outside the authorisation this fork operates under.
+    #
+    # The second clause is unchanged: a re-dispatch that only re-attaches desktop assets
+    # must not publish the npm package again.
+    if: ${{ vars.ENABLE_NPM_PUBLISH == 'true' && (github.event_name != 'workflow_dispatch' || inputs.publish_npm) }}
     permissions:
       # Must be `write`, not `read`: this job calls the reusable npm-publish.yml whose
       # `publish` job needs `contents: write` (gh release upload — attach the SBOM, #3874).
