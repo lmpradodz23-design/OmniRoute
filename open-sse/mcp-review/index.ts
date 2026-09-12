@@ -66,12 +66,26 @@ export const FORBIDDEN_MCP_PERMISSIONS: ReadonlySet<string> = new Set([
   "keys:read",
 ]);
 
+/**
+ * Permissões são comparadas normalizadas. Os conjuntos acima casam por string exata, e o formato
+ * aceito na fronteira admite maiúsculas: `"KEYS:READ"` e `"Secrets:Exfiltrate"` atravessavam
+ * `FORBIDDEN_MCP_PERMISSIONS` intactas e chegavam a `approved`. Capability não é case-sensitive
+ * para quem escreve um manifesto, então também não pode ser aqui.
+ */
+function normalize(permission: string): string {
+  return permission.trim().toLowerCase();
+}
+
+function normalizeAll(permissions: ReadonlyArray<string>): string[] {
+  return permissions.map(normalize);
+}
+
 function broadenedPermissions(
   candidate: ReadonlyArray<string>,
   prior: ReadonlyArray<string>
 ): string[] {
-  const priorSet = new Set(prior);
-  return candidate.filter((p) => !priorSet.has(p));
+  const priorSet = new Set(normalizeAll(prior));
+  return normalizeAll(candidate).filter((p) => !priorSet.has(p));
 }
 
 /**
@@ -97,7 +111,9 @@ export function reviewMcpCandidate(
     };
   }
 
-  const forbidden = candidate.permissions.filter((p) => FORBIDDEN_MCP_PERMISSIONS.has(p));
+  const forbidden = candidate.permissions.filter((p) =>
+    FORBIDDEN_MCP_PERMISSIONS.has(normalize(p))
+  );
   if (forbidden.length > 0) {
     return {
       state: "denied",
@@ -109,9 +125,11 @@ export function reviewMcpCandidate(
 
   const newlyRequested = prior
     ? broadenedPermissions(candidate.permissions, prior.permissions)
-    : [...candidate.permissions];
+    : normalizeAll(candidate.permissions);
 
-  const hasSensitive = candidate.permissions.some((p) => SENSITIVE_MCP_PERMISSIONS.has(p));
+  const hasSensitive = candidate.permissions.some((p) =>
+    SENSITIVE_MCP_PERMISSIONS.has(normalize(p))
+  );
 
   // Novo servidor: sempre revisão humana.
   if (!prior) {
@@ -130,7 +148,10 @@ export function reviewMcpCandidate(
   // externa REPROVOU o publisher (publisherVerified === false), volta à revisão mesmo sem ampliar
   // (assinatura/publisher divergente é sinal de comprometimento, não um simples patch).
   if (prior.approved) {
-    if (candidate.publisherVerified === false) {
+    // Fail-closed no publisher: ausente conta como NÃO verificado. Antes só `=== false` forçava
+    // re-revisão, de modo que um candidato cuja etapa de verificação simplesmente nunca rodou era
+    // auto-aprovado — o valor padrão do campo decidia a favor do pacote.
+    if (candidate.publisherVerified !== true) {
       reasons.push("publisher não verificado — re-revisão obrigatória apesar de não ampliar");
       return { state: "review_required", requiresHumanApproval: true, reasons, newlyRequested: [] };
     }

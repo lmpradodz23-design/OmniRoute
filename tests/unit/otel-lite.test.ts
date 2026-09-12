@@ -55,3 +55,14 @@ test("otel: span filho herda traceId e referencia o parent; export coleta", () =
   assert.equal(exp.spans[0].endMs! - exp.spans[0].startMs, 5); // child durou 5ms
   assert.equal(exp.spans[1].status, "ok");
 });
+
+// ---- Regressao da auditoria adversarial (2026-09-12) ------------------------
+// O NOME do span nao passava pela allowlist nem por truncamento: so `attributes` eram
+// governados, entao um nome de 1.000.000 de caracteres era retido inteiro no ring buffer.
+test("otel: nome do span e truncado e sem caracteres de controle", () => {
+  const exporter = new InMemorySpanExporter();
+  const span = startSpan("x".repeat(1_000_000) + "\n fim", undefined, {});
+  endSpan(span, exporter, { status: "ok" });
+  assert.ok(exporter.spans[0].name.length <= 120, "nome deve respeitar o teto");
+  assert.doesNotMatch(exporter.spans[0].name, /[\u0000-\u001f]/, "sem caracteres de controle");
+});

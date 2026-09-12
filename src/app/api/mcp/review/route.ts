@@ -1,6 +1,6 @@
 /**
  * POST /api/mcp/review — roda o MCP Review Gate determinístico sobre um candidato.
- * Body: { candidate: McpCandidate, prior?: McpPriorApproval }.
+ * Body: { candidate: McpCandidate }. A aprovação anterior é estado do servidor, nunca do corpo.
  *
  * Autenticado (management, escopo admin nas mutações) e gated por MCP_REVIEW_ENABLED. Código
  * decide (não a IA): malicioso/permissão proibida → denied; novo ou permissão ampliada →
@@ -36,15 +36,19 @@ const candidateSchema = z.strictObject({
   flaggedMalicious: z.boolean().optional(),
 });
 
-const priorSchema = z.strictObject({
-  version: z.string().min(1).max(64),
-  permissions: z.array(permission).max(256),
-  approved: z.boolean(),
-});
-
+/**
+ * O corpo NÃO aceita `prior`. Ele aceitava, e `prior.approved` é exatamente a afirmação que o
+ * gate existe para não tomar na palavra: um candidato pedindo `shell:exec`, `fs:delete` e
+ * `secrets:read` acompanhado de `{"approved": true}` saía como `approved`, sem revisão humana,
+ * porque nada amarrava aquele prior a um registro — nem sequer o `name` era comparado.
+ *
+ * A aprovação anterior é estado do servidor, e o servidor ainda não tem onde guardá-la: não
+ * existe endpoint de aprovação nem tabela de aprovações de MCP neste momento. Enquanto não
+ * existir, a resposta correta é a fail-closed — todo candidato é tratado como novo e volta como
+ * `review_required`. O motor puro continua aceitando `prior` para quando esse registro existir.
+ */
 const reviewBodySchema = z.strictObject({
   candidate: candidateSchema,
-  prior: priorSchema.optional(),
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -65,9 +69,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  const { candidate, prior } = validation.data;
+  const { candidate } = validation.data;
   const verdict = traceSync("mcp.review", { route: "/api/mcp/review", provider: "mcp" }, () =>
-    reviewMcpCandidate(candidate, prior)
+    reviewMcpCandidate(candidate)
   );
   return NextResponse.json({ verdict });
 }

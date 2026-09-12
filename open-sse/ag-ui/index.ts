@@ -67,8 +67,11 @@ export function validateEventSequence(events: ReadonlyArray<AgUiEvent>): Sequenc
   let lastSeq = -Infinity;
   let terminalAt = -1;
   events.forEach((e, i) => {
-    if (e.seq <= lastSeq) errors.push(`seq não crescente em ${i} (${e.seq})`);
-    lastSeq = e.seq;
+    // `NaN <= x` e sempre falso, entao um seq NaN passava e ainda zerava a comparacao seguinte:
+    // o fluxo 0,5,NaN,2,3 era aceito apesar da regressao 5 -> 2. Exigir um numero finito.
+    if (!Number.isFinite(e.seq)) errors.push(`seq nao numerico em ${i} (${String(e.seq)})`);
+    else if (e.seq <= lastSeq) errors.push(`seq nao crescente em ${i} (${e.seq})`);
+    if (Number.isFinite(e.seq)) lastSeq = e.seq;
     if (e.type === "RUN_STARTED" && i !== 0) errors.push(`RUN_STARTED duplicado no índice ${i}`);
     if (e.runId !== runId) errors.push(`runId inconsistente no índice ${i} (${e.runId})`);
     if (TERMINAL_EVENTS.has(e.type)) {

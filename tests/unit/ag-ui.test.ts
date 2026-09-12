@@ -70,3 +70,27 @@ test("ag-ui: runId inconsistente entre eventos -> inválido", () => {
   assert.equal(v.ok, false);
   assert.ok(v.errors.some((e) => /runId inconsistente/.test(e)));
 });
+
+// ---- Regressao da auditoria adversarial (2026-09-12) ------------------------
+// `NaN <= x` e sempre falso, entao um seq NaN passava pela checagem de monotonicidade e
+// ainda zerava a comparacao seguinte: 0,5,NaN,2,3 era aceito apesar da regressao 5 -> 2.
+test("ag-ui: seq nao numerico e rejeitado e nao mascara a regressao seguinte", () => {
+  const runId = "r1";
+  const events: AgUiEvent[] = [
+    { type: "RUN_STARTED", seq: 0, runId },
+    { type: "TEXT_MESSAGE_CONTENT", seq: 5, runId, messageId: "m", delta: "a" },
+    { type: "TEXT_MESSAGE_CONTENT", seq: Number.NaN, runId, messageId: "m", delta: "b" },
+    { type: "TEXT_MESSAGE_CONTENT", seq: 2, runId, messageId: "m", delta: "c" },
+    { type: "RUN_FINISHED", seq: 3, runId },
+  ];
+  const v = validateEventSequence(events);
+  assert.equal(v.ok, false);
+  assert.ok(
+    v.errors.some((e) => /nao numerico/.test(e)),
+    "o seq NaN precisa ser apontado"
+  );
+  assert.ok(
+    v.errors.some((e) => /nao crescente/.test(e)),
+    "a regressao 5 -> 2 nao pode ficar mascarada"
+  );
+});

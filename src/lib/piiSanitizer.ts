@@ -84,17 +84,25 @@ const PII_PATTERNS: PIIPattern[] = [
     severity: "high",
   },
   {
-    // CEP brasileiro NNNNN-NNN (exige hÃ­fen; boundary de 3 dÃ­gitos descarta ZIP+4 dos EUA).
+    // CEP brasileiro. Exige a pista "cep" por perto, como o PIX abaixo. Sem ela o padrão
+    // NNNNN-NNN mordia o miolo de qualquer identificador hifenizado — auditoria de 2026-09-12
+    // mostrou "Pedido 12345-678", "Rastreio 90210-123" e "id ABC-12345-678-X" sendo
+    // redigidos. Como sanitizePIIResponse percorre a resposta inteira do modelo, isso era
+    // corrupção silenciosa de saída, não proteção de PII.
     name: "cep",
-    regex: /(?<=^|[^A-Za-z0-9])\d{5}-\d{3}(?=$|[^A-Za-z0-9])/g,
+    regex: /(?<=\bceps?\b[\s\S]{0,20})\d{5}-\d{3}(?=$|[^A-Za-z0-9])/gi,
     replacement: "[CEP_REDACTED]",
     severity: "medium",
   },
   {
-    // Chave PIX aleatÃ³ria (UUID v4) redigida sÃ³ com a pista "pix" por perto (evita nuke de UUIDs).
+    // Chave PIX aleatória (UUID v4), redigida só com a pista "pix" por perto — sem ela um
+    // UUID comum seria apagado. A pista vale ANTES ou DEPOIS da chave e atravessa quebra de
+    // linha: a versão anterior só olhava 30 caracteres à esquerda e parava no \n, então
+    // "<uuid> é a minha chave pix" e "chave Pix:\n<uuid>" — o formato de quem cola de um
+    // chat — passavam intactos. Falso negativo é a direção que importa aqui.
     name: "pix_key",
     regex:
-      /(?<=\bpix\b[^\n]{0,30})[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}/gi,
+      /(?<=\bpix\b[\s\S]{0,80})[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?=[\s\S]{0,80}\bpix\b)/gi,
     replacement: "[PIX_KEY_REDACTED]",
     severity: "high",
   },

@@ -118,6 +118,21 @@ tags:
       configuration stay readable with the flag off; publishing is gated by BUZZ_HUB_ENABLED
       and only happens when a relay URL is configured. The agent secret key is never returned.
 
+  - name: Browser Guard
+    description: >-
+      Deterministic policy check for browser automation actions. Off by default; gated by
+      BROWSER_USE_ENABLED. Content read from the page may only ever request a `read` — any
+      other action kind originating from the page is denied outright, so prompt injection in
+      page content can never escalate past a read. Every kind but `type` reaches the network
+      and must carry a `url` that resolves to a domain on the allowlist, or it is denied. Every
+      route requires management authentication. Nothing is executed by this route.
+  - name: OTel
+    description: >-
+      Lightweight distributed tracing (W3C Trace Context), gated by OTEL_TRACING_ENABLED. Span
+      attributes pass through a strict allowlist so no prompt, response, PII, or secret is ever
+      recorded — only operational metadata (provider, model, route, latency, tokens, status).
+      Every route requires management authentication.
+
   - name: A2a
     description: A2a endpoints (generated route coverage)
   - name: Acp
@@ -8606,6 +8621,206 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiErrorResponse"
 
+  /api/loop/{id}/stream:
+    get:
+      tags: [Loop Engine]
+      summary: Stream a Loop run as AG-UI events (SSE)
+      description: |
+        Replays the current state of one run as a single, valid AG-UI event flow: `RUN_STARTED`,
+        then for each step one `TEXT_MESSAGE_START` / `TEXT_MESSAGE_CONTENT` / `TEXT_MESSAGE_END`
+        triple (the content delta is `"<n>. <title> (<status>)"`, plus a
+        `[efeito proposto: <kind>]` suffix when the step proposes a non-`none` effect), then one
+        `STATE_SNAPSHOT` carrying `{ phase, status, sequenceNumber }`, then `RUN_FINISHED`. `seq`
+        is strictly increasing and `RUN_FINISHED` is always the last frame, so the stream is a
+        self-contained flow an `EventSource` can consume directly (see the `AgUiEvent` schema for
+        the frame shapes). This route is report-only — it reads the persisted run once and
+        streams a snapshot; it never emits `TOOL_CALL_*` or `RUN_ERROR`, and executes nothing.
+
+        Requires management authentication. Answers `404` both while `LOOP_ENGINE_ENABLED` is
+        off and when no run carries this id — this route replies with the bare
+        `{ "error": string }` body, not the standard error envelope.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Run id.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SSE stream of AG-UI events replaying this run's current state
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >-
+                  Frames of the form `event: <type>\ndata: <json>\n\n`; `<json>` deserializes to
+                  one `AgUiEvent`.
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: Loop Engine disabled, or no run with this id
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              examples:
+                disabled:
+                  value:
+                    error: Loop Engine is disabled.
+                notFound:
+                  value:
+                    error: run not found
+
+  /api/browser/check:
+    post:
+      tags: [Browser Guard]
+      summary: Evaluate a browser automation action against policy
+      description: |
+        Decides one browser automation action with the deterministic Browser Guard: off by
+        default (denies everything). Content read from the page (`origin: "page"`) may only
+        ever request a `read` — any other `kind` (`navigate`, `click`, `type`, `submit`,
+        `download`, `upload`, `purchase`) coming from the page is denied outright, because the
+        guard cannot know what a click or a navigation on the other side actually triggers; this
+        is the prompt-injection defense. Every `kind` but `type` reaches the network and so MUST
+        carry `url`: without one there is no host to judge against the allowlist, and "can't
+        decide" is a deny, not an allow; `type` does not need `url`, but a given one is still
+        checked. A present `url` that fails to parse, or whose host is not on the allowlist
+        (exact match or subdomain), is denied. Past those gates, an external effect (`submit`,
+        `download`, `upload`, `purchase`) — necessarily user-originated by this point — is
+        `require_approval`; everything else left standing (`read`/`navigate`/`click`/`type` on
+        an allowed domain) is `allow`. Nothing is executed by this route — the real driver
+        (Playwright) is external to it.
+
+        When the request body omits `allowedDomains`, the persisted panel override is used
+        instead (the `key_value` row `namespace='browser', key='allowed_domains'`; an unparsable
+        or non-array stored value is treated as an empty allowlist, fail-closed).
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope. Answers `404` while `BROWSER_USE_ENABLED` is off.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrowserCheckRequest"
+      responses:
+        "200":
+          description: The policy decision, plus the domain allowlist actually used
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [verdict, allowedDomains]
+                properties:
+                  verdict:
+                    $ref: "#/components/schemas/BrowserCheckVerdict"
+                  allowedDomains:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: >-
+            `action {kind, origin: 'user'|'page', url?} is required` — the body failed
+            `strictObject` validation (unknown keys, missing/invalid `kind` or `origin`, or an
+            out-of-range field).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              example:
+                error: "action {kind, origin: 'user'|'page', url?} is required"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: BROWSER_USE_ENABLED is off
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              example:
+                error: Browser Use is disabled. Enable BROWSER_USE_ENABLED in the OmniRoute panel.
+
+  /api/otel/spans:
+    get:
+      tags: [OTel]
+      summary: Read recently collected trace spans
+      description: |
+        Returns the most recent spans held in the in-process ring buffer (oldest first, newest
+        last), which keeps at most the last 500 spans collected. Spans are only collected while
+        `OTEL_TRACING_ENABLED` is on; every attribute has already passed the core allowlist
+        (`provider`, `model`, `route`, `http.method`, `http.status_code`, `latency_ms`,
+        `tokens_in`, `tokens_out`, `tenant`, `cache`, `error.kind`), so no prompt, response, PII,
+        or secret can appear here even by mistake.
+
+        Requires management authentication. Answers `404` while `OTEL_TRACING_ENABLED` is off.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          description: >-
+            Maximum number of spans to return, most recent. Clamped to `[1, 500]`; a missing or
+            non-numeric value defaults to 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Recently collected spans
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spans]
+                properties:
+                  spans:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OtelSpan"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: OTEL_TRACING_ENABLED is off
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              example:
+                error: OTel tracing is disabled. Enable OTEL_TRACING_ENABLED in the OmniRoute panel.
+
   /api/buzz:
     get:
       tags: [Buzz Hub]
@@ -10205,6 +10420,89 @@ paths:
       responses:
         "200":
           description: OK
+  /api/mcp/review:
+    post:
+      tags: [Mcp]
+      summary: Run the MCP Review Gate on a candidate
+      description: |
+        Evaluates one MCP server/package candidate with the deterministic MCP Review Gate
+        (discover → quarantine → verify → review → approve → install → enable). The body
+        accepts ONLY `candidate` — there is no `prior` field. The underlying engine can compare
+        a candidate to a prior approval to detect broadened permissions or carry an approval
+        forward, but no endpoint or table persists MCP approvals yet, so accepting a
+        caller-supplied prior would let the caller's own claim of a past approval bypass the
+        gate it exists to enforce. Until that store exists, every candidate is fail-closed:
+        it is always evaluated as new.
+
+        The verdict is decided by code, not by a model. Permission comparisons are
+        case-insensitive (each permission is trimmed and lowercased before matching):
+
+        - flagged malicious, or requesting a forbidden permission (`secrets:exfiltrate`,
+          `billing:write`, `keys:read`, matched case-insensitively) → `denied`.
+        - otherwise → `review_required` (every candidate takes this branch today, since there is
+          never a prior); `reasons` also flags sensitive permissions (`fs:write`, `fs:delete`,
+          `shell:exec`, `process:spawn`, `net:listen`, `secrets:read`) when present, and
+          `newlyRequested` echoes every declared permission, normalized.
+
+        `state` can in principle also be `approved` (or the read-only pipeline states
+        `discovered`/`quarantined`/`verified`) — the engine's full vocabulary — but only
+        `denied` and `review_required` are reachable through this route today.
+
+        Loopback-only by default, like the rest of `/api/mcp/*`: a non-loopback caller is
+        accepted only with a manage/admin-scoped API key or an authenticated dashboard session.
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope. Answers `404` while `MCP_REVIEW_ENABLED` is off.
+      x-loopback-only: true
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpReviewRequest"
+      responses:
+        "200":
+          description: The Review Gate's verdict
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [verdict]
+                properties:
+                  verdict:
+                    $ref: "#/components/schemas/McpReviewVerdict"
+        "400":
+          description: >-
+            `candidate {name, source, version, permissions[]} is required` — the body failed
+            `strictObject` validation (unknown keys, wrong shape, or an out-of-range field).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              example:
+                error: "candidate {name, source, version, permissions[]} is required"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: MCP_REVIEW_ENABLED is off
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              example:
+                error: MCP Review is disabled. Enable MCP_REVIEW_ENABLED in the OmniRoute panel.
   /api/mcp/sse:
     get:
       tags:
@@ -15454,3 +15752,269 @@ components:
         code:
           type: string
           enum: [relay_unavailable]
+
+    McpCandidate:
+      type: object
+      additionalProperties: false
+      description: >-
+        A candidate MCP server/package from a registry, as evaluated by the deterministic MCP
+        Review Gate (discover → quarantine → verify → review → approve → install → enable).
+      required: [name, source, version, permissions]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        source:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Registry or URL the candidate was discovered at.
+        version:
+          type: string
+          minLength: 1
+          maxLength: 64
+        permissions:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: "^[A-Za-z0-9._:*-]+$"
+          description: >-
+            Declared capabilities, e.g. `fs:read`, `net:fetch`. Compared case-insensitively
+            (trimmed and lowercased) against the forbidden and sensitive permission lists.
+        publisherVerified:
+          type: boolean
+          description: Signature/publisher check result from an external verify step.
+        flaggedMalicious:
+          type: boolean
+          description: >-
+            Flagged by an external scanner (e.g. a known-bad hash). Presence (true) forces
+            `denied` regardless of every other field.
+
+    McpReviewRequest:
+      type: object
+      additionalProperties: false
+      description: >-
+        No `prior` field: MCP approvals are not yet persisted server-side, so a caller-supplied
+        prior approval is not accepted (it would let the caller assert its own approval).
+      required: [candidate]
+      properties:
+        candidate:
+          $ref: "#/components/schemas/McpCandidate"
+
+    McpReviewVerdict:
+      type: object
+      description: >-
+        The Review Gate's decision. Deterministic and fail-closed: malicious or a forbidden
+        permission → `denied`; otherwise → `review_required` (the only two states reachable
+        through `POST /api/mcp/review` today, since the request never carries a prior
+        approval). `approved`, and the read-only pipeline states `discovered`/`quarantined`/
+        `verified`, are part of the engine's vocabulary but not reachable through this route.
+      required: [state, requiresHumanApproval, reasons, newlyRequested]
+      properties:
+        state:
+          type: string
+          enum:
+            - discovered
+            - quarantined
+            - verified
+            - review_required
+            - approved
+            - denied
+        requiresHumanApproval:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+          description: Human-readable justification for the decision.
+        newlyRequested:
+          type: array
+          items:
+            type: string
+          description: >-
+            Every declared permission on `candidate`, normalized (trimmed, lowercased). Always
+            the full (normalized) permission set through this route, since there is never a
+            prior to diff against.
+
+    BrowserCheckAction:
+      type: object
+      additionalProperties: false
+      description: One browser automation action to evaluate.
+      required: [kind, origin]
+      properties:
+        kind:
+          type: string
+          enum: [navigate, read, click, type, submit, download, upload, purchase]
+        url:
+          type: string
+          maxLength: 2048
+          description: >-
+            Target URL. Required — else the action is denied — for every `kind` except `type`,
+            since those reach the network and must be judged against the domain allowlist; when
+            given for `type` it is checked too.
+        origin:
+          type: string
+          enum: [user, page]
+          description: >-
+            Who originated the intent. `page` is UNTRUSTED content read from a page, and a
+            `page` origin is only ever allowed for `kind: read` — every other kind from the page
+            is denied outright, the prompt-injection defense, and why this is a closed enum
+            rather than a free string.
+
+    BrowserCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          $ref: "#/components/schemas/BrowserCheckAction"
+        allowedDomains:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            minLength: 1
+            maxLength: 253
+          description: >-
+            Domain allowlist override for this call (exact host or a suffix such as
+            `example.com`, matching subdomains too). When omitted, the persisted panel override
+            is used instead.
+
+    BrowserCheckVerdict:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision:
+          type: string
+          enum: [allow, require_approval, deny]
+        reason:
+          type: string
+
+    OtelSpan:
+      type: object
+      description: >-
+        One collected span (W3C Trace Context ids). Attributes pass through a fixed allowlist
+        (`provider`, `model`, `route`, `http.method`, `http.status_code`, `latency_ms`,
+        `tokens_in`, `tokens_out`, `tenant`, `cache`, `error.kind`) so no prompt, response, PII,
+        or secret is ever recorded; string attribute values are truncated to 64 characters.
+      required: [traceId, spanId, name, startMs, status, attributes]
+      properties:
+        traceId:
+          type: string
+          description: 32 hex characters.
+        spanId:
+          type: string
+          description: 16 hex characters.
+        parentSpanId:
+          type: string
+          description: 16 hex characters. Present when this span has a parent in the same trace.
+        name:
+          type: string
+        startMs:
+          type: integer
+          description: Start instant (epoch ms).
+        endMs:
+          type: integer
+          description: End instant (epoch ms). Absent while the span is still open.
+        status:
+          type: string
+          enum: [unset, ok, error]
+        attributes:
+          type: object
+          description: Allowlisted operational metadata only.
+          additionalProperties:
+            type: [string, number, boolean]
+
+    AgUiEvent:
+      description: >-
+        One AG-UI protocol frame (agent → UI), keyed by `type`. `seq` is strictly increasing
+        within a run for replay/reconnection; `RUN_STARTED` is always first and only first;
+        exactly one terminal event (`RUN_FINISHED` or `RUN_ERROR`) ends the flow, always last.
+      oneOf:
+        - type: object
+          required: [seq, runId, type]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: RUN_STARTED }
+        - type: object
+          required: [seq, runId, type, messageId, role]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: TEXT_MESSAGE_START }
+            messageId: { type: string }
+            role: { type: string, enum: [assistant, tool] }
+        - type: object
+          required: [seq, runId, type, messageId, delta]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: TEXT_MESSAGE_CONTENT }
+            messageId: { type: string }
+            delta: { type: string }
+        - type: object
+          required: [seq, runId, type, messageId]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: TEXT_MESSAGE_END }
+            messageId: { type: string }
+        - type: object
+          required: [seq, runId, type, toolCallId, name]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: TOOL_CALL_START }
+            toolCallId: { type: string }
+            name: { type: string }
+        - type: object
+          required: [seq, runId, type, toolCallId, delta]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: TOOL_CALL_ARGS }
+            toolCallId: { type: string }
+            delta: { type: string }
+        - type: object
+          required: [seq, runId, type, toolCallId]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: TOOL_CALL_END }
+            toolCallId: { type: string }
+        - type: object
+          required: [seq, runId, type, state]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: STATE_SNAPSHOT }
+            state:
+              type: object
+              additionalProperties: true
+        - type: object
+          required: [seq, runId, type, patch]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: STATE_DELTA }
+            patch:
+              type: object
+              additionalProperties: true
+        - type: object
+          required: [seq, runId, type]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: RUN_FINISHED }
+        - type: object
+          required: [seq, runId, type, message]
+          properties:
+            seq: { type: integer }
+            runId: { type: string }
+            type: { type: string, const: RUN_ERROR }
+            message: { type: string }
