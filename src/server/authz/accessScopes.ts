@@ -34,6 +34,8 @@ export const ADMIN_SCOPE_PREFIXES: readonly string[] = [
 export const ADMIN_MUTATION_PREFIXES: readonly string[] = [
   "/api/providers", // POST add provider / rotate key = admin; GET status = read
   "/api/cli-tools/apply", // writes config onto the host filesystem
+  "/api/loop", // start/advance/approve a Loop run releases external effects; GET status = read
+  "/api/buzz", // rotate identity / flush the Buzz outbox to the relay; GET status = read
 ];
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
