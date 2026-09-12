@@ -4,10 +4,19 @@ on:
   push:
     tags:
       - "v*"
-  # A dispatch builds the ref it is dispatched ON (`gh workflow run … --ref v3.8.50` rebuilds
-  # that tag; `--ref main` builds the repaired line). The ref is deliberately NOT an input:
-  # CodeQL flags an input-controlled checkout next to the npm cache on the default branch as
-  # cache poisoning (actions/cache-poisoning/poisonable-step), and `github.ref` is trusted.
+  # A dispatch does NOT build the ref it is dispatched on. `web-build`, the matrix `build`
+  # and `release` all check out `ref: needs.validate.outputs.version`, i.e. the version TAG.
+  # So `gh workflow run … --ref release/v3.8.51 -f version=v3.8.51` rebuilds and re-attaches
+  # assets from the code AT tag v3.8.51, whatever the dispatch ref contains. Pinning the
+  # build to the tag is intentional: a release is reproducible from its tag. Shipping a fix,
+  # or signed installers of new code, means cutting a new version tag (e.g. v3.8.52). The
+  # dispatch ref supplies only this workflow file and the signing helper sparse-checked-out
+  # in `build`. Proven by run 34710550989: dispatched from release/v3.8.51 at 18ec68ebc, its
+  # Windows leg still built tag v3.8.51 (1054f199d), which lacks the fix merged at 18ec68ebc,
+  # and failed again.
+  # The ref is deliberately NOT an input: CodeQL flags an input-controlled checkout next to
+  # the npm cache on the default branch as cache poisoning
+  # (actions/cache-poisoning/poisonable-step), and `github.ref` is trusted.
   workflow_dispatch:
     inputs:
       version:

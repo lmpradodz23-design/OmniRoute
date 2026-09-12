@@ -340,12 +340,24 @@ npm leg from running again:
 gh workflow run electron-release.yml --ref release/v3.8.51 -f version=v3.8.51 -f publish_npm=false
 ```
 
-(Add `-R LMPrado-DZ23/OmniRoute` when running outside a clone.) The legs build the code of
-tag `v3.8.51`, but take the signing helper from the dispatched branch. A tag created before
-the helper existed therefore signs with electron-builder's defaults: hardened runtime on,
-plus electron-builder's template entitlements. The release job re-uploads the installers and
-the `latest*.yml` updater manifests under the same names. Check the log for the
-`signing: enabled` lines, then verify the downloaded files:
+(Add `-R LMPrado-DZ23/OmniRoute` when running outside a clone.)
+
+**This re-attaches assets built from the code at the version tag, and nothing newer.** Every
+build job checks out the tag named by `version`, not the dispatched branch. Commits merged
+into `release/v3.8.51` after tag `v3.8.51` are **not** included. The dispatched branch supplies
+only the workflow file and the signing helper. A tag created before the helper existed still
+signs, using electron-builder's defaults: hardened runtime on, plus its template entitlements.
+
+- **v3.8.51 specifically:** the Windows leg cannot succeed at that tag. Tag `v3.8.51`
+  (1054f199d) predates the Windows packaging fix merged at 18ec68ebc, and the dispatched run
+  34710550989 failed on that leg. The re-run can attach signed **macOS** installers to
+  v3.8.51, but not a Windows one.
+- **Signed installers of new code** (including that Windows fix) require cutting a **new
+  version tag**, e.g. `v3.8.52`. Pushing that tag runs this workflow with the signing secrets
+  already in place.
+
+The release job re-uploads the installers and the `latest*.yml` updater manifests under the
+same names. Check the log for the `signing: enabled` lines, then verify the downloaded files:
 
 ```bash
 codesign --verify --deep --strict --verbose=2 /Applications/OmniRoute.app

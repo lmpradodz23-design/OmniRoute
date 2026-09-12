@@ -448,10 +448,36 @@ test("the owner documentation lists every secret and the re-attach command", () 
       "gh workflow run electron-release.yml --ref release/v3.8.51 -f version=v3.8.51 -f publish_npm=false"
     )
   );
+  // …and must not promise that re-running it ships newer code: the build checks out the tag.
+  assert.match(guide, /re-attaches assets built from the code at the version tag/);
+  assert.match(guide, /new\s+version tag\*\*, e\.g\. `v3\.8\.52`/);
   assert.match(
     read("audit/RELEASE_READINESS.md"),
     /\| E-4 code-signing Electron\s*\|[^\n]*pipeline pronto/
   );
+});
+
+test("every build job checks out the version TAG, and the dispatch comment says so", () => {
+  // A dispatch rebuilds the code AT the version tag, not the dispatched ref. Run
+  // 34710550989 (dispatched from release/v3.8.51) still built tag v3.8.51 on every leg.
+  // The old header comment claimed the opposite; this keeps comment and behaviour in sync.
+  for (const jobName of ["web-build", "build", "release"]) {
+    const sourceCheckouts = (workflow.jobs[jobName]?.steps ?? []).filter(
+      (s) => (s.uses ?? "").startsWith("actions/checkout@") && s.with?.path !== ".signing-helper"
+    );
+    assert.equal(sourceCheckouts.length, 1, `${jobName} must have exactly one source checkout`);
+    assert.equal(
+      sourceCheckouts[0].with?.ref,
+      "${{ needs.validate.outputs.version }}",
+      `${jobName} must build the version tag, not the dispatch ref`
+    );
+  }
+
+  const raw = read(".github/workflows/electron-release.yml");
+  const header = raw.slice(0, raw.search(/^jobs:/m));
+  assert.doesNotMatch(header, /A dispatch builds the ref it is dispatched ON/i);
+  assert.match(header, /A dispatch does NOT build the ref it is dispatched on/);
+  assert.match(header, /new version tag/);
 });
 
 test("the helper keeps CI-only names out of the product env contract", () => {
