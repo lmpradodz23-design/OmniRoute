@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { useDisplayBaseUrl } from "@/shared/hooks";
 import { FreeProviderOnboardingCard } from "./steps/FreeProviderOnboardingCard";
 import { TierTour } from "./steps/TierTour";
-import { presentApiError } from "@/shared/utils/apiErrorPresentation";
+import { presentApiError, presentConnectionTestFailure } from "@/shared/utils/apiErrorPresentation";
 
 const STEP_IDS = ["welcome", "tiers", "security", "provider", "test", "done"];
 /** U8: upper bound for the onboarding connection test (list + probe). */
@@ -203,6 +203,28 @@ export default function OnboardingWizard() {
         signal: controller.signal,
       });
       if (testRes.ok) {
+        // The test route answers 200 for a probe that RAN; whether the provider is reachable
+        // is in the body (`valid`). Treating HTTP 200 as success told a first-time user
+        // "connection successful" for a dead host (found by the final audit's C-03 fix).
+        const result = (await testRes.json().catch(() => null)) as {
+          valid?: boolean;
+          error?: string | null;
+          warning?: string | null;
+          diagnosis?: { code?: string | null; message?: string | null } | null;
+        } | null;
+        if (result && result.valid === false) {
+          setTestStatus("error");
+          setTestMessage(
+            presentConnectionTestFailure(result, {
+              // Forward the interpolation values ({host}, {seconds}) — dropping them would
+              // render the typed message without the host the user needs to check.
+              translate: (key, values) =>
+                typeof tc.has !== "function" || tc.has(key) ? tc(key, values) : null,
+              fallback: t("testFailed"),
+            }).message
+          );
+          return;
+        }
         setTestStatus("success");
         setTestMessage(t("connectionSuccessful"));
       } else {
