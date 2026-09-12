@@ -55,6 +55,22 @@ const POSIX_FILESYSTEM_ROOTS = [
   "/var",
   "/workspace",
 ] as const;
+// Public API route roots. Error prose routinely names the route a caller must use
+// ("cannot be used on /v1/chat/completions. Use POST /v1/images/generations",
+// "Invalid JSON response from /models"); none of these is a filesystem root and the
+// hint is useful to the caller, so a POSIX token rooted here is kept verbatim.
+// Every other absolute token keeps the fail-closed filesystem treatment.
+const PUBLIC_API_ROUTE_ROOTS = [
+  "/v1",
+  "/v1beta",
+  "/api",
+  "/models",
+  "/chat",
+  "/completions",
+  "/messages",
+  "/responses",
+  "/embeddings",
+] as const;
 const WINDOWS_ROOT_RELATIVE_ROOTS = new Set([
   "program files",
   "programdata",
@@ -199,6 +215,23 @@ function isKnownPosixFilesystemPath(value: string): boolean {
   return isKnownPosixFilesystemPathAt(value, 0);
 }
 
+function isPublicApiRouteAt(value: string, start: number): boolean {
+  if (value.charCodeAt(start) !== 0x2f || value.charCodeAt(start + 1) === 0x2f) return false;
+  for (const root of PUBLIC_API_ROUTE_ROOTS) {
+    if (!value.startsWith(root, start)) continue;
+    const rootEnd = start + root.length;
+    if (
+      rootEnd === value.length ||
+      value.charCodeAt(rootEnd) === 0x2f ||
+      isWhitespace(value[rootEnd]) ||
+      PATH_SPAN_END_PUNCTUATION.includes(value[rootEnd])
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function looksLikeAbsolutePath(token: string): boolean {
   // POSIX: common filesystem roots, with or without a source extension.
   // Windows: drive-letter, UNC, or extended-length absolute paths.
@@ -232,6 +265,7 @@ function redactAbsolutePathToken(token: string, followsRouteContext: boolean): s
   const isFileUri = hasAbsoluteFileUri(candidate);
   const pathCandidate = isFileUri ? candidate.slice(FILE_URI_PREFIX.length) : candidate;
 
+  if (!isFileUri && isPublicApiRouteAt(pathCandidate, 0)) return token;
   if (
     !isFileUri &&
     !isWindowsAbsolutePath(pathCandidate) &&
@@ -281,7 +315,7 @@ function redactQuotedAbsolutePaths(value: string): string {
     const isShieldedRoute =
       value.charCodeAt(candidateStart) === 0x2f &&
       !isWindowsAbsolutePathAt(value, candidateStart) &&
-      hasRouteContextBefore(value, index);
+      (hasRouteContextBefore(value, index) || isPublicApiRouteAt(value, candidateStart));
     // Route/API contexts use their first closing quote so a later quoted
     // filesystem path is still scanned independently. Filesystem candidates
     // take the last matching quote on the line: POSIX filenames may themselves
@@ -438,7 +472,9 @@ function remainderContainsFilesystemSeparator(value: string, start: number): boo
       separatorIndex < tokenEnd &&
       value.charCodeAt(separatorIndex) === 0x2f &&
       !isWindowsAbsolutePathAt(value, separatorIndex) &&
-      (isRouteContextToken(previousToken) || hasRouteContextBefore(value, contextIndex));
+      (isRouteContextToken(previousToken) ||
+        hasRouteContextBefore(value, contextIndex) ||
+        isPublicApiRouteAt(value, separatorIndex));
     if (!isHttpUrl && separatorIndex < tokenEnd && !isShieldedRoute) return true;
     previousToken = value.slice(tokenStart, tokenEnd);
     tokenStart = tokenEnd;
@@ -664,6 +700,7 @@ function redactUnquotedAbsolutePathSpans(value: string): string {
       value.charCodeAt(index) === 0x2f &&
       value.charCodeAt(index + 1) !== 0x2f &&
       !hasRouteContextBefore(value, index) &&
+      !isPublicApiRouteAt(value, index) &&
       isUnquotedPosixSpanCandidateAt(value, index) &&
       !isBarePosixSegmentFollowedByProseAt(value, index);
     const hasBoundary = hasCommonBoundary || (isWindowsPath && previous === ":");

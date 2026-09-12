@@ -72,3 +72,48 @@ test("C-03: real filesystem paths are still redacted (POSIX roots, multi-segment
     "Failed <path> then GET /home/profile returned 404"
   );
 });
+
+// Public API routes are not filesystem paths. The chat handler's #6457 hint
+// ("… cannot be used on /v1/chat/completions. Use POST /v1/images/generations
+// instead.") and the model-sync "Invalid JSON response from /models" message
+// name routes the caller needs; the redactor must keep them while real
+// filesystem paths in the same sentence are still redacted.
+test("public API routes (/v1/*, /api/*, /models) survive redaction; filesystem paths beside them do not", () => {
+  const chatHint =
+    "Model 'x' is an image-generation model and cannot be used on /v1/chat/completions. " +
+    "Use POST /v1/images/generations instead.";
+  for (const redact of [redactErrorPaths, sanitizeErrorMessage]) {
+    assert.equal(redact(chatHint), chatHint);
+    assert.equal(
+      redact("Invalid JSON response from /models"),
+      "Invalid JSON response from /models"
+    );
+    assert.equal(
+      redact("GET /api/providers/abc/models returned 502"),
+      "GET /api/providers/abc/models returned 502"
+    );
+    assert.equal(redact("Route '/v1/models' not found"), "Route '/v1/models' not found");
+  }
+
+  // A filesystem path next to a public route keeps redacting, and the route survives.
+  assert.equal(
+    redactErrorPaths("/v1/chat/completions failed: ENOENT open '/home/op/.omniroute/config.json'"),
+    "/v1/chat/completions failed: ENOENT open '<path>'"
+  );
+  assert.equal(
+    redactErrorPaths("cannot open /home/op/.omniroute/storage.sqlite then retry /v1/models"),
+    "cannot open <path> then retry /v1/models"
+  );
+  const windows = redactErrorPaths(
+    "Sync via /api/providers/x/models read C:\\Users\\op\\.omniroute\\models.json"
+  );
+  assert.equal(windows, "Sync via /api/providers/x/models read <path>");
+
+  // Only the public route roots are exempt: an unknown extensionless multi-segment
+  // token (`/custom/internal`) and a bare `/vault` at end of line stay fail-closed.
+  assert.match(redactErrorPaths("Provider failed at /custom/internal secret directory"), /<path>/);
+  assert.equal(
+    redactErrorPaths("Provider failed opening /vault"),
+    "Provider failed opening <path>"
+  );
+});
