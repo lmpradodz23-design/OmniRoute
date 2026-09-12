@@ -37,6 +37,7 @@
 
 1. `git push origin fix/final-user-readiness` → PR para `release/v3.8.51` (ou `main`, conforme o fluxo do fork) com `TEST_MATRIX.md`, `FINAL_REPORT.md` e `FINAL_THREE_AGENT_REVIEW.md` anexados.
 2. CI (`quality.yml`, `ci.yml`, `semgrep.yml`, `codeql.yml`) verde — inclui secret scan estrito e supply-chain pins.
+   - 2026-09-12: o primeiro CI do PR #5 reprovou 7 jobs (31 testes + 8 gates); rodada de correção registrada em `TEST_MATRIX.md` §6 e `FINAL_THREE_AGENT_REVIEW.md` §7 — 3 HIGH corrigidos (2 do fix loop, 1 pré-existente de segurança). Evidência do CI verde, do merge e do digest GHCR: preenchida abaixo quando ocorrer.
 3. Imagem: `docker-publish.yml` → `ghcr.io/lmprado-dz23/omniroute:3.8.51` (GITHUB_TOKEN; sem Docker Hub).
 4. npm: `npm-publish.yml` (gate `repository.url` = fork) — **somente** com autorização explícita adicional.
 5. Electron: build sem assinatura só para smoke interno; instaladores públicos exigem E-4.

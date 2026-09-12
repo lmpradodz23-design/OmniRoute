@@ -58,3 +58,7 @@ Três auditores (A Architect/Engineering, B Security/DevSecOps, C Product/QA/UX 
 ## 7. Como retomar / reproduzir
 
 `AUTONOMOUS_MISSION_STATE.md` §Instruções de retomada; comandos de teste em `TEST_MATRIX.md`; rollback em `ROLLBACK.md`.
+
+## 8. Adendo — rodada CI do PR #5 (2026-09-12)
+
+O CI Linux do PR reprovou 31 testes unitários e 8 gates de qualidade que a verificação local no Windows não tinha exposto. Reclassificação: 21 regressões do próprio fix loop (2 HIGH: diagnóstico de conexão errado no C-03 e cache semântico inoperante em parte dos clientes no X-2) e 10 falhas pré-existentes na base (1 HIGH de segurança: chave Google não redigida; o ciclo de imports de `src/lib/db`). Todas corrigidas na causa raiz em 23 commits, com testes RED-first onde havia bug de produto e extrações puras para os ratchets de tamanho/complexidade; nenhum teste removido ou enfraquecido, nenhum controle de segurança reduzido (a política de log em repouso ficou na variante mais forte). Detalhe em `TEST_MATRIX.md` §6, `FINAL_THREE_AGENT_REVIEW.md` §7 e `AUTONOMOUS_MISSION_STATE.md`.
