@@ -85,6 +85,13 @@ import { getComboStepTarget } from "@/lib/combos/steps";
 import { resolveServerErrorMessage } from "@/lib/api/serverErrorMessage";
 import { useTranslations } from "next-intl";
 import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
+import {
+  COMBO_USAGE_GUIDE_STORAGE_KEY,
+  emitUsageGuideChange,
+  getUsageGuideServerSnapshot,
+  getUsageGuideSnapshot,
+  subscribeUsageGuide,
+} from "./comboUsageGuideStore";
 
 const ModelSelectModal = dynamic(() => import("@/shared/components/ModelSelectModal"), {
   ssr: false,
@@ -395,44 +402,6 @@ const STRATEGY_RECOMMENDATIONS_FALLBACK = {
     ],
   },
 };
-
-const COMBO_USAGE_GUIDE_STORAGE_KEY = "omniroute:combos:hide-usage-guide";
-
-// The dismissal lives in localStorage, which SSR cannot read: a lazy useState
-// initializer would render "not dismissed" on the server and the real value on
-// the client, and correcting that in an effect is a synchronous setState inside
-// an effect (react-hooks/set-state-in-effect) that costs an extra commit of this
-// whole tree. useSyncExternalStore is the sanctioned shape for exactly this —
-// getServerSnapshot supplies the SSR-safe default, getSnapshot reads the store
-// after hydration, and the two handlers below notify subscribers instead of
-// setting state. The `storage` listener keeps other tabs in sync for free.
-const usageGuideListeners = new Set<() => void>();
-
-function subscribeUsageGuide(onStoreChange: () => void): () => void {
-  usageGuideListeners.add(onStoreChange);
-  globalThis.addEventListener?.("storage", onStoreChange);
-  return () => {
-    usageGuideListeners.delete(onStoreChange);
-    globalThis.removeEventListener?.("storage", onStoreChange);
-  };
-}
-
-function emitUsageGuideChange(): void {
-  for (const listener of usageGuideListeners) listener();
-}
-
-function getUsageGuideSnapshot(): boolean {
-  try {
-    return globalThis.localStorage?.getItem(COMBO_USAGE_GUIDE_STORAGE_KEY) !== "1";
-  } catch {
-    // Storage access errors (privacy mode / restricted environments) show the guide.
-    return true;
-  }
-}
-
-function getUsageGuideServerSnapshot(): boolean {
-  return true;
-}
 
 // Pure predicate hoisted out of the page component to keep its cyclomatic budget flat
 // (check:complexity new-code mode).

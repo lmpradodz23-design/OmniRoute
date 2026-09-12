@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Card, Modal } from "@/shared/components";
 import { useProxyBatchOperations } from "./useProxyBatchOperations";
@@ -29,6 +29,7 @@ import {
   loadProxyUsage,
   repairRelayResponseSchema,
 } from "./proxyRegistryData";
+import { useProxyRegistryMenus } from "./useProxyRegistryMenus";
 import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 
 export default function ProxyRegistryManager({
@@ -89,32 +90,17 @@ export default function ProxyRegistryManager({
     updated: number;
     failed: number;
   } | null>(null);
-  const [actionsOpen, setActionsOpen] = useState(false);
-  const [relayMenuOpen, setRelayMenuOpen] = useState(false);
-  const actionsRef = useRef<HTMLDivElement | null>(null);
-  const relayRef = useRef<HTMLDivElement | null>(null);
+  const {
+    actionsOpen,
+    setActionsOpen,
+    relayMenuOpen,
+    setRelayMenuOpen,
+    actionsRef,
+    relayRef,
+    closeActions,
+  } = useProxyRegistryMenus();
 
   const showAnyRelay = showVercelRelay || showDenoRelay || showCloudflareRelay;
-
-  useEffect(() => {
-    if (!actionsOpen && !relayMenuOpen) return;
-    const onMouseDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (actionsOpen && actionsRef.current && !actionsRef.current.contains(target)) {
-        setActionsOpen(false);
-      }
-      if (relayMenuOpen && relayRef.current && !relayRef.current.contains(target)) {
-        setRelayMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [actionsOpen, relayMenuOpen]);
-
-  const closeActions = () => {
-    setActionsOpen(false);
-    setRelayMenuOpen(false);
-  };
 
   const editingId = useMemo(() => form.id || "", [form.id]);
 

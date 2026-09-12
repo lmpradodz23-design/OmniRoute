@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, Button, Badge, ConfirmModal } from "@/shared/components";
 import { useLocale, useTranslations } from "next-intl";
 import DatabaseBackupRetentionCard from "./DatabaseBackupRetentionCard";
+import { fetchDatabaseSettingsData, fetchStorageHealthData } from "./systemStorageData";
 
 // Whitelist mirrored from src/lib/db/cleanup.ts::RESET_USAGE_HISTORY_PERIODS.
 const RESET_USAGE_PERIOD_VALUES = [
@@ -17,27 +18,6 @@ const RESET_USAGE_PERIOD_VALUES = [
   "30d",
   "all",
 ] as const;
-
-async function fetchStorageHealthData() {
-  try {
-    const res = await fetch("/api/storage/health");
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.error("Failed to fetch storage health:", err);
-    return null;
-  }
-}
-
-async function fetchDatabaseSettingsData() {
-  try {
-    const res = await fetch("/api/settings/database");
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.error("Failed to load database settings:", err);
-  }
-  return null;
-}
 
 export default function SystemStorageTab() {
   const [backups, setBackups] = useState([]);
