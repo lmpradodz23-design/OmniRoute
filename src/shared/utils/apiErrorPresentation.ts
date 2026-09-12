@@ -34,12 +34,85 @@ export interface PresentedApiError {
   detail: string | null;
 }
 
+export type ApiErrorTranslate = (
+  key: string,
+  values?: Record<string, string | number>
+) => string | null;
+
 export interface PresentApiErrorOptions {
   /** Returns the translated text for a `common.apiErrors.*` key, or null when missing. */
-  translate?: (key: string) => string | null;
+  translate?: ApiErrorTranslate;
   /** Headline when the body carries nothing usable. */
   fallback: string;
   status?: number;
+}
+
+/**
+ * Final audit C-03 — typed transport codes a provider connection test can carry in
+ * `diagnosis.code` (see `lib/providers/validation/transport.ts`). Each maps to a
+ * `common.apiErrors` message that takes `{host}` (and `{seconds}` for the timeout).
+ */
+export const CONNECTION_TEST_CODE_MESSAGE_KEYS: Readonly<Record<string, string>> = {
+  UPSTREAM_TIMEOUT: "apiErrors.upstreamTimeout",
+  UPSTREAM_UNREACHABLE: "apiErrors.upstreamUnreachable",
+  UPSTREAM_TLS: "apiErrors.upstreamTls",
+};
+
+export interface ConnectionTestFailureLike {
+  error?: string | null;
+  warning?: string | null;
+  diagnosis?: {
+    type?: string | null;
+    message?: string | null;
+    code?: string | null;
+    params?: { host?: string | null; timeoutMs?: number | null } | null;
+  } | null;
+}
+
+export function isTransportFailureCode(code: unknown): code is string {
+  return (
+    typeof code === "string" &&
+    Object.prototype.hasOwnProperty.call(CONNECTION_TEST_CODE_MESSAGE_KEYS, code)
+  );
+}
+
+function formatSeconds(ms: number): string {
+  const seconds = ms / 1000;
+  return Number.isInteger(seconds) ? String(seconds) : seconds.toFixed(1);
+}
+
+/**
+ * User-facing presentation of a failed `/api/providers/{id}/test` result: a translated
+ * headline for typed transport failures (host + timeout substituted), otherwise the
+ * server's already-sanitized sentence. The technical text is kept as `detail`.
+ */
+export function presentConnectionTestFailure(
+  result: ConnectionTestFailureLike | null | undefined,
+  { translate, fallback }: Pick<PresentApiErrorOptions, "translate" | "fallback">
+): PresentedApiError {
+  const diagnosis = result?.diagnosis ?? null;
+  const rawCandidates = [result?.error, result?.warning, diagnosis?.message];
+  const raw = rawCandidates.find((v) => typeof v === "string" && v.trim())?.trim() ?? fallback;
+  const code = isTransportFailureCode(diagnosis?.code) ? diagnosis.code : null;
+  if (!code || !translate) return { message: raw, code, detail: null };
+
+  const params = diagnosis?.params ?? null;
+  const host =
+    typeof params?.host === "string" && params.host.trim()
+      ? params.host.trim()
+      : translate("apiErrors.unknownHost") || "the provider";
+  const timeoutMs =
+    typeof params?.timeoutMs === "number" && params.timeoutMs > 0 ? params.timeoutMs : null;
+  const key =
+    code === "UPSTREAM_TIMEOUT" && !timeoutMs
+      ? "apiErrors.upstreamTimeoutUnknownDuration"
+      : CONNECTION_TEST_CODE_MESSAGE_KEYS[code];
+  const translated = translate(key, {
+    host,
+    ...(timeoutMs ? { seconds: formatSeconds(timeoutMs) } : {}),
+  });
+  const message = translated && translated.trim() ? translated : raw;
+  return { message, code, detail: raw !== message ? raw : null };
 }
 
 export function getApiErrorCode(body: unknown): string | null {

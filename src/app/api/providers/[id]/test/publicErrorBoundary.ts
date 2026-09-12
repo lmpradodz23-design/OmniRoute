@@ -23,19 +23,57 @@ export function isAccountDeactivatedMessage(text: string): boolean {
   );
 }
 
+/**
+ * Final audit C-03 — typed transport failures produced by
+ * `lib/providers/validation/transport.ts` (the upstream never answered). They are
+ * surfaced as `network_error` with the typed code plus the parameters the dashboard
+ * needs to render a translated sentence ("Could not connect to {host}: timed out
+ * after {seconds} s…"). Checked before every status/substring heuristic so a synthetic
+ * 504 (`getSafeOutboundFetchErrorStatus` for TIMEOUT) is never mislabeled as
+ * `upstream_unavailable`.
+ */
+export const TRANSPORT_FAILURE_CODES = new Set([
+  "UPSTREAM_TIMEOUT",
+  "UPSTREAM_UNREACHABLE",
+  "UPSTREAM_TLS",
+]);
+
+export type TransportFailureDiagnosisParams = {
+  host: string | null;
+  timeoutMs: number | null;
+};
+
+export type ClassifyTypedFailureArgs = ClassifyFailureArgs & {
+  /** Typed transport code from the validation result, when the validator produced one. */
+  code?: string | null;
+  host?: string | null;
+  timeoutMs?: number | null;
+};
+
 export function classifyFailure({
   error,
   statusCode = null,
   refreshFailed = false,
   unsupported = false,
   provider,
-}: ClassifyFailureArgs) {
+  code = null,
+  host = null,
+  timeoutMs = null,
+}: ClassifyTypedFailureArgs) {
   const message = toSafeMessage(error, "Connection test failed");
   const normalized = message.toLowerCase();
   const numericStatus = Number.isFinite(statusCode) ? Number(statusCode) : null;
 
   if (unsupported) {
     return makeDiagnosis("unsupported", "validation", message, "unsupported");
+  }
+
+  if (typeof code === "string" && TRANSPORT_FAILURE_CODES.has(code)) {
+    const params: TransportFailureDiagnosisParams = {
+      host: typeof host === "string" && host.trim() ? toSafeMessage(host, "") || null : null,
+      timeoutMs: typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : null,
+    };
+    return { ...makeDiagnosis("network_error", "upstream", message, code), params };
   }
 
   if (refreshFailed || normalized.includes("refresh failed")) {

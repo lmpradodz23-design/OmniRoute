@@ -585,6 +585,52 @@ function isUnquotedPosixSpanCandidateAt(value: string, start: number): boolean {
   return slashCount >= 1 && token.length > 1;
 }
 
+// A bare single-segment POSIX token (`/models`, `/vault`) carries no filesystem
+// evidence of its own. It stays a path candidate when it ends the line, is closed
+// by a clear prose boundary, is followed by another absolute path, or when a later
+// token before the next absolute path carries filesystem evidence (a separator or
+// a file extension — `/vault my secret file.txt`). Otherwise it is API/route prose
+// such as "Endpoint /models unavailable. Provide a Model ID …" (final audit C-03)
+// and must not anchor a fail-closed span that swallows the rest of the sentence.
+// Known POSIX roots (`/etc`, `/home`, …) are always paths.
+function isBarePosixSegmentFollowedByProseAt(value: string, start: number): boolean {
+  if (isKnownPosixFilesystemPathAt(value, start)) return false;
+  const tokenEnd = findTokenEnd(value, start);
+  const trimmedEnd = trimPathSpanEnd(value, start, tokenEnd);
+  if (trimmedEnd - start < 2) return false;
+  for (let index = start + 1; index < trimmedEnd; index++) {
+    const code = value.charCodeAt(index);
+    if (code === 0x2f || code === 0x5c) return false;
+  }
+  if (
+    findExtensionEndInToken(value, start, tokenEnd) >= 0 ||
+    tokenContainsPathExtensionEvidence(value, start, tokenEnd)
+  ) {
+    return false;
+  }
+
+  let cursor = tokenEnd;
+  while (cursor < value.length && isWhitespace(value[cursor])) cursor++;
+  if (cursor >= value.length) return false;
+  if (isSyntacticallyAbsolutePathAt(value, cursor)) return false;
+  if (isClearProseBoundaryToken(value, cursor, findTokenEnd(value, cursor))) return false;
+
+  while (cursor < value.length) {
+    if (isSyntacticallyAbsolutePathAt(value, cursor)) break;
+    const end = findTokenEnd(value, cursor);
+    if (
+      tokenContainsPathSeparator(value, cursor, end) ||
+      findExtensionEndInToken(value, cursor, end) >= 0 ||
+      tokenContainsPathExtensionEvidence(value, cursor, end)
+    ) {
+      return false;
+    }
+    cursor = end;
+    while (cursor < value.length && isWhitespace(value[cursor])) cursor++;
+  }
+  return true;
+}
+
 function redactUnquotedAbsolutePathSpans(value: string): string {
   const parts: string[] = [];
   let copyStart = 0;
@@ -618,7 +664,8 @@ function redactUnquotedAbsolutePathSpans(value: string): string {
       value.charCodeAt(index) === 0x2f &&
       value.charCodeAt(index + 1) !== 0x2f &&
       !hasRouteContextBefore(value, index) &&
-      isUnquotedPosixSpanCandidateAt(value, index);
+      isUnquotedPosixSpanCandidateAt(value, index) &&
+      !isBarePosixSegmentFollowedByProseAt(value, index);
     const hasBoundary = hasCommonBoundary || (isWindowsPath && previous === ":");
     if (!hasBoundary || (!isWindowsPath && !isFileUriPath && !isPosixPath)) {
       index++;

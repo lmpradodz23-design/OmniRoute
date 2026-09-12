@@ -428,6 +428,7 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
 
   // Step 1: Try GET /models
   let modelsReachable = false;
+  let modelsStatus: number | null = null;
   try {
     const modelsRes = await validationRead(`${baseUrl}/models`, {
       method: "GET",
@@ -435,6 +436,7 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
     });
 
     modelsReachable = true;
+    modelsStatus = modelsRes.status;
 
     if (modelsRes.ok) {
       return { valid: true, error: null, method: "models_endpoint" };
@@ -453,16 +455,25 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
         warning: "Rate limited, but credentials are valid",
       };
     }
-  } catch {
-    // /models fetch failed (network error, etc.) — fall through to chat test
+  } catch (error: unknown) {
+    // Final audit C-03: a transport-level failure (timeout, connection refused, DNS,
+    // TLS) is a property of the host, so the chat probe on the same host cannot do
+    // better — and swallowing it here used to surface the misleading "Endpoint
+    // /models unavailable" text (which the path redactor then collapsed to
+    // "Endpoint <path>"). Report the typed failure right away; any other throw
+    // (e.g. a blocked redirect) still falls through to the chat test.
+    const failure = toValidationErrorResult(error);
+    if (failure.code) return failure;
   }
 
   // T25: if /models cannot be used and no custom model was provided, return a
-  // clear actionable message instead of a generic connection error.
+  // clear actionable message instead of a generic connection error. Worded
+  // without bare `/path` tokens so the public path redactor leaves it intact.
   if (!validationModelId) {
+    const answered = modelsStatus ? ` answered HTTP ${modelsStatus}` : " is unavailable";
     return {
       valid: false,
-      error: "Endpoint /models unavailable. Provide a Model ID to validate via /chat/completions.",
+      error: `The models endpoint${answered}. Provide a Model ID to validate via chat completions.`,
     };
   }
 
@@ -485,6 +496,7 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
           max_tokens: 1,
         };
 
+  let chatFailure: ReturnType<typeof toValidationErrorResult> | null = null;
   try {
     const chatRes = await validationWrite(chatUrl, {
       method: "POST",
@@ -557,15 +569,24 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
     if (chatRes.status >= 500) {
       return { valid: false, error: `Provider unavailable (${chatRes.status})` };
     }
-  } catch {
-    // Chat test also failed — fall through to simple connectivity check
+  } catch (error: unknown) {
+    // Chat test also failed. A typed transport failure (C-03) is final; anything
+    // else falls through to the simple connectivity check below.
+    const failure = toValidationErrorResult(error);
+    if (failure.code) return failure;
+    chatFailure = failure;
   }
 
   // Step 3: Final fallback — simple connectivity check
   // For local providers (Ollama, LM Studio, etc.) that may not respond to
   // standard OpenAI endpoints but are still reachable
   if (!modelsReachable) {
-    return { valid: false, error: "Connection failed while testing /chat/completions" };
+    return (
+      chatFailure ?? {
+        valid: false,
+        error: "Connection failed while testing the chat completions endpoint",
+      }
+    );
   }
 
   try {

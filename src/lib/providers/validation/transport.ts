@@ -178,6 +178,147 @@ export function toWebCookieValidationErrorResult(provider: string, error: unknow
   return toValidationErrorResult(error);
 }
 
+// Final audit C-03 — transport-level failures of a connection test (the upstream never
+// answered) are reported with a typed code, the host that was dialed, and a readable
+// English sentence instead of the raw undici/fetch text. The route forwards `code`,
+// `host` and `timeoutMs` into `diagnosis` so the dashboard can translate the sentence.
+// The message deliberately names only the host (never the full URL or a filesystem
+// path), so it survives `sanitizeErrorMessage` intact.
+export type ValidationTransportErrorCode =
+  "UPSTREAM_TIMEOUT" | "UPSTREAM_UNREACHABLE" | "UPSTREAM_TLS";
+
+export type ValidationTransportFailure = {
+  code: ValidationTransportErrorCode;
+  host: string | null;
+  message: string;
+  timeoutMs: number | null;
+  /** Short OS/TLS cause code (ECONNREFUSED, ENOTFOUND, CERT_HAS_EXPIRED, …) when known. */
+  reason: string | null;
+};
+
+const TLS_CAUSE_CODES = new Set([
+  "CERT_HAS_EXPIRED",
+  "CERT_NOT_YET_VALID",
+  "CERT_REJECTED",
+  "CERT_UNTRUSTED",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+  "ERR_TLS_HANDSHAKE_TIMEOUT",
+  "HOSTNAME_MISMATCH",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "UNABLE_TO_GET_ISSUER_CERT",
+  "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+]);
+
+const UNREACHABLE_REASON_TEXT: Readonly<Record<string, string>> = {
+  ECONNREFUSED: "connection refused",
+  ECONNRESET: "connection reset",
+  EAI_AGAIN: "host not found",
+  EHOSTUNREACH: "host unreachable",
+  ENETUNREACH: "network unreachable",
+  ENOTFOUND: "host not found",
+  EPIPE: "connection closed",
+  ETIMEDOUT: "connection timed out",
+  UND_ERR_CONNECT_TIMEOUT: "connection timed out",
+  UND_ERR_SOCKET: "connection closed",
+};
+
+function readCauseCode(value: unknown, depth = 0): string | null {
+  if (!value || typeof value !== "object" || depth > 4) return null;
+  const record = value as { code?: unknown; errors?: unknown; cause?: unknown };
+  if (typeof record.code === "string" && record.code.trim()) return record.code.trim();
+  if (Array.isArray(record.errors)) {
+    for (const nested of record.errors) {
+      const nestedCode = readCauseCode(nested, depth + 1);
+      if (nestedCode) return nestedCode;
+    }
+  }
+  return readCauseCode(record.cause, depth + 1);
+}
+
+function isTlsCause(code: string | null, message: string): boolean {
+  if (
+    code &&
+    (TLS_CAUSE_CODES.has(code) || code.startsWith("ERR_SSL_") || code.startsWith("ERR_TLS_"))
+  ) {
+    return true;
+  }
+  if (code === "EPROTO") return /ssl|tls|certificate|handshake/i.test(message);
+  return /self[- ]signed certificate|certificate has expired|unable to verify the first certificate|wrong version number|ssl3_|tlsv1/i.test(
+    message
+  );
+}
+
+function hostOf(url: unknown): string | null {
+  if (typeof url !== "string" || !url) return null;
+  try {
+    return new URL(url).host || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Classify a thrown validation error as a typed transport failure, or null when it is not one. */
+export function describeValidationTransportFailure(
+  error: unknown
+): ValidationTransportFailure | null {
+  try {
+    if (!(error instanceof Error)) return null;
+    const outbound = error instanceof SafeOutboundFetchError ? error : null;
+    if (outbound && outbound.code !== "TIMEOUT" && outbound.code !== "NETWORK_ERROR") return null;
+    const host = hostOf(outbound?.url ?? (error as { url?: unknown }).url);
+    const where = host ?? "the provider";
+    const causeCode = readCauseCode((error as { cause?: unknown }).cause);
+    const message = typeof error.message === "string" ? error.message : "";
+
+    if (outbound?.code === "TIMEOUT" || error.name === "FetchTimeoutError") {
+      const rawTimeout = (error as { timeoutMs?: unknown }).timeoutMs;
+      const timeoutMs = typeof rawTimeout === "number" && rawTimeout > 0 ? rawTimeout : null;
+      const after = timeoutMs ? ` after ${formatSeconds(timeoutMs)} s` : "";
+      return {
+        code: "UPSTREAM_TIMEOUT",
+        host,
+        timeoutMs,
+        reason: null,
+        message: `Could not connect to ${where}: timed out${after}. Check the URL and that the service is running.`,
+      };
+    }
+
+    // Only an outbound NETWORK_ERROR or a bare undici "fetch failed" is a transport failure.
+    if (!outbound && !/^fetch failed\b/i.test(message)) return null;
+
+    if (isTlsCause(causeCode, message)) {
+      const detail = causeCode ? ` (${causeCode})` : "";
+      return {
+        code: "UPSTREAM_TLS",
+        host,
+        timeoutMs: null,
+        reason: causeCode,
+        message: `TLS handshake with ${where} failed${detail}. Check the certificate and the https:// URL.`,
+      };
+    }
+
+    const reasonText = causeCode ? UNREACHABLE_REASON_TEXT[causeCode] || causeCode : null;
+    const detail = reasonText ? ` (${reasonText})` : "";
+    return {
+      code: "UPSTREAM_UNREACHABLE",
+      host,
+      timeoutMs: null,
+      reason: causeCode,
+      message: `Could not connect to ${where}${detail}. Check the URL and that the service is running.`,
+    };
+  } catch {
+    // Classification is advisory; hostile accessors must not escape the safe error boundary.
+    return null;
+  }
+}
+
+function formatSeconds(ms: number): string {
+  const seconds = ms / 1000;
+  return Number.isInteger(seconds) ? String(seconds) : seconds.toFixed(1);
+}
+
 export function toValidationErrorResult(error: unknown) {
   let rawMessage: unknown = error || "Validation failed";
   try {
@@ -189,20 +330,29 @@ export function toValidationErrorResult(error: unknown) {
   let statusCode: number | null = null;
   let timeout = false;
   let securityBlocked = false;
+  let transport: ValidationTransportFailure | null = null;
   try {
     statusCode = getSafeOutboundFetchErrorStatus(error);
     timeout = error instanceof SafeOutboundFetchError && error.code === "TIMEOUT";
     securityBlocked = isSecurityBlockError(error);
+    transport = describeValidationTransportFailure(error);
   } catch {
     // Classification is advisory; hostile accessors must not escape the safe error boundary.
   }
 
   return {
     valid: false,
-    error: message || "Validation failed",
+    error: transport ? sanitizeErrorMessage(transport.message) : message || "Validation failed",
     unsupported: false as const,
     ...(statusCode ? { statusCode } : {}),
     ...(timeout ? { timeout: true } : {}),
     ...(securityBlocked ? { securityBlocked: true } : {}),
+    ...(transport
+      ? {
+          code: transport.code,
+          host: transport.host,
+          ...(transport.timeoutMs ? { timeoutMs: transport.timeoutMs } : {}),
+        }
+      : {}),
   };
 }
