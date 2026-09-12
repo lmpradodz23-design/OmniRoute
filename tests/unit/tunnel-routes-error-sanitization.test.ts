@@ -11,11 +11,14 @@
  *    body disclosed host layout, binary install paths, the OS account name and —
  *    for Tailscale — live `tskey-*` credentials. Hard Rule #12 forbids this.
  *
- *    `sanitizeErrorMessage()` alone does not close it: it only rewrites tokens
- *    that look like an absolute path ending in a *source* extension (SOURCE_EXT
- *    in open-sse/utils/error.ts), so `.json` state paths, extension-less binary
- *    paths and `tskey-*` keys all survive it verbatim. The first test below pins
- *    that, so the reason this module exists stays visible.
+ *    `sanitizeErrorMessage()` (open-sse/utils/errorSanitization.ts) now redacts
+ *    the filesystem-path shapes (`.json`/`.yml` state files, extension-less
+ *    binaries, Windows drives) but has no `tskey-*` pattern, so a Tailscale auth
+ *    key still survives it verbatim. publicSafeTunnelError therefore answers
+ *    with a fixed sentence instead of echoing a sanitized message. The first
+ *    test below pins that division of responsibility in both directions, so a
+ *    regression in the shared sanitizer and the residual reason this module
+ *    exists both stay visible.
  *
  * 2. `validateBody()` returns `{ success, error }` and has NO `response` field
  *    (`validatedJsonBody()` is the helper that has one). Three call sites did
@@ -55,35 +58,43 @@ test.after(() => {
   else process.env.DATA_DIR = ORIGINAL_DATA_DIR;
 });
 
-/** The exact leak shapes these routes produce in the field. */
+/**
+ * The exact leak shapes these routes produce in the field. `sharedSanitizerCovers`
+ * records which of them sanitizeErrorMessage() redacts on its own.
+ */
 const LEAKS = [
   {
     label: "config/state path (.json)",
     message:
       "ENOENT: no such file or directory, open '/home/operator/.omniroute/data/tunnels.json'",
     secrets: ["/home/operator", "tunnels.json"],
+    sharedSanitizerCovers: true,
   },
   {
     label: "binary path (no extension)",
     message: "spawn /usr/local/bin/cloudflared ENOENT",
     secrets: ["/usr/local/bin/cloudflared"],
+    sharedSanitizerCovers: true,
   },
   {
     label: "tailscale auth key",
     message: "tailscale up failed: invalid key tskey-auth-kMn3Qz7RtY-9fVbXsPq2LdWc",
     secrets: ["tskey-auth-kMn3Qz7RtY-9fVbXsPq2LdWc"],
+    sharedSanitizerCovers: false,
   },
   {
     label: "daemon state path",
     message:
       "Command failed: /opt/omniroute/bin/tailscaled --state=/var/lib/tailscale/tailscaled.state",
     secrets: ["/opt/omniroute/bin/tailscaled", "/var/lib/tailscale"],
+    sharedSanitizerCovers: true,
   },
   {
     label: "windows config path",
     message:
       "listen EADDRINUSE: address already in use 0.0.0.0:41641 (config C:\\Users\\operator\\AppData\\omniroute\\ngrok.yml)",
     secrets: ["C:\\Users\\operator", "ngrok.yml"],
+    sharedSanitizerCovers: true,
   },
 ] as const;
 
@@ -101,17 +112,27 @@ async function withSilencedConsoleError<T>(fn: () => T | Promise<T>): Promise<[T
   }
 }
 
-// ── Why a dedicated module: sanitizeErrorMessage does not cover these ───────
+// ── Division of responsibility with the shared sanitizer ───────────────────
+//
+// The path shapes are the shared sanitizer's job and must stay covered there
+// (a regression would silently widen what every other route leaks). The
+// Tailscale key is the residual shape it does not know, and the reason this
+// module answers with a fixed sentence instead of a sanitized echo.
 
-test("sanitizeErrorMessage alone leaves every tunnel leak shape intact", () => {
+test("sanitizeErrorMessage covers the filesystem-path shapes but not the Tailscale key", () => {
   for (const leak of LEAKS) {
     const out = sanitizeErrorMessage(leak.message);
-    const stillLeaks = leak.secrets.some((s) => out.includes(s));
-    assert.ok(
-      stillLeaks,
-      `${leak.label}: sanitizeErrorMessage unexpectedly covers this now — if the ` +
-        `shared sanitizer grew to handle it, simplify publicSafeTunnelError accordingly. Got: ${out}`
-    );
+    const leaked = leak.secrets.filter((s) => out.includes(s));
+    if (leak.sharedSanitizerCovers) {
+      assert.deepEqual(leaked, [], `${leak.label}: shared sanitizer regressed. Got: ${out}`);
+    } else {
+      assert.ok(
+        leaked.length > 0,
+        `${leak.label}: sanitizeErrorMessage now covers this too — every leak shape is ` +
+          `handled by the shared sanitizer; revisit whether publicSafeTunnelError's ` +
+          `fixed-sentence contract is still needed. Got: ${out}`
+      );
+    }
   }
 });
 
@@ -158,32 +179,41 @@ function makeRequest(url: string, init?: RequestInit): NextRequest {
   return new Request(url, init) as unknown as NextRequest;
 }
 
-test("GET /api/tunnels/ngrok does not leak a host path in its 500 body", async () => {
+test("GET /api/tunnels/ngrok does not leak any tunnel leak shape in its 500 body", async () => {
   // getNgrokTunnelStatus() reads globalThis.__ngrokListener and then calls
   // getTunnelApiUrl(currentUrl) OUTSIDE its try/catch, so a listener whose url()
-  // yields an object with a throwing `replace` reproduces a real 500 here.
-  const LEAK = "/home/operator/.omniroute/data/tunnels.json";
+  // yields an object with a throwing `replace` reproduces a real 500 here — for
+  // every leak shape, so the end-to-end route contract covers each of them.
   const g = globalThis as unknown as { __ngrokListener?: unknown };
   const previous = g.__ngrokListener;
-  g.__ngrokListener = {
-    url: () => ({
-      replace: () => {
-        throw new Error(`ENOENT: no such file or directory, open '${LEAK}'`);
-      },
-    }),
-  };
 
   try {
-    const [res] = await withSilencedConsoleError(() =>
-      ngrokRoute.GET(makeRequest("http://localhost/api/tunnels/ngrok"))
+    for (const leak of LEAKS) {
+      g.__ngrokListener = {
+        url: () => ({
+          replace: () => {
+            throw new Error(leak.message);
+          },
+        }),
+      };
+
+      const [res] = await withSilencedConsoleError(() =>
+        ngrokRoute.GET(makeRequest("http://localhost/api/tunnels/ngrok"))
+      );
+      assert.equal(res.status, 500, leak.label);
+      const body = (await res.json()) as { error?: unknown; reason?: unknown };
+      assert.equal(typeof body.error, "string", "dashboard reads data.error as a string");
+      const text = JSON.stringify(body);
+      for (const secret of leak.secrets) {
+        assert.ok(!text.includes(secret), `${leak.label}: body leaked ${secret}: ${text}`);
+      }
+      assert.equal(body.reason, classifyTunnelError(new Error(leak.message)), leak.label);
+    }
+    assert.equal(
+      classifyTunnelError(new Error(LEAKS[0].message)),
+      "not_installed",
+      "the .json ENOENT shape still classifies as not_installed"
     );
-    assert.equal(res.status, 500);
-    const body = (await res.json()) as { error?: unknown; reason?: unknown };
-    assert.equal(typeof body.error, "string", "dashboard reads data.error as a string");
-    const text = JSON.stringify(body);
-    assert.ok(!text.includes(LEAK), `body leaked the state path: ${text}`);
-    assert.ok(!text.includes("/home/operator"), `body leaked the home directory: ${text}`);
-    assert.equal(body.reason, "not_installed");
   } finally {
     if (previous === undefined) delete g.__ngrokListener;
     else g.__ngrokListener = previous;
