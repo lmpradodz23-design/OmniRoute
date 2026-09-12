@@ -98,7 +98,7 @@ async function probeCommand(command: string, env: LookupEnv): Promise<ProbeVerdi
  * imported from the executor: loading any executor module drags in the whole
  * executor tree (base.ts, registries) and its module evaluation is a multi-second
  * synchronous stretch on a cold process — measured 1.7s of event-loop pinning
- * inside the catalog build (tests/unit/9147-catalog-eventloop-yield.test.ts).
+ * inside the catalog build (tests/unit/serial/9147-catalog-eventloop-yield.test.ts).
  * Parity with the executor is locked by the C-05 unit test.
  */
 export async function resolveAuggieBinForProbe(): Promise<string> {
