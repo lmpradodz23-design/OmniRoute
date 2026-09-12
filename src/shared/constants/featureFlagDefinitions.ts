@@ -680,4 +680,42 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     requiresRestart: false,
     warningLevel: "info",
   },
+
+  // ──────────────── Agentic modules (Fase 2) ────────────────
+  {
+    key: "MCP_REVIEW_ENABLED",
+    label: "MCP Review Gate",
+    description:
+      "Enable the deterministic MCP review pipeline (discoverâ†’quarantineâ†’reviewâ†’approve). Malicious/forbidden permissions are denied; broadening permissions forces re-review. Code decides, not the model.",
+    descriptionI18nKey: "featureFlagMcpReviewEnabledDescription",
+    category: "security",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
+  {
+    key: "BROWSER_USE_ENABLED",
+    label: "Browser Use",
+    description:
+      "Enable browser automation guarded by a domain allowlist and human approval for external effects. Page-originated external effects are denied (prompt injection cannot escalate).",
+    descriptionI18nKey: "featureFlagBrowserUseEnabledDescription",
+    category: "security",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "caution",
+  },
+  {
+    key: "OTEL_TRACING_ENABLED",
+    label: "OpenTelemetry Tracing",
+    description:
+      "Enable lightweight W3C Trace Context spans with allowlisted, non-sensitive attributes only (no prompts, responses, PII or secrets ever reach telemetry).",
+    descriptionI18nKey: "featureFlagOtelTracingEnabledDescription",
+    category: "runtime",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
 ];

@@ -40,7 +40,8 @@ const {
 // the dead ONEPROXY_ENABLED (readerless since the 1proxy purge, #12091)
 // brought it back to 53. UNIVERSAL_CONTEXT_HANDOFF_ENABLED bumped it to 54.
 // LOOP_ENGINE_ENABLED and BUZZ_HUB_ENABLED (Loop Engine + Buzz Hub) bumped it to 56.
-const EXPECTED_FEATURE_FLAG_COUNT = 56;
+// MCP_REVIEW_ENABLED, BROWSER_USE_ENABLED and OTEL_TRACING_ENABLED (Fase 2) bumped it to 59.
+const EXPECTED_FEATURE_FLAG_COUNT = 59;
 
 // ──────────────────────────────────────────────────────
 // Test group 1 — Flag definitions registry
