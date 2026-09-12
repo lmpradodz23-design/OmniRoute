@@ -25,6 +25,10 @@ function ensureSchema(): void {
   assert.ok(file, "loop engine / buzz bridge migration not found in src/lib/db/migrations");
   const sql = fs.readFileSync(path.join(dir, file), "utf8");
   getDbInstance().exec(sql);
+  // The review route now reads prior approvals from this table; resolved by suffix too.
+  const approvals = fs.readdirSync(dir).find((f) => f.endsWith("_mcp_review_approvals.sql"));
+  assert.ok(approvals, "mcp review approvals migration not found in src/lib/db/migrations");
+  getDbInstance().exec(fs.readFileSync(path.join(dir, approvals), "utf8"));
   getDbInstance().exec(
     "CREATE TABLE IF NOT EXISTS key_value (namespace TEXT, key TEXT, value TEXT, PRIMARY KEY(namespace,key))"
   );
