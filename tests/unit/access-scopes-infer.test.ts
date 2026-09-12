@@ -46,3 +46,18 @@ test("prefix matching does not over-match unrelated paths", () => {
   // "/api/services" itself and its children are admin, but a lookalike is not
   assert.equal(inferRequiredScope("GET", "/api/services-catalog"), "read");
 });
+
+test("Loop Engine and Buzz Hub: mutations are admin, status reads stay read", () => {
+  // Approving/advancing a loop run or flushing the Buzz outbox are operator actions
+  // (they release external effects); listing/inspecting must stay reachable to `read`.
+  assert.equal(inferRequiredScope("POST", "/api/loop"), "admin");
+  assert.equal(inferRequiredScope("POST", "/api/loop/x/approve"), "admin");
+  assert.equal(inferRequiredScope("POST", "/api/loop/x/advance"), "admin");
+  assert.equal(inferRequiredScope("GET", "/api/loop"), "read");
+  assert.equal(inferRequiredScope("GET", "/api/loop/x"), "read");
+  assert.equal(inferRequiredScope("POST", "/api/buzz/flush"), "admin");
+  assert.equal(inferRequiredScope("PUT", "/api/buzz"), "admin");
+  assert.equal(inferRequiredScope("GET", "/api/buzz"), "read");
+  // segment boundary: lookalike prefixes are NOT admin
+  assert.equal(inferRequiredScope("POST", "/api/loopback-thing"), "write");
+});

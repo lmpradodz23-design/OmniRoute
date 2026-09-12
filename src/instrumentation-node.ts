@@ -643,6 +643,19 @@ export async function registerNodejs(): Promise<void> {
           console.warn("[STARTUP] Conductor bridge failed to start (non-fatal):", msg);
         }),
 
+      // Buzz inbox consumer (audit A-H2): subscribes to the configured buzz-relay and stores
+      // verified events in buzz_inbox (storage-only — a Nostr key never authorizes anything).
+      // Self-gated on BUZZ_HUB_ENABLED + a valid relay URL; registers its shutdown hook always;
+      // reconnects with backoff; a relay that is down never blocks or fails the boot.
+      import("@/lib/buzzConsumer")
+        .then((m) => {
+          if (m.initBuzzInboxConsumer()) console.log("[STARTUP] Buzz inbox consumer armed");
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[STARTUP] Buzz inbox consumer failed to start (non-fatal):", msg);
+        }),
+
       // Proactive connection-cooldown recovery (#8): re-validate connections whose
       // transient `rate_limited_until` window has elapsed OUTSIDE the request hot path,
       // so the first request after a cooldown does not pay the probe latency.

@@ -20,6 +20,8 @@
     "@modelcontextprotocol/sdk",
     "@monaco-editor/react",
     "@ngrok/ngrok",
+    "@noble/curves",
+    "@noble/hashes",
     "@opencode-ai/plugin",
     "@playwright/test",
     "@size-limit/file",
