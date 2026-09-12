@@ -20,7 +20,9 @@ export type OnboardingTestResult = {
   warning?: string;
   latencyMs?: number;
   statusCode?: number;
-  diagnosis?: { type?: string; message?: string };
+  // Mirrors makeDiagnosis() in src/app/api/providers/[id]/test: `code` is the typed failure
+  // code (C-03) the retry affordance keys on; message/code are null on success.
+  diagnosis?: { type?: string; source?: string; message?: string | null; code?: string | null };
   testedAt?: string;
   [key: string]: unknown;
 };
