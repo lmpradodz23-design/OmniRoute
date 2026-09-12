@@ -20,6 +20,28 @@ import path from "node:path";
 
 export const MANIFEST_VERSION = 1;
 
+/**
+ * Rendering-stable form of a symlink target, for COMPARISON only — the manifest still
+ * records whatever the build machine read.
+ *
+ * The bundle is built on ubuntu and restored on every matrix leg, including windows.
+ * npm writes some `.bin` shims as symlinks whose target is an absolute POSIX path
+ * (e.g. `/home/runner/work/OmniRoute/OmniRoute/node_modules/...`). tar preserves that
+ * string, but Windows resolves a leading `/` against the current drive and reads the
+ * link back with a drive prefix and backslashes. Comparing the raw strings then reports a
+ * mismatch that is about the platform, not about the link — and it failed the whole
+ * windows leg of v3.8.51 (run 34705954616).
+ *
+ * Normalizing both sides keeps the check honest: a link that genuinely points somewhere
+ * else still fails, because only the drive prefix and the separators are folded away.
+ */
+export function normalizeSymlinkTarget(target) {
+  return String(target)
+    .replace(/^[A-Za-z]:/, "")
+    .split("\\")
+    .join("/");
+}
+
 /** Streamed sha256 for large native payloads (onnxruntime is ~200 MB). */
 async function sha256File(filePath) {
   return new Promise((resolve, reject) => {
@@ -102,7 +124,7 @@ export async function verifyStandaloneManifest(rootDir, manifest) {
         errors.push(`${entry.path}: expected symlink, found regular entry`);
       } else {
         const target = fs.readlinkSync(abs);
-        if (target !== entry.symlink) {
+        if (normalizeSymlinkTarget(target) !== normalizeSymlinkTarget(entry.symlink)) {
           errors.push(`${entry.path}: symlink target ${target} != ${entry.symlink}`);
         }
       }
