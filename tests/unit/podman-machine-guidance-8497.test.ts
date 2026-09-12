@@ -38,8 +38,10 @@ test("#8497 Podman guide separates local engines from Podman Machine", () => {
   assert.match(localGuidance, /podman unshare chown 1000:1000 \.\/data/);
   assert.doesNotMatch(machineGuidance, /podman unshare chown/);
   assert.match(machineGuidance, /remote client/);
-  // Fase 8: this fork ships its image on GHCR under its own owner.
-  assert.match(machineGuidance, /ghcr\.io\/lmprado-dz23\/omniroute:latest/);
+  // Fase 8: this fork ships its image on GHCR under its own owner. The channel is
+  // `:next` until a version is released — `:latest` is only promoted by a SemVer
+  // publish, so pinning it here documented a pull that returns "manifest unknown".
+  assert.match(machineGuidance, /ghcr\.io\/lmprado-dz23\/omniroute:next/);
 });
 
 test("#8497 Quadlet is Linux/systemd-only and generated units are not enabled", () => {
@@ -95,7 +97,7 @@ test("#8497 pull example and environment hints stay topology-safe", () => {
   const envExample = read(".env.example");
   const envReference = read("docs/reference/ENVIRONMENT.md");
 
-  assert.match(quadlet, /Image=ghcr\.io\/lmprado-dz23\/omniroute:latest/);
+  assert.match(quadlet, /Image=ghcr\.io\/lmprado-dz23\/omniroute:next/);
   assert.doesNotMatch(quadlet, /lmprado-dz23\/omniroute:base/);
 
   for (const source of [envExample, envReference]) {
