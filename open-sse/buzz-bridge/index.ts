@@ -7,27 +7,12 @@
  */
 export * from "./types.ts";
 export { DisabledBuzzAdapter } from "./adapter.ts";
-export {
-  finalizeEvent,
-  verifyEvent,
-  getPublicKey,
-  generateSecretKey,
-  type SignedNostrEvent,
-  type UnsignedNostrEvent,
-} from "./nostr.ts";
-export {
-  validateBuzzRelayUrl,
-  type BuzzRelayUrlCheck,
-  type BuzzRelayUrlErrorCode,
-} from "./relayUrl.ts";
-export {
-  isWellFormedRelayEvent,
-  MAX_EVENT_CONTENT_BYTES,
-  MAX_EVENT_TAGS,
-  MAX_RELAY_FRAME_BYTES,
-  MAX_TAG_ITEM_CHARS,
-  MAX_TAG_ITEMS,
-} from "./eventShape.ts";
+// Only what a consumer outside this folder actually reaches for. The event-shape limits,
+// the Nostr event interfaces and the relay-url result union stay module-local: they are
+// implementation detail of the adapter, and re-exporting them here made them dead exports.
+export { finalizeEvent, verifyEvent, getPublicKey, generateSecretKey } from "./nostr.ts";
+export { validateBuzzRelayUrl, type BuzzRelayUrlErrorCode } from "./relayUrl.ts";
+export { isWellFormedRelayEvent, MAX_EVENT_CONTENT_BYTES } from "./eventShape.ts";
 export {
   DEFAULT_BUZZ_AUTH_TIMEOUT_MS,
   DEFAULT_BUZZ_TIMEOUT_MS,
