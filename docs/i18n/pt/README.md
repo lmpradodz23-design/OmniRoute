@@ -1015,7 +1015,7 @@ docker run -d \
   --stop-timeout 40 \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 **With environment file:**
@@ -1031,7 +1031,7 @@ docker run -d \
   --env-file .env \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 **Using Docker Compose:**
@@ -1064,7 +1064,7 @@ OmniRoute can be securely exposed using Caddy's automatic SSL provisioning. Ensu
 ```yaml
 services:
   omniroute:
-    image: ghcr.io/lmprado-dz23/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:next
     container_name: omniroute
     restart: unless-stopped
     volumes:

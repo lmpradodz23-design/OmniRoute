@@ -756,7 +756,7 @@ Outcome: deep fallback depth for deadline-critical workloads
 Escolha o canal **deste fork** que preferir:
 
 - **Instalador desktop** — quando houver uma release publicada, baixe o `.exe` / `.dmg` / `.AppImage` do seu sistema em [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) e abra-o; o aplicativo sobe o servidor e abre o painel. Se a página de Releases ainda não tiver instaladores, use Docker ou o código-fonte.
-- **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest` (se a imagem ainda não estiver publicada, use o código-fonte).
+- **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:next` (se a imagem ainda não estiver publicada, use o código-fonte).
 - **Código-fonte** (requer Node.js 22 ou 24 LTS):
 
 ```bash
@@ -1030,7 +1030,7 @@ docker run -d \
   --stop-timeout 40 \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 **With environment file:**
@@ -1046,7 +1046,7 @@ docker run -d \
   --env-file .env \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 **Using Docker Compose:**
@@ -1079,7 +1079,7 @@ OmniRoute can be securely exposed using Caddy's automatic SSL provisioning. Ensu
 ```yaml
 services:
   omniroute:
-    image: ghcr.io/lmprado-dz23/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:next
     container_name: omniroute
     restart: unless-stopped
     volumes:

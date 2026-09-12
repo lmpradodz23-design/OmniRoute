@@ -1012,7 +1012,7 @@ docker run -d \
   --stop-timeout 40 \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 **Dengan file lingkungan:**
@@ -1028,7 +1028,7 @@ docker run -d \
   --env-file .env \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 **Menggunakan Docker Tulis:**
@@ -1061,7 +1061,7 @@ OmniRoute dapat diekspos dengan aman menggunakan penyediaan SSL otomatis Caddy. 
 ```yaml
 services:
   omniroute:
-    image: ghcr.io/lmprado-dz23/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:next
     container_name: omniroute
     restart: unless-stopped
     volumes:

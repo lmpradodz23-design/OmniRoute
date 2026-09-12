@@ -614,7 +614,7 @@ Ollama tags:      http://localhost:20128/vscode/YOUR_KEY/api/tags
 
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
-  -p 20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
+  -p 20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 **🛠️ 從原始碼建構**

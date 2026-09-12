@@ -36,7 +36,7 @@ docker run -d \
   --stop-timeout 40 \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 ## With Environment File
@@ -52,7 +52,7 @@ docker run -d \
   --env-file .env \
   -p 20128:20128 \
   -v omniroute-data:/app/data \
-  ghcr.io/lmprado-dz23/omniroute:latest
+  ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 ## Docker Compose
@@ -322,7 +322,7 @@ Size **cgroup `--memory` above the heap** — native buffers, SQLite, and compre
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
   -e OMNIROUTE_MEMORY_MB=8192 --memory=10g \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 ## Critical Environment Variables
@@ -383,7 +383,7 @@ Pair it with the matching public origin:
 ```yaml
 services:
   omniroute:
-    image: ghcr.io/lmprado-dz23/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:next
     environment:
       OMNIROUTE_BASE_PATH: /omniroute
       NEXT_PUBLIC_BASE_URL: https://myhostname.example.com/omniroute
@@ -424,7 +424,7 @@ OmniRoute can be securely exposed using Caddy's automatic SSL provisioning. Ensu
 ```yaml
 services:
   omniroute:
-    image: ghcr.io/lmprado-dz23/omniroute:latest
+    image: ghcr.io/lmprado-dz23/omniroute:next
     container_name: omniroute
     restart: unless-stopped
     volumes:
@@ -482,6 +482,10 @@ Endpoint tunnel panels (Cloudflare, Tailscale, ngrok) can be shown or hidden fro
 Multi-platform manifest: `linux/amd64` + `linux/arm64` native (Apple Silicon, AWS Graviton, Raspberry Pi). Docker selects the matching architecture automatically; pass `--platform linux/amd64` if you need to force AMD64 emulation on ARM hosts.
 
 ### Release Channels
+
+> **What exists today for this fork:** only `:next` and `:next-web`. No versioned release has been
+> published yet, so `:latest`, `:latest-web` and the immutable `:X.Y.Z` tags are not resolvable and the
+> examples in this guide use `:next`. The rows below describe what each channel means once releases begin.
 
 OmniRoute publishes separate Docker channels for stable releases, active release-branch testing, and development builds.
 

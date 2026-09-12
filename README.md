@@ -12,12 +12,16 @@
 </div>
 
 > **This is the maintained fork [`LMPrado-DZ23/OmniRoute`](https://github.com/LMPrado-DZ23/OmniRoute)** of the original
-> [OmniRoute by Diego Souza (`diegosouzapw`)](https://github.com/LMPrado-DZ23/OmniRoute), MIT-licensed — full credit to the
+> [OmniRoute by Diego Souza (`diegosouzapw`)](https://github.com/diegosouzapw/OmniRoute), MIT-licensed — full credit to the
 > original author and the 600+ upstream contributors. Builds of **this** fork are distributed as
 > [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) (Windows / macOS / Linux installers), the container image
 > [`ghcr.io/lmprado-dz23/omniroute`](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute) and from source.
 > The `omniroute` package on npm is published by upstream — `npm install -g omniroute` installs **upstream**, not this fork;
 > the dashboard update check and `omniroute update` know the difference and only offer releases of this repository.
+>
+> **Published right now:** the container tags `:next` and `:next-web`, built from the current default branch,
+> plus installation from source. `:latest` and the desktop installers begin to exist when a versioned release
+> is cut; until then every command below uses `:next`, so each one works exactly as written.
 
 <div align="center">
 
@@ -727,7 +731,7 @@ of your shell history. → [CLI Integrations](docs/guides/CLI-INTEGRATIONS.md)
 <table>
   <tr><th align="left">Platform</th><th align="left">Install</th><th align="left">Highlights</th></tr>
   <tr><td align="left" nowrap>📦 <b>GitHub Releases</b></td><td align="left" nowrap><a href="https://github.com/LMPrado-DZ23/OmniRoute/releases">installers for this fork</a></td><td align="left">Windows <code>.exe</code> · macOS <code>.dmg</code> · Linux <code>.AppImage</code></td></tr>
-  <tr><td align="left" nowrap>🐳 <b>Docker</b></td><td align="left" nowrap><code>docker run … ghcr.io/lmprado-dz23/omniroute</code></td><td align="left">Multi-arch <b>AMD64 + ARM64</b></td></tr>
+  <tr><td align="left" nowrap>🐳 <b>Docker</b></td><td align="left" nowrap><code>docker run … ghcr.io/lmprado-dz23/omniroute:next</code></td><td align="left">Multi-arch <b>AMD64 + ARM64</b></td></tr>
   <tr><td align="left" nowrap>🧪 <b>npm (upstream package)</b></td><td align="left" nowrap><code>npm install -g omniroute</code></td><td align="left">Installs the <b>upstream</b> build, not this fork</td></tr>
   <tr><td align="left" nowrap>🖥️ <b>Desktop (Electron)</b></td><td align="left" nowrap><code>npm run electron:build</code></td><td align="left">Native window + system tray — <b>Windows / macOS / Linux</b></td></tr>
   <tr><td align="left" nowrap>🎩 <b>Menu-bar (OmniRouteTray)</b></td><td align="left" nowrap><code>brew install --cask zoispag/tap/omniroute-tray</code></td><td align="left">Supervises &amp; auto-updates the server — <b>macOS</b></td></tr>
@@ -986,8 +990,8 @@ Auto-trigger by token threshold, flip on the adaptive dial, pin a named profile,
 
 Pick the channel of **this fork** that fits you:
 
-- **Desktop installer** — once a release is published, download the `.exe` / `.dmg` / `.AppImage` for your OS from [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) and open it; the app starts the server and opens the dashboard. If the Releases page has no installers yet, use Docker or source.
-- **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest`
+- **Desktop installer** — not published for this fork yet. When a version is released the `.exe` / `.dmg` / `.AppImage` for your OS appear on [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases), and opening one starts the server and the dashboard. Until then use Docker or source; both are supported.
+- **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:next`
 - **From source** (needs Node.js 22/24 LTS):
 
 ```bash
@@ -1043,10 +1047,10 @@ Use these only for clients that cannot attach `Authorization: Bearer ...`. Heade
 
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:next
 ```
 
-`:latest` follows the highest **published** stable SemVer. It does not track git `main`. Pin `:X.Y.Z` for GitOps. See [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).The image pins **`OMNIROUTE_MEMORY_MB=1024`**. That is enough for the dashboard and a light chat. **Coding agents** (`POST /v1/responses` from Claude Code, Codex, Grok, …) need a much larger V8 heap or the process `FATAL ERROR`s at ~12 GiB under two overlapping long contexts. Size the container above the heap (native buffers sit outside V8):
+`:next` is the channel this fork publishes today, from the current default branch. `:latest` follows the highest **published** stable SemVer. It does not track git `main`. Pin `:X.Y.Z` for GitOps. See [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).The image pins **`OMNIROUTE_MEMORY_MB=1024`**. That is enough for the dashboard and a light chat. **Coding agents** (`POST /v1/responses` from Claude Code, Codex, Grok, …) need a much larger V8 heap or the process `FATAL ERROR`s at ~12 GiB under two overlapping long contexts. Size the container above the heap (native buffers sit outside V8):
 
 | Workload                            | Heap (`-e OMNIROUTE_MEMORY_MB`) | Container (`--memory`) |
 | ----------------------------------- | ------------------------------- | ---------------------- |
@@ -1057,16 +1061,19 @@ docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
 ```bash
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
   -e OMNIROUTE_MEMORY_MB=8192 --memory=10g \
-  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
+  -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:next
 ```
 
 Full table: [Docker Guide — runtime RAM](docs/guides/DOCKER_GUIDE.md#runtime-ram-for-coding-agents).
 
-> **Pre-release Docker channel:** `ghcr.io/lmprado-dz23/omniroute:next` and
+> **About the `:next` channel:** `ghcr.io/lmprado-dz23/omniroute:next` and
 > `ghcr.io/lmprado-dz23/omniroute:next-web` follow the current default `release/v*`
-> branch. These mutable tags are intended only for testing unreleased fixes and
-> are **not supported for production**. See
-> [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).
+> branch, and today they are the only images this fork publishes. They are mutable:
+> pulling again later can give you a different build, so for a reproducible
+> deployment pin the digest that
+> `docker image inspect ghcr.io/lmprado-dz23/omniroute:next --format '{{index .RepoDigests 0}}'`
+> reports. Immutable `:X.Y.Z` tags and the stable `:latest` pointer appear once a version
+> is released. See [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).
 
 **🥟 Bun**
 
