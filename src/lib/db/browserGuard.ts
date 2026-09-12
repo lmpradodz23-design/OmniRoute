@@ -11,9 +11,10 @@
  * dentro do motor de política nem abrir a porta por omissão.
  *
  * NOTA HONESTA: nada no repositório ESCREVE esta chave ainda — não há tela nem endpoint que
- * configure a allowlist persistida. Enquanto isso, quem chama `POST /api/browser/check` precisa
- * passar `allowedDomains` no corpo. `setBrowserAllowedDomains` existe para quando essa tela vier
- * e é o ponto único de escrita quando ela chegar.
+ * configure a allowlist persistida, então na prática ela é sempre vazia e quem chama
+ * `POST /api/browser/check` precisa passar `allowedDomains` no corpo. Este módulo deliberadamente
+ * NÃO exporta um escritor especulativo: um export sem chamador é código morto, e a tela de
+ * configuração, quando existir, traz o seu próprio ponto de escrita junto com o caso de uso.
  */
 
 import { getDbInstance } from "./core";
@@ -40,15 +41,4 @@ export function getBrowserAllowedDomains(): string[] {
   } catch {
     return [];
   }
-}
-
-/** Ponto único de escrita da allowlist persistida. Ainda sem chamador (ver nota no topo). */
-export function setBrowserAllowedDomains(domains: ReadonlyArray<string>): void {
-  const clean = domains.filter((d) => typeof d === "string" && d.length > 0).slice(0, MAX_DOMAINS);
-  getDbInstance()
-    .prepare(
-      "INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?) " +
-        "ON CONFLICT(namespace, key) DO UPDATE SET value = excluded.value"
-    )
-    .run(NAMESPACE, ALLOWED_DOMAINS_KEY, JSON.stringify(clean));
 }
