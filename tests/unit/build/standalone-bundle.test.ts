@@ -331,3 +331,55 @@ test("verifyBundledNatives asserts serviceability and honors the onnx darwin-x64
     fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
+
+// ---- Regressao: a perna windows do release v3.8.51 (run 34705954616) --------
+//
+// O bundle e construido no ubuntu. Alguns shims `.bin` que o npm escreve sao symlinks
+// com destino POSIX absoluto. O tar preserva a string, mas o Windows resolve o `/`
+// inicial contra a unidade corrente e le o link de volta com prefixo de unidade e
+// barras invertidas. Comparar as strings cruas acusava divergencia de PLATAFORMA e
+// derrubava a construcao do instalador Windows inteira.
+
+test("normalizeSymlinkTarget: a leitura do Windows casa com o destino POSIX gravado", () => {
+  const posix =
+    "/home/runner/work/OmniRoute/OmniRoute/node_modules/global-agent/node_modules/semver/bin/semver.js";
+  const windows =
+    "D:" +
+    "\\" +
+    "home" +
+    "\\" +
+    "runner" +
+    "\\" +
+    "work" +
+    "\\" +
+    "OmniRoute" +
+    "\\" +
+    "OmniRoute" +
+    "\\" +
+    "node_modules" +
+    "\\" +
+    "global-agent" +
+    "\\" +
+    "node_modules" +
+    "\\" +
+    "semver" +
+    "\\" +
+    "bin" +
+    "\\" +
+    "semver.js";
+  assert.equal(
+    manifestMod.normalizeSymlinkTarget(windows),
+    manifestMod.normalizeSymlinkTarget(posix),
+    "a mesma ligacao lida em plataformas diferentes tem que casar"
+  );
+});
+
+test("normalizeSymlinkTarget: um destino REALMENTE diferente continua divergindo", () => {
+  const a = "/home/runner/work/OmniRoute/node_modules/semver/bin/semver.js";
+  const b = "/home/runner/work/OmniRoute/node_modules/evil/bin/semver.js";
+  assert.notEqual(
+    manifestMod.normalizeSymlinkTarget(a),
+    manifestMod.normalizeSymlinkTarget(b),
+    "a normalizacao nao pode esconder uma ligacao apontando para outro lugar"
+  );
+});
