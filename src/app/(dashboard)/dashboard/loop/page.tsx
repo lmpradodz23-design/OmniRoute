@@ -78,30 +78,52 @@ export default function LoopEnginePage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busyRun, setBusyRun] = useState<string | null>(null);
 
+  // Pure fetch (no state writes) so the mount effect can await it and only touch state
+  // after the response arrives — the base pattern for initial loads (no synchronous
+  // setState inside useEffect).
+  const fetchRuns = useCallback(async (): Promise<{ disabled: boolean; runs: LoopRun[] }> => {
+    const res = await fetch("/api/loop");
+    if (res.status === 404) return { disabled: true, runs: [] };
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return { disabled: false, runs: Array.isArray(data.runs) ? data.runs : [] };
+  }, []);
+
+  const applyRuns = useCallback((result: { disabled: boolean; runs: LoopRun[] }) => {
+    setDisabled(result.disabled);
+    setRuns(result.runs);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/loop");
-      if (res.status === 404) {
-        setDisabled(true);
-        setRuns([]);
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setDisabled(false);
-      const data = await res.json();
-      setRuns(Array.isArray(data.runs) ? data.runs : []);
+      applyRuns(await fetchRuns());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyRuns, fetchRuns]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await fetchRuns();
+        if (cancelled) return;
+        applyRuns(result);
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Falha ao carregar");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyRuns, fetchRuns]);
 
   const startRun = useCallback(async () => {
     const p = pattern.trim();

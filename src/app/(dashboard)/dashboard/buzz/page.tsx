@@ -34,25 +34,49 @@ export default function BuzzHubPage() {
   const [flushMsg, setFlushMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Pure fetch (no state writes) so the mount effect only touches state after the
+  // response arrives — the base pattern for initial loads.
+  const fetchStatus = useCallback(async (): Promise<BuzzStatus> => {
+    const res = await fetch("/api/buzz");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as BuzzStatus;
+  }, []);
+
+  const applyStatus = useCallback((data: BuzzStatus) => {
+    setStatus(data);
+    setRelayDraft(data.relayUrl);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/buzz");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as BuzzStatus;
-      setStatus(data);
-      setRelayDraft(data.relayUrl);
+      applyStatus(await fetchStatus());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyStatus, fetchStatus]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await fetchStatus();
+        if (cancelled) return;
+        applyStatus(data);
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Falha ao carregar");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyStatus, fetchStatus]);
 
   const saveRelay = useCallback(async () => {
     setSavingRelay(true);
