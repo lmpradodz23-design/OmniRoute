@@ -10,19 +10,21 @@ lastUpdated: 2026-09-11
 
 > **Resumo:** Instalar → Conectar um provedor gratuito → Apontar seu editor ou CLI para o OmniRoute. Pronto.
 
+> ⚠️ **Antes de qualquer comando:** `npm install -g omniroute` instala o **projeto original** (`diegosouzapw/OmniRoute`, publicado no npm pelo autor upstream), **não** este fork (`LMPrado-DZ23/OmniRoute`). Este fork é distribuído **somente** pelos canais abaixo: instalador desktop nas Releases do GitHub, imagem Docker `ghcr.io/lmprado-dz23/omniroute` e código-fonte.
+
 ---
 
 ## Primeiro uso em 5 passos
 
 Se você nunca usou o OmniRoute, faça exatamente isto, nesta ordem:
 
-| #   | O que fazer                                                                                                                                                              | Como saber que deu certo                                                                   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| 1   | Instale: `npm install -g omniroute` (ou o instalador desktop / Docker, veja abaixo)                                                                                      | O comando `omniroute --help` responde                                                      |
-| 2   | Inicie: `omniroute`                                                                                                                                                      | O painel abre em `http://localhost:20128`                                                  |
-| 3   | No assistente inicial, defina uma **senha** (ou mantenha o acesso local sem senha) e conecte **um provedor gratuito** (Kiro, OpenCode Free ou Pollinations — sem cartão) | O provedor aparece como **Conectado** em **Provedores**                                    |
-| 4   | Em **API Keys**, crie uma chave e guarde-a (ela não é mostrada de novo)                                                                                                  | `curl http://localhost:20128/v1/models -H "Authorization: Bearer SUA_CHAVE"` lista modelos |
-| 5   | Aponte sua ferramenta: URL base `http://localhost:20128/v1`, chave = a do passo 4, modelo `auto` — ou use `omniroute run claude` / `omniroute launch-codex --model auto` | A requisição aparece em **Monitoramento → Logs** no painel                                 |
+| #   | O que fazer                                                                                                                                                                                                                            | Como saber que deu certo                                                                   |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1   | Instale **este fork** por um dos três métodos do [Passo 1](#passo-1-instalar-o-omniroute): instalador desktop (quando publicado), Docker ou código-fonte. **Não** use `npm install -g omniroute` (instala o projeto original).         | O painel abre em `http://localhost:20128`                                                  |
+| 2   | Na primeira abertura: **sem** `INITIAL_PASSWORD` aparece o assistente inicial (defina uma senha ou marque "continuar sem senha"); **com** `INITIAL_PASSWORD` não há assistente — entre com essa senha e troque `CHANGEME` na hora      | Você vê o painel logado                                                                    |
+| 3   | Conecte **um provedor gratuito** (Kiro, OpenCode Free ou Pollinations — sem cartão) em **Provedores → Adicionar provedor**                                                                                                             | O provedor aparece como **Conectado** em **Provedores**                                    |
+| 4   | Em **API Keys**, crie uma chave e **copie-a no momento em que ela aparece** — ela é mostrada **uma única vez**. Perdeu? Crie outra.                                                                                                    | `curl http://localhost:20128/v1/models -H "Authorization: Bearer SUA_CHAVE"` lista modelos |
+| 5   | Aponte sua ferramenta: URL base `http://localhost:20128/v1`, chave = a que você copiou no passo 4, modelo `auto` — ou use `omniroute run claude` / `omniroute launch-codex --model auto` (do código-fonte: `node bin/omniroute.mjs …`) | A requisição aparece em **Monitoramento → Logs** no painel                                 |
 
 Se algo falhar, o painel mostra a mensagem de erro no próprio passo (não é preciso abrir o console). Veja também [Solução de problemas](../guides/TROUBLESHOOTING.md).
 
@@ -30,44 +32,60 @@ Se algo falhar, o painel mostra a mensagem de erro no próprio passo (não é pr
 
 ## Passo 1: Instalar o OmniRoute
 
-Escolha o método de sua preferência:
+Os três métodos abaixo instalam **este fork**. Escolha um:
 
-### Opção A: npm (recomendado)
+### Opção A: Aplicativo desktop (Windows, macOS, Linux) — quando disponível
+
+Quando houver instaladores publicados na página de [Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) deste fork, baixe o arquivo do seu sistema (`.exe` no Windows, `.dmg` no macOS, `.AppImage` no Linux) e abra-o. O aplicativo inicia o servidor embutido, fica na bandeja do sistema e atualiza sozinho (sempre pedindo confirmação antes de instalar; um instantâneo dos seus dados é gravado em `db_backups/pre-update-*` antes de cada atualização).
+
+Se a página de Releases ainda não tiver instaladores, use a **Opção B** ou a **Opção C**.
+
+### Opção B: Docker — quando a imagem estiver publicada
+
+A imagem deste fork é `ghcr.io/lmprado-dz23/omniroute` (é o que o fluxo de publicação do repositório produz). Se o `docker run` abaixo responder que a imagem não foi encontrada, ela ainda não foi publicada — use a **Opção C**.
 
 ```bash
-npm install -g omniroute
+docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest
 ```
 
-### Opção B: Docker
+Seus dados ficam no volume `omniroute-data` (dentro do contêiner, em `/app/data`). `:latest` é a versão estável **publicada** mais alta (SemVer). Ela **não** acompanha o `main` do git. Para GitOps, fixe `ghcr.io/lmprado-dz23/omniroute:X.Y.Z`. Veja [Tags de imagem / canais de release](../../../../guides/DOCKER_GUIDE.md#release-channels).
 
-```bash
-docker run -d --name omniroute -p 20128:20128 ghcr.io/lmprado-dz23/omniroute:latest
-```
+### Opção C: A partir do código-fonte (funciona hoje)
 
-`:latest` é a versão estável **publicada** mais alta (SemVer). Ela **não** acompanha o `main` do git. Para GitOps, fixe `ghcr.io/lmprado-dz23/omniroute:X.Y.Z`. Veja [Tags de imagem / canais de release](../../../../guides/DOCKER_GUIDE.md#release-channels).
-
-### Opção C: A partir do código-fonte
+Requer **Node.js 22 ou 24 LTS** e **git**. Copie e cole, uma linha por vez:
 
 ```bash
 git clone https://github.com/LMPrado-DZ23/OmniRoute.git
 cd OmniRoute
-npm install
-npm run dev
+npm ci
+npm run build
+npm start
 ```
 
-### Opção D: Aplicativo desktop (Windows, macOS, Linux)
-
-Baixe o instalador em [Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases). O aplicativo inicia o servidor embutido, fica na bandeja do sistema e atualiza sozinho (sempre pedindo confirmação antes de instalar; um instantâneo dos seus dados é gravado em `db_backups/pre-update-*` antes de cada atualização).
+- `npm ci` instala as dependências exatamente como travadas no repositório; `npm run build` gera o painel; `npm start` sobe o servidor em `http://localhost:20128`.
+- Para desenvolver (recarga automática, sem `build`): `npm run dev`.
+- Instalando pelo código-fonte, o comando `omniroute` **não** fica no seu PATH. Sempre que este guia mostrar `omniroute <algo>`, execute, de dentro da pasta `OmniRoute`, `node bin/omniroute.mjs <algo>`.
 
 ---
 
 ## Passo 2: Iniciar o OmniRoute
 
-```bash
-omniroute
-```
+Depende do método do Passo 1:
 
-O OmniRoute sobe em `http://localhost:20128`. O painel abre automaticamente.
+- **Aplicativo desktop:** abra o OmniRoute como qualquer programa. Ele sobe o servidor e abre o painel.
+- **Docker:** o contêiner já está rodando após o `docker run`. Para parar/iniciar de novo: `docker stop omniroute` / `docker start omniroute`.
+- **Código-fonte:** dentro da pasta `OmniRoute`, `npm start` (ou `npm run dev`).
+
+Em todos os casos o painel fica em `http://localhost:20128`.
+
+### O que acontece na primeira abertura
+
+O comportamento depende de você ter ou não definido a variável `INITIAL_PASSWORD` (ela está no `.env.example` com o valor `CHANGEME`; só vale se você copiou esse arquivo para `.env` ou passou `-e INITIAL_PASSWORD=...` ao Docker):
+
+- **Sem `INITIAL_PASSWORD`** (padrão do instalador desktop e do código-fonte sem `.env`): aparece o **assistente inicial**. Nele você define uma **senha** para o painel ou marca **"continuar sem senha"** (acesso local sem login). Em seguida ele oferece conectar um provedor gratuito.
+- **Com `INITIAL_PASSWORD` definida** (comum no Docker e em servidores): o assistente **não** aparece. O OmniRoute já marca a configuração como concluída, exige login e abre direto a **tela de login** — entre com a senha que você definiu na variável. Se ficou o valor padrão `CHANGEME`, troque-a **imediatamente** em **Configurações → Segurança** (o OmniRoute avisa no log que essa senha é conhecida publicamente).
+
+Esqueceu a senha? Use `omniroute-reset-password` (do código-fonte: `node bin/reset-password.mjs`).
 
 ---
 
@@ -101,9 +119,13 @@ Você pode usar o OmniRoute **sem pagar nada** conectando um provedor gratuito.
 
 ---
 
-## Passo 4: Verificar que funciona
+## Passo 4: Criar sua chave e verificar que funciona
 
-Em [API Keys](http://localhost:20128/dashboard/api-manager), crie uma nova chave. Guarde-a: ela não será exibida novamente. Essa chave serve para as **suas ferramentas acessarem o OmniRoute**, não para acessar os provedores.
+Em [API Keys](http://localhost:20128/dashboard/api-manager), clique em criar uma nova chave.
+
+> 🔑 **A chave é mostrada uma única vez**, na janela que aparece logo após a criação ("ela não será mostrada novamente"). **Copie-a nesse momento** e guarde num lugar seguro. Depois disso o painel só exibe a chave mascarada. Se perder, não há como recuperar: crie **outra** chave (e apague a antiga).
+
+Essa chave serve para as **suas ferramentas acessarem o OmniRoute**, não para acessar os provedores.
 
 ```bash
 curl http://localhost:20128/v1/models -H "Authorization: Bearer SUA_CHAVE"
@@ -119,11 +141,13 @@ Na sua ferramenta, configure:
 
 ```
 URL base: http://localhost:20128/v1
-Chave:    [copie de Painel → Endpoints]
+Chave:    a chave que você copiou no passo 4 (o painel não a mostra de novo)
 Modelo:   auto
 ```
 
 É isso. Sua ferramenta passa a usar o OmniRoute com seleção automática de provedor.
+
+> Instalou pelo código-fonte? Em todos os comandos `omniroute …` abaixo, use `node bin/omniroute.mjs …` de dentro da pasta `OmniRoute`.
 
 ### Claude Code
 
@@ -199,7 +223,8 @@ Clique em [Monitoramento/Logs](http://localhost:20128/dashboard/logs) na barra l
 - **Reiniciar:** no painel, **Reiniciar** aguarda o servidor responder de novo antes de recarregar a página.
 - **Aplicativo desktop:** fechar a janela mantém o servidor rodando na bandeja; **Sair** encerra tudo. Se o servidor demorar a subir, a janela mostra "Aguardando o servidor…" e recarrega sozinha.
 - **Backup e restauração:** `omniroute backup create` / `omniroute backup restore` — detalhes em [Guia do banco de dados](../../../../ops/DATABASE_GUIDE.md).
-- **Desinstalar:** `npm run uninstall` mantém seus dados em `~/.omniroute`; `npm run uninstall:full` pede confirmação (`ERASE` ou `--yes`) antes de apagar tudo — veja [Desinstalação](../guides/UNINSTALL.md).
+- **Onde ficam seus dados:** Windows `%APPDATA%\omniroute`; macOS e Linux `~/.omniroute`; Docker no volume `omniroute-data`. Nada é apagado ao desinstalar, a menos que você peça.
+- **Desinstalar:** depende de como instalou — aplicativo desktop: desinstalador do sistema; Docker: `docker stop omniroute && docker rm omniroute`; código-fonte: `npm run uninstall` (mantém seus dados) ou `npm run uninstall:full` (pede que você digite `ERASE` antes de apagar tudo). Passo a passo, com os avisos, em [Desinstalação](../guides/UNINSTALL.md).
 
 ---
 

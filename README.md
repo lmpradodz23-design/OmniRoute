@@ -982,9 +982,11 @@ Auto-trigger by token threshold, flip on the adaptive dial, pin a named profile,
 
 **1) Install & run**
 
+> ⚠️ **Read this before typing any command:** `npm install -g omniroute` installs the **upstream** package published by `diegosouzapw` (the original project), **not this fork**. This fork ships only through the three channels below.
+
 Pick the channel of **this fork** that fits you:
 
-- **Desktop installer** — download the `.exe` / `.dmg` / `.AppImage` for your OS from [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) and open it; the app starts the server and opens the dashboard.
+- **Desktop installer** — once a release is published, download the `.exe` / `.dmg` / `.AppImage` for your OS from [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) and open it; the app starts the server and opens the dashboard. If the Releases page has no installers yet, use Docker or source.
 - **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest`
 - **From source** (needs Node.js 22/24 LTS):
 
@@ -994,7 +996,6 @@ npm ci && npm run build
 npm start
 ```
 
-> ⚠️ `npm install -g omniroute` installs the **upstream** package published by `diegosouzapw`, not this fork.
 > 💡 See `npm warn ERESOLVE` or peer-dep warnings? [They're harmless](docs/guides/TROUBLESHOOTING.md#npm-install-warnings-eresolve--peer--deprecated).
 
 Dashboard at `http://localhost:20128` · API at `http://localhost:20128/v1`.
@@ -1005,9 +1006,11 @@ Dashboard → **Providers** → connect **Kiro AI** (free Claude, ~50 credits/mo
 
 **3) Point your coding tool**
 
+Create a key in Dashboard → **API Keys** and copy it from the dialog that opens right after creation — it is shown **only once** (afterwards the dashboard shows it masked). Lost it? Create another one.
+
 ```txt
 Base URL: http://localhost:20128/v1
-API Key:  [copy from Dashboard → Endpoints]
+API Key:  the key you copied when you created it (Dashboard → API Keys)
 Model:    auto            (zero-config smart routing — or any provider/model)
 ```
 

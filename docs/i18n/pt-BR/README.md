@@ -749,13 +749,26 @@ Outcome: deep fallback depth for deadline-critical workloads
 
 > 🇧🇷 **Guia em português:** [Início rápido — primeiro uso em 5 passos](docs/getting-started/QUICK-START.md) (instalação, primeiro provedor, chave, Claude Code e Codex).
 
-### 1) Install and run
+### 1) Instalar e executar
+
+> ⚠️ **Leia antes de digitar qualquer comando:** `npm install -g omniroute` instala o pacote **upstream** publicado por `diegosouzapw` (o projeto original), **não este fork**. Este fork é distribuído somente pelos três canais abaixo.
+
+Escolha o canal **deste fork** que preferir:
+
+- **Instalador desktop** — quando houver uma release publicada, baixe o `.exe` / `.dmg` / `.AppImage` do seu sistema em [GitHub Releases](https://github.com/LMPrado-DZ23/OmniRoute/releases) e abra-o; o aplicativo sobe o servidor e abre o painel. Se a página de Releases ainda não tiver instaladores, use Docker ou o código-fonte.
+- **Docker** — `docker run -d --name omniroute -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data ghcr.io/lmprado-dz23/omniroute:latest` (se a imagem ainda não estiver publicada, use o código-fonte).
+- **Código-fonte** (requer Node.js 22 ou 24 LTS):
 
 ```bash
-npm install -g omniroute
-omniroute
+git clone https://github.com/LMPrado-DZ23/OmniRoute.git && cd OmniRoute
+npm ci && npm run build
+npm start
 ```
 
+Instalando pelo código-fonte, o comando `omniroute` não fica no PATH: nos comandos `omniroute …` desta página, use `node bin/omniroute.mjs …` de dentro da pasta `OmniRoute`.
+
+> Os pacotes **npm/pnpm** e o pacote **AUR** citados abaixo são publicados pelo projeto original (upstream), não por este fork.
+>
 > **pnpm users:** Pass `--allow-build` at install time to enable native build scripts required by `better-sqlite3` and `@swc/core` (the `approve-builds -g` command is not supported for global installs on pnpm v11):
 >
 > ```bash
@@ -794,12 +807,12 @@ PORT=20128 DASHBOARD_PORT=20129 omniroute
 
 When you no longer need OmniRoute, we provide two quick scripts for a clean removal:
 
-| Command                  | Action                                                                              |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| `npm run uninstall`      | Removes the system app but **keeps your DB and configurations** in `~/.omniroute`.  |
-| `npm run uninstall:full` | Removes the app AND permanently **erases all configurations, keys, and databases**. |
+| Command                  | Action                                                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run uninstall`      | Removes the system app but **keeps your DB and configurations** in the data directory (`%APPDATA%\omniroute` on Windows, `~/.omniroute` on macOS/Linux). |
+| `npm run uninstall:full` | Removes the app AND permanently **erases all configurations, keys, and databases** — asks you to type `ERASE` first (`-- --yes` for scripts).            |
 
-> Note: To run these commands, navigate to the OmniRoute project folder (if you cloned it) and run them. Alternatively, if globally installed, you can simply run `npm uninstall -g omniroute`.
+> Estes scripts existem **somente dentro do repositório clonado** (código-fonte). Aplicativo desktop: use o desinstalador do sistema. Docker: `docker stop omniroute && docker rm omniroute`. Passo a passo, com os avisos e onde ficam os dados: [Guia de desinstalação](docs/guides/UNINSTALL.md).
 
 ### Long-Running Streaming Timeouts
 
@@ -843,14 +856,14 @@ timeouts are also higher than your OmniRoute stream/fetch timeouts.
 ### 2) Connect providers and create your API key
 
 1. Open Dashboard → `Providers` and connect at least one provider (OAuth or API key).
-2. Open Dashboard → `Endpoints` and create an API key.
+2. Open Dashboard → `API Keys` and create an API key. **Copy it from the dialog that opens right after creation — it is shown only once** (afterwards the dashboard shows it masked). Lost it? Create another one.
 3. (Optional) Open Dashboard → `Combos` and set your fallback chain.
 
 ### 3) Point your coding tool to OmniRoute
 
 ```txt
 Base URL: http://localhost:20128/v1
-API Key:  [copy from Endpoint page]
+API Key:  the key you copied when you created it (Dashboard → API Keys)
 Model:    if/kimi-k2-thinking (or any provider/model prefix)
 ```
 
