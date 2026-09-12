@@ -1,4 +1,10 @@
-import { generateSignature, getCachedResponse, isCacheableForRead } from "@/lib/semanticCache";
+import {
+  DEFAULT_CLIENT_FORMAT,
+  extractSignatureContext,
+  generateSignature,
+  getCachedResponse,
+  isCacheableForRead,
+} from "@/lib/semanticCache";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { trackPendingRequest } from "@/lib/usageDb";
 import { synthesizeOpenAiSseFromJson } from "../../utils/jsonToSse.ts";
@@ -44,6 +50,11 @@ export async function checkSemanticCache({
 }) {
   // Per-key bypass: skip cache lookup entirely when the API key opts out.
   if (cacheDefaultMode === "bypass") return null;
+  // A streamed HIT is re-emitted as SSE by synthesizeOpenAiSseFromJson(), which only knows
+  // the Chat Completions shape. For a claude / openai-responses client asking for a stream
+  // the cache would answer JSON to a client expecting SSE — treat it as a MISS instead
+  // (the request goes upstream and streams normally).
+  if (stream && (sourceFormat || DEFAULT_CLIENT_FORMAT) !== DEFAULT_CLIENT_FORMAT) return null;
   if (semanticCacheEnabled && isCacheableForRead(body, clientRawRequest?.headers)) {
     const signature = generateSignature(
       model,
@@ -51,7 +62,8 @@ export async function checkSemanticCache({
       body.temperature,
       body.top_p,
       apiKeyId ?? undefined,
-      sourceFormat
+      sourceFormat,
+      extractSignatureContext(body)
     );
     const cached = getCachedResponse(signature);
     if (cached) {

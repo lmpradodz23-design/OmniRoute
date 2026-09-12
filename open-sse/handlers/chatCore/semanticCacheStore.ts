@@ -9,6 +9,7 @@
  * inline block, including the `prompt + completion || 0` token-saved precedence.
  */
 import {
+  extractSignatureContext,
   generateSignature as defaultGenerateSignature,
   setCachedResponse as defaultSetCachedResponse,
   isCacheableForWrite as defaultIsCacheableForWrite,
@@ -68,7 +69,8 @@ export function storeSemanticCacheResponse(
     args.body.temperature,
     args.body.top_p,
     args.apiKeyId ?? undefined,
-    args.sourceFormat
+    args.sourceFormat,
+    extractSignatureContext(args.body)
   );
   const tokensSaved = args.usage?.prompt_tokens + args.usage?.completion_tokens || 0;
   deps.setCachedResponse(signature, args.model, args.translatedResponse, tokensSaved);

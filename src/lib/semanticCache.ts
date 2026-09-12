@@ -157,7 +157,8 @@ export function generateSignature(
   temperature = 0,
   topP = 1,
   apiKeyId?: string,
-  clientFormat?: string
+  clientFormat?: string,
+  context?: SignatureContext | null
 ) {
   const payload = JSON.stringify({
     model,
@@ -165,6 +166,10 @@ export function generateSignature(
     temperature,
     top_p: topP,
     format: clientFormat || DEFAULT_CLIENT_FORMAT,
+    // Everything else that steers the answer for the same turn (final audit X-2 follow-up):
+    // a different system prompt, tool set, response_format, reasoning budget or max_tokens
+    // must never share an entry with this one.
+    context: context && Object.keys(context).length > 0 ? stableStringify(context) : "",
   });
   const digest = crypto.createHash("sha256").update(payload).digest("hex");
   // Per-key cache isolation (#3740) namespaces the signature with the apiKeyId as a
@@ -179,6 +184,69 @@ export function generateSignature(
 
 /** Chat Completions is the historical default client format of the cache. */
 export const DEFAULT_CLIENT_FORMAT = "openai";
+
+export type SignatureContext = Record<string, unknown>;
+
+/**
+ * Request fields, across the three client formats, that change the model's answer for the
+ * SAME conversation turn. Two requests that differ in any of them must not share a cache
+ * entry (Auditor B, cross-verification of X-2: system/instructions, tools, response_format,
+ * thinking and max_tokens were outside the signature).
+ */
+export const SIGNATURE_CONTEXT_FIELDS: readonly string[] = [
+  // steering text
+  "system",
+  "instructions",
+  // tools
+  "tools",
+  "tool_choice",
+  "functions",
+  "function_call",
+  "parallel_tool_calls",
+  // output shape
+  "response_format",
+  "text",
+  "modalities",
+  // reasoning / length
+  "thinking",
+  "reasoning",
+  "reasoning_effort",
+  "max_tokens",
+  "max_completion_tokens",
+  "max_output_tokens",
+  "stop",
+  "stop_sequences",
+  "seed",
+  "n",
+  "logit_bias",
+  "presence_penalty",
+  "frequency_penalty",
+  "top_k",
+];
+
+/** Pick the signature-relevant context out of a raw client body (undefined fields dropped). */
+export function extractSignatureContext(body: unknown): SignatureContext {
+  const out: SignatureContext = {};
+  if (!body || typeof body !== "object") return out;
+  const record = body as Record<string, unknown>;
+  for (const field of SIGNATURE_CONTEXT_FIELDS) {
+    if (record[field] !== undefined && record[field] !== null) out[field] = record[field];
+  }
+  return out;
+}
+
+/** JSON with sorted object keys so key order never changes the digest. */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify(record[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
 
 function stringifyForSignature(value: unknown): string {
   if (typeof value === "string") return value;

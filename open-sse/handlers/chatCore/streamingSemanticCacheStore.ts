@@ -10,6 +10,7 @@
  * statement of the callback, so returning from this helper is equivalent.
  */
 import {
+  extractSignatureContext,
   generateSignature as defaultGenerateSignature,
   setCachedResponse as defaultSetCachedResponse,
   isCacheableForWrite as defaultIsCacheableForWrite,
@@ -72,7 +73,8 @@ function writeStreamingCacheEntry(
       args.body.temperature,
       args.body.top_p,
       args.apiKeyId ?? undefined,
-      args.sourceFormat
+      args.sourceFormat,
+      extractSignatureContext(args.body)
     );
     const tokensSaved = streamTokensSaved(args.streamUsage);
     deps.setCachedResponse(sig, args.model, cleanBody, tokensSaved);
