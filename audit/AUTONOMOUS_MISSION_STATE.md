@@ -6,12 +6,12 @@
 - **diretório:** `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`
 - **branch de trabalho:** `fix/final-user-readiness` (criada de `release/v3.8.51`)
 - **HEAD inicial:** `2a156c73812d45119d5a06a2f55d611280442860`
-- **HEAD atual:** `9fe1d4cd2` (133 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
-- **estado:** FIXING/RETESTING — **CANDIDATE_COMPLETED declarado em `b623dc3aa`; 3 auditorias independentes concluídas (A, B, C: todas APROVADO COM RESSALVAS; 0 CRITICAL dos auditores, 3 HIGH do C).** Fix loop: 14 commits; X-1 (CRITICAL, artefatos com `.env`/`.git`/`tests`) e X-2 (HIGH, cache cross-format) encontrados pelo executor/E2E Ollama e corrigidos. Em correção por agentes: C-03, C-04(+C-11), C-05, C-07. Rebuild #5 + Electron pack #3 em execução para provar X-1.
-- **iteração:** 13
+- **HEAD atual:** ver `git rev-parse HEAD` (≈150 commits desde `2a156c738`; últimos: gate `check:standalone-boot`, remoção da exclusão `**/.build/**`, `check:standalone-hygiene`, C-05, X-2 contexto)
+- **estado:** RETESTING — fix loop rodada 1 concluído (24 commits): A-1…A-6, B-1, C-01…C-05, C-07, C-11, X-1…X-6 e o onboarding `valid:false` corrigidos; verificação cruzada A ✔ (todos), B ✔ (B-1; X-1/X-2 fechados após as ressalvas), C rodada 2 em andamento. Build #7 + gates `standalone-hygiene`/`standalone-boot` + Electron pack #3 em execução para provar os artefatos.
+- **iteração:** 14
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-11 — fix loop da auditoria final (A-1…A-6, B-1, C-01, C-02, X-1…X-6 commitados); `FINAL_THREE_AGENT_REVIEW.md` criado; addenda em 02/03/04
-- **último_progresso_real:** 2026-09-11 — install-upgrade #2 PASS (esquema convergiu); Electron `--dir` exit 0; E2E real com Ollama 7/7 (`test:compat:ollama`); 3 auditores entregues; 14 correções RED-first commitadas
+- **último_heartbeat:** 2026-09-12 — gate de boot do standalone criado após o build #6 revelar `ChunkLoadError` causado pela exclusão `**/.build/**`; exclusão removida; build #7 em andamento
+- **último_progresso_real:** 2026-09-12 — C-03/C-04/C-05/C-07/C-11 commitados; X-2 fechado com contexto na assinatura; X-1 fechado com gate real + prune fatal + denylist; auditores A e B verificaram as correções; dz23-subagents MCP indisponível (resultado malformado)
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` **real** (`npm ci` — junction removida em 2026-09-11 porque Turbopack e o standalone a recusavam); worktree baseline `../OmniRoute-v3851-baseline` (HEAD inicial, ainda com junction) só para classificar falhas
 
 ## Autorizações (desta missão)
@@ -57,7 +57,7 @@
 
 ## Tarefa atual
 
-Fix loop final (skill §22): fechar C-03/C-04/C-05/C-07 (agentes), provar X-1 com build #5 + pack #3 (`_hygiene5.txt`, `_hygiene_electron3.txt`), pedir verificação cruzada aos auditores A/B/C sobre as correções, fechar `FINAL_THREE_AGENT_REVIEW.md` §5/§6, `TEST_MATRIX.md` §5, `FINAL_REPORT`/`RELEASE_READINESS`/`SECURITY_REMEDIATION`/`USER_JOURNEYS`; então COMPLETED → (autorização condicional) push/PR/GHCR.
+Provar os artefatos finais: build #7 (`.build/next-verify`) → `check:standalone-hygiene` → `check:standalone-boot` → Electron pack #3 → gate no `resources/app`; registrar SHA-256 em `TEST_MATRIX.md` §5; receber a verificação do Auditor C (rodada 2); fechar `FINAL_THREE_AGENT_REVIEW.md` §5, `FINAL_REPORT`, `RELEASE_READINESS`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`; COMPLETED → autorização condicional (push da branch, PR para `release/v3.8.51`, CI, GHCR).
 
 ## Tarefas pendentes (ordem do plano)
 
@@ -119,7 +119,7 @@ Fix loop final (skill §22): fechar C-03/C-04/C-05/C-07 (agentes), provar X-1 co
 ## Processos / portas
 
 - PID **8488** escuta 20128/20131/20132 = instância de teste do operador (NÃO encerrar).
-- Instâncias da missão: nenhuma persistente. Em execução: cadeia build #5 (`.build/next-verify`) → prune → Electron pack #3 (`_chain5.sh`); agentes fix-C03/C04/C05/C07 (só edição de arquivos; portas 20431–20432 reservadas). Auditores e agente Ollama encerraram suas instâncias (portas 20411–20420 livres).
+- Instâncias da missão: nenhuma persistente. Em execução: `_chain8.sh` (build #7 → gates → Electron pack; porta 20444 do gate de boot) e o agente auditor-C2 (porta 20413). Portas 20411–20441 usadas por gates/agentes anteriores estão livres.
 
 ## Riscos
 
@@ -129,10 +129,9 @@ Fix loop final (skill §22): fechar C-03/C-04/C-05/C-07 (agentes), provar X-1 co
 
 ## Próxima ação
 
-1. Receber relatórios de fix-C03/C04/C05/C07 → re-executar suítes → commits individuais.
-2. Ler `_hygiene5.txt` e `_hygiene_electron3.txt` (esperado: `.env`/`.git`/`tests`/`.build` ausentes; exit 0) → `TEST_MATRIX.md` §3/§5 com SHA-256 dos artefatos pós-X-1.
-3. SendMessage aos auditores A/B/C com a lista de commits para verificação cruzada; consolidar em `FINAL_THREE_AGENT_REVIEW.md` §5/§6.
-4. Fechar entregáveis; estado COMPLETED; executar a autorização condicional (push da branch, PR para `release/v3.8.51`, CI, GHCR via workflow) e registrar evidência.
+1. Ler `_gate8_hygiene.txt`, `_gate8_boot.txt`, `_hygiene_electron3.txt` → `TEST_MATRIX.md` §3/§5 (SHA-256 do `OmniRoute.exe` e do standalone).
+2. Consolidar a verificação do Auditor C (rodada 2) em `FINAL_THREE_AGENT_REVIEW.md` §5; se surgir HIGH, novo fix loop.
+3. Fechar entregáveis; estado COMPLETED; executar a autorização condicional (push, PR, CI, GHCR) e registrar evidência; nunca npm publish/Docker Hub/deploy.
 
 ## Instruções de retomada
 
