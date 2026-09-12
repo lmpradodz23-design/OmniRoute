@@ -196,7 +196,9 @@ runBuildTool(
 // Never ship secrets, source control, tests or nested builds inside the app (see
 // STANDALONE_PRUNE_TARGETS): the standalone copy is pruned again here because this stage
 // is what electron-builder packages.
-const hygienePrune = await pruneStandaloneDir(ELECTRON_STANDALONE_DIR);
+const hygienePrune = await pruneStandaloneDir(ELECTRON_STANDALONE_DIR, undefined, console, {
+  relDistDir: NEXT_DIST_DIR,
+});
 if (hygienePrune.length > 0) {
   console.log(
     `[electron] pruned non-runtime paths from the staging bundle: ${hygienePrune.join(", ")}`

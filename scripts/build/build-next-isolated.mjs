@@ -270,23 +270,53 @@ export const STANDALONE_PRUNE_TARGETS = Object.freeze([
   "coverage",
   "test-results",
   "playwright-report",
-  // other build outputs and gate workspaces (never nest a build inside a build)
-  ".build",
-  ".next",
+  // gate workspaces and OTHER build outputs. NOTE: the standalone's own dist dir
+  // (`<standalone>/.build/next` — Next mirrors distDir inside the bundle and server.js
+  // requires it) is NOT in this list; pruneStandaloneDir() removes only the SIBLING
+  // dist dirs under .build/ (a stray `.build/next-verify`, a dev server's `.build/next-x`)
+  // and `.next` when it is not the dist dir in use.
   ".install-upgrade",
   "dist-electron",
   path.join("electron", "dist-electron"),
 ]);
 
-/** Remove every STANDALONE_PRUNE_TARGETS entry that exists under `standaloneRoot`. */
-export async function pruneStandaloneDir(standaloneRoot, fsImpl = fs, log = console) {
+/**
+ * Remove every STANDALONE_PRUNE_TARGETS entry that exists under `standaloneRoot`, plus any
+ * build-output directory that is NOT the bundle's own dist dir (`relDistDir`, e.g.
+ * `.build/next`): the whole-root trace drags sibling dist dirs (a verification build, a dev
+ * server's `.build/next-*`) and `.next` into the bundle. The bundle's own dist dir is what
+ * `server.js` loads — it must survive.
+ */
+export async function pruneStandaloneDir(
+  standaloneRoot,
+  fsImpl = fs,
+  log = console,
+  { relDistDir = process.env.NEXT_DIST_DIR || ".build/next" } = {}
+) {
   const pruned = [];
-  for (const rel of STANDALONE_PRUNE_TARGETS) {
+  const rm = async (rel) => {
     const targetPath = path.join(standaloneRoot, rel);
-    if (!(await exists(targetPath))) continue;
+    if (!(await exists(targetPath))) return;
     await fsImpl.rm(targetPath, { recursive: true, force: true });
     pruned.push(rel);
     log.log(`[build-next-isolated] Pruned standalone artifact: ${rel}`);
+  };
+  for (const rel of STANDALONE_PRUNE_TARGETS) await rm(rel);
+
+  const distParts = relDistDir.replaceAll("\\", "/").replace(/^\.\//, "").split("/");
+  const [distTop, distSub] = distParts;
+  // `.next` is only runtime when it IS the dist dir.
+  if (distTop !== ".next") await rm(".next");
+  // Under `.build/`, keep exactly the bundle's own dist dir; every sibling is foreign output.
+  const buildDir = path.join(standaloneRoot, ".build");
+  if (await exists(buildDir)) {
+    if (distTop !== ".build") {
+      await rm(".build");
+    } else {
+      for (const entry of await fsImpl.readdir(buildDir)) {
+        if (entry !== distSub) await rm(path.join(".build", entry));
+      }
+    }
   }
   return pruned;
 }
@@ -297,7 +327,9 @@ export async function pruneStandaloneArtifacts(rootDir = projectRoot, fsImpl = f
       ? distDir
       : path.join(rootDir, process.env.NEXT_DIST_DIR || ".build/next");
   const standaloneRoot = path.join(resolvedDistDirForPrune, "standalone");
-  return pruneStandaloneDir(standaloneRoot, fsImpl);
+  return pruneStandaloneDir(standaloneRoot, fsImpl, console, {
+    relDistDir: path.relative(rootDir, resolvedDistDirForPrune) || ".build/next",
+  });
 }
 
 export async function syncStandaloneNativeAssets(

@@ -177,12 +177,18 @@ test("pruneStandaloneDir strips secrets, source control, tests and nested builds
       path.join(".git", "HEAD"),
       path.join("tests", "unit", "x.test.ts"),
       path.join("audit", "03-SECURITY-FINDINGS.md"),
-      path.join(".build", "next", "standalone", "server.js"),
+      path.join(".build", "next-verify", "server", "app", "page.js"), // a SIBLING dist dir
+      path.join(".build", "next-auditC", "dev", "cache", "x.meta"), // a dev server's dist dir
+      path.join(".next", "server", "x.js"),
       path.join(".install-upgrade", "ws", "omniroute-3.8.51.tgz"),
       path.join("electron", "dist-electron", "win-unpacked", "OmniRoute.exe"),
     ];
     const kept = [
       "server.js",
+      // The bundle's OWN dist dir: server.js requires it (build #5 proved that pruning it
+      // leaves a standalone without its server chunks).
+      path.join(".build", "next", "server", "app", "page.js"),
+      path.join(".build", "next", "BUILD_ID"),
       path.join("open-sse", "index.js"),
       path.join("docs", "README.md"),
       ".env.example",
@@ -192,7 +198,12 @@ test("pruneStandaloneDir strips secrets, source control, tests and nested builds
       await fs.mkdir(path.dirname(path.join(standalone, rel)), { recursive: true });
       await fs.writeFile(path.join(standalone, rel), "x");
     }
-    const pruned = await pruneStandaloneDir(standalone, fs, { log() {} });
+    const pruned = await pruneStandaloneDir(
+      standalone,
+      fs,
+      { log() {} },
+      { relDistDir: ".build/next" }
+    );
     for (const rel of planted) {
       assert.equal(fsSync.existsSync(path.join(standalone, rel)), false, `${rel} must be pruned`);
     }
@@ -200,8 +211,9 @@ test("pruneStandaloneDir strips secrets, source control, tests and nested builds
       assert.equal(fsSync.existsSync(path.join(standalone, rel)), true, `${rel} must survive`);
     }
     assert.ok(pruned.includes(".env") && pruned.includes(".git") && pruned.includes("tests"));
+    assert.ok(pruned.includes(path.join(".build", "next-verify")) && pruned.includes(".next"));
     assert.ok(
-      STANDALONE_PRUNE_TARGETS.includes(".env") && STANDALONE_PRUNE_TARGETS.includes(".build")
+      STANDALONE_PRUNE_TARGETS.includes(".env") && !STANDALONE_PRUNE_TARGETS.includes(".build")
     );
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
