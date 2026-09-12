@@ -5,9 +5,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { planUninstall } from "../../scripts/build/uninstallPlan.mjs";
 
 const dataDir = "/home/user/.omniroute";
+
+test("the uninstaller resolves the data directory like the app does (no ~/.omniroute hardcode)", () => {
+  // On Windows the app writes to %APPDATA%\omniroute (bin/cli/data-dir.mjs); the uninstaller
+  // used `DATA_DIR || ~/.omniroute`, so `uninstall:full` erased the wrong path and kept the data.
+  const source = fs.readFileSync(
+    fileURLToPath(new URL("../../scripts/build/uninstall.mjs", import.meta.url)),
+    "utf8"
+  );
+  assert.match(source, /import \{ resolveDataDir \} from "\.\.\/\.\.\/bin\/cli\/data-dir\.mjs";/);
+  assert.match(source, /const dataDir = resolveDataDir\(\);/);
+  assert.doesNotMatch(source, /path\.join\(os\.homedir\(\), "\.omniroute"\)/);
+});
 
 test("plain uninstall never erases data and says so", () => {
   const plan = planUninstall({ argv: [], dataDir, isTTY: false });

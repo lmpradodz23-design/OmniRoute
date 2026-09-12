@@ -1,10 +1,10 @@
 import fs from "fs";
-import os from "os";
 import path from "path";
 import readline from "readline";
 import { execSync } from "child_process";
 
 import { planUninstall } from "./uninstallPlan.mjs";
+import { resolveDataDir } from "../../bin/cli/data-dir.mjs";
 
 const args = process.argv.slice(2);
 const uninstallAlreadyInProgress =
@@ -16,7 +16,10 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 
 // 1. Decide what happens to the data directory BEFORE touching anything (J17: `--full`
 //    is irreversible, so it needs `--yes` or an interactive typed confirmation).
-const dataDir = process.env.DATA_DIR || path.join(os.homedir(), ".omniroute");
+// Same resolution the server and the CLI use (DATA_DIR, then %APPDATA%\omniroute on Windows,
+// XDG_CONFIG_HOME, or the legacy ~/.omniroute): the old `~/.omniroute` hardcode made
+// `uninstall:full` on Windows "erase" a directory the app never wrote to and keep the real data.
+const dataDir = resolveDataDir();
 const plan = planUninstall({ argv: args, dataDir, isTTY: Boolean(process.stdin.isTTY) });
 for (const line of plan.messages) console.log(line);
 
