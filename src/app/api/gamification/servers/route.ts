@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import {
   FederationUrlError,
@@ -52,7 +53,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // SSRF S-3: a server URL that fails the outbound guard is a client error, never persisted.
     if (error instanceof FederationUrlError) {
-      return NextResponse.json({ error: error.message }, { status: 400, headers: CORS_HEADERS });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) },
+        { status: 400, headers: CORS_HEADERS }
+      );
     }
     throw error;
   }

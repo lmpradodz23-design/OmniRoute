@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { getCachedSettings } from "@/lib/db/readCache";
 import { OidcEndpointError, discoverOidcEndpoints } from "@/lib/auth/oidcDiscovery";
 
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof OidcEndpointError) {
       return NextResponse.json(
-        { error: `OIDC issuer rejected: ${error.message}` },
+        { error: `OIDC issuer rejected: ${sanitizeErrorMessage(error.message)}` },
         { status: 400 }
       );
     }
