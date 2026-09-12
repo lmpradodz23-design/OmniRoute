@@ -14,6 +14,17 @@
 - **último_progresso_real:** 2026-09-12 — `docker-publish.yml` passou a publicar no GHCR sem credenciais do Docker Hub (PR #6); run 34682777453 verde; `docker manifest inspect ghcr.io/lmprado-dz23/omniroute:next` responde sem login
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` **real** (`npm ci` — junction removida em 2026-09-11 porque Turbopack e o standalone a recusavam); worktree baseline `../OmniRoute-v3851-baseline` (HEAD inicial, ainda com junction) só para classificar falhas
 
+## Missão 2 — Loop Engine + Buzz Hub sobre a base publicada (iniciada 2026-09-12)
+
+- **autorização do operador:** "PODE FAZER" (2026-09-12) — integrar Loop e Buzz da branch `fase-1-loop-buzz` sobre `release/v3.8.51`; mesmas regras da missão 1 (push + PR + imagem GHCR ao final; nada de npm/Docker Hub/Release/deploy; testes nunca enfraquecidos).
+- **branch:** `feat/loop-buzz-on-v3851` a partir de `a94c72bbe` (release/v3.8.51 após PR #7).
+- **estado:** AUDITING — transplante seletivo concluído: 12 commits (`ae4755525…f42d0083b`: núcleo do Loop, ponte Buzz, migração 175 + flags LOOP_ENGINE/BUZZ_HUB, repositórios, `/api/loop`, adaptador WebSocket/Nostr, buzzService, painel, correções da auditoria anterior, tenant_id) aplicados por `cherry-pick -x` **sem conflito**. Deixados de fora, por decisão de escopo: vendor chatgpt-web v4.0.7 (R3), correções de CI já cobertas ou irrelevantes, "superpowers" da Fase 2 (PII BR, MCP review gate, Browser Guard/AG-UI, OTel) e o endpoint `/api/loop/[id]/stream` (depende do módulo AG-UI da Fase 2), docs SUPERPOWERS, fixes de OAuth (avaliar separadamente).
+- **dependências novas:** `@noble/curves@2.4.0`, `@noble/hashes@2.4.0` (assinatura Nostr) — lock consistente (`npm install` não alterou o lock); allowlist de `check:deps` a verificar.
+- **verificado até aqui:** 7 suítes próprias (`tests/unit/{loop,buzz}-*.test.ts`) → 36/36.
+- **em andamento:** gates locais (3 lotes), Auditor B (segurança ofensiva) e Auditor A (arquitetura/integração com a base atual) sobre o código transplantado.
+- **próxima ação:** consolidar achados → fix loop (RED-first, um problema por commit) → Auditor C (uso do painel Loop/Buzz no navegador) → gates + CI → PR para `release/v3.8.51` → imagem GHCR pelo workflow.
+- **retomada:** `git log --oneline origin/release/v3.8.51..HEAD` na branch; relatórios dos auditores em `audit/LOOP_BUZZ_REVIEW.md` (a criar na consolidação).
+
 ## Autorizações (desta missão)
 
 - PODE: auditar; branch de correção; modificar código/testes/docs/migrations/workflows/scripts; instalar deps do lockfile; lint/typecheck/testes/build/pack local; commits locais pequenos; subagentes.
