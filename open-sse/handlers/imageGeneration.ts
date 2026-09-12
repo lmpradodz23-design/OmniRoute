@@ -10,6 +10,11 @@ import {
 import { getImageProvider, parseImageModel } from "../config/imageRegistry.ts";
 import { HTTP_STATUS } from "../config/constants.ts";
 import { applyAntigravityClientProfileHeaders } from "../services/antigravityClientProfile.ts";
+import {
+  parseJsonOrNull,
+  sanitizeImageProviderError,
+  toStoredImageErrorText,
+} from "./imageGeneration/providerErrorText.ts";
 import { getAntigravityEnvelopeUserAgent } from "../services/antigravityIdentity.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { mapImageSize } from "../translator/image/sizeMapper.ts";
@@ -37,7 +42,7 @@ import {
   fetchWithTimeout,
   getConfiguredTimeout,
 } from "@/shared/utils/fetchTimeout";
-import { sanitizeErrorMessage, sanitizeUpstreamDetails } from "../utils/error.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 import {
   isMicrosoftDesignerWebRetiredProviderId,
   MICROSOFT_DESIGNER_WEB_RETIRED_MESSAGE,
@@ -244,22 +249,6 @@ function normalizeImageGenerationSize(snakeCaseValue: unknown, camelCaseValue: u
   if (typeof value !== "string") return "1K";
   const normalized = value.trim().toUpperCase();
   return IMAGE_SIZE_PATTERN.test(normalized) ? normalized : "1K";
-}
-
-function parseJsonOrNull(value: string): unknown | null {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function sanitizeImageProviderError(errorText: string): unknown {
-  const parsed = parseJsonOrNull(errorText);
-  if (parsed !== null) {
-    return sanitizeUpstreamDetails(parsed) || sanitizeErrorMessage(errorText);
-  }
-  return sanitizeErrorMessage(errorText);
 }
 
 // #8307 — some ChatGPT accounts can run Codex but lack entitlement for the specific
@@ -2776,30 +2765,6 @@ export function saveImageSuccessResult({
       data: images,
     },
   };
-}
-
-/**
- * Call-log `error` text for a failed image request. `error` is a plain string
- * for handler-built messages, but provider HTTP failures carry the object
- * returned by sanitizeUpstreamDetails(), which is prototype-less (no toString),
- * so `String(error)` throws "Cannot convert object to primitive value".
- */
-function toStoredImageErrorText(error: unknown): string {
-  let text: string;
-  if (typeof error === "string") {
-    text = error;
-  } else if (error instanceof Error) {
-    text = error.message || error.name;
-  } else if (error && typeof error === "object") {
-    try {
-      text = JSON.stringify(error) ?? "[unserializable error]";
-    } catch {
-      text = "[unserializable error]";
-    }
-  } else {
-    text = String(error);
-  }
-  return text.slice(0, 500);
 }
 
 export function saveImageErrorResult({
