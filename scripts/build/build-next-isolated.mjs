@@ -253,6 +253,13 @@ export const STANDALONE_PRUNE_TARGETS = Object.freeze([
   ".env.production",
   ".env.homolog",
   "server.env",
+  ".npmrc", // may carry a registry auth token
+  ".mcp.json",
+  "server.pid",
+  // operator data that must never ship
+  "data",
+  "db_backups",
+  "logs",
   // source control / CI / tooling
   ".git",
   ".github",
@@ -305,22 +312,35 @@ export async function pruneStandaloneDir(
     pruned.push(rel);
     log.log(`[build-next-isolated] Pruned standalone artifact: ${rel}`);
   };
-  for (const rel of STANDALONE_PRUNE_TARGETS) await rm(rel);
+  const failures = [];
+  const rmSafe = async (rel) => {
+    try {
+      await rm(rel);
+    } catch (err) {
+      failures.push(`${rel}: ${err?.message ?? err}`);
+    }
+  };
+  for (const rel of STANDALONE_PRUNE_TARGETS) await rmSafe(rel);
 
   const distParts = relDistDir.replaceAll("\\", "/").replace(/^\.\//, "").split("/");
   const [distTop, distSub] = distParts;
   // `.next` is only runtime when it IS the dist dir.
-  if (distTop !== ".next") await rm(".next");
+  if (distTop !== ".next") await rmSafe(".next");
   // Under `.build/`, keep exactly the bundle's own dist dir; every sibling is foreign output.
   const buildDir = path.join(standaloneRoot, ".build");
   if (await exists(buildDir)) {
     if (distTop !== ".build") {
-      await rm(".build");
+      await rmSafe(".build");
     } else {
       for (const entry of await fsImpl.readdir(buildDir)) {
-        if (entry !== distSub) await rm(path.join(".build", entry));
+        if (entry !== distSub) await rmSafe(path.join(".build", entry));
       }
     }
+  }
+  // Every target is attempted; one locked file (EBUSY/EPERM on Windows) must not silently
+  // leave the others in place — surface all of them and fail the build.
+  if (failures.length > 0) {
+    throw new Error(`standalone prune could not remove: ${failures.join("; ")}`);
   }
   return pruned;
 }
@@ -408,14 +428,9 @@ export async function main() {
         console.warn("[build-next-isolated] Non-fatal error copying docs/:", docsCopyErr?.message);
       }
 
-      try {
-        await pruneStandaloneArtifacts(projectRoot);
-      } catch (pruneErr) {
-        console.warn(
-          "[build-next-isolated] Non-fatal error pruning standalone artifacts:",
-          pruneErr
-        );
-      }
+      // X-1: the prune is a release guarantee, not a courtesy — a bundle that still carries
+      // the checkout's .env / .git / tests must not be reported as a successful build.
+      await pruneStandaloneArtifacts(projectRoot);
 
       // Best-effort: build the TPROXY native addon (Linux-only, opt-in) BEFORE
       // assembling, so its transparent.node is present for assembleStandalone's

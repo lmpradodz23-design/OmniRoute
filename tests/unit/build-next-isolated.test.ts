@@ -177,6 +177,11 @@ test("pruneStandaloneDir strips secrets, source control, tests and nested builds
       path.join(".git", "HEAD"),
       path.join("tests", "unit", "x.test.ts"),
       path.join("audit", "03-SECURITY-FINDINGS.md"),
+      ".npmrc",
+      "server.pid",
+      path.join("data", "storage.sqlite"),
+      path.join("db_backups", "x.sqlite"),
+      path.join("logs", "app.log"),
       path.join(".build", "next-verify", "server", "app", "page.js"), // a SIBLING dist dir
       path.join(".build", "next-auditC", "dev", "cache", "x.meta"), // a dev server's dist dir
       path.join(".next", "server", "x.js"),
