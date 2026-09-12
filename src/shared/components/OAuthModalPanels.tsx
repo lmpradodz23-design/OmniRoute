@@ -203,6 +203,48 @@ export function OAuthLoopbackMismatchPanel({
 }
 
 /**
+ * Passo 1 do fluxo manual: mostrar a URL de autorização, abrir e copiar.
+ *
+ * Componente próprio porque o botão "abrir em nova aba" levou `OAuthManualInputPanel` acima do
+ * teto de linhas por função — e porque esta linha é uma unidade coesa por si só.
+ */
+function OAuthAuthUrlRow({
+  authUrl,
+  copied,
+  onCopy,
+}: {
+  authUrl: string;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  const t = useTranslations("oauthModal");
+  return (
+    <div>
+      <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
+      <div className="flex gap-2">
+        <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
+        {/* Abre em NOVA aba, a partir de um gesto do usuário: o navegador não bloqueia e não
+            substitui o painel. Num servidor remoto o painel precisa continuar aberto para
+            receber o retorno, e sair dele deixava o login sem caminho de volta. */}
+        <Button
+          variant="secondary"
+          icon="open_in_new"
+          disabled={!authUrl}
+          onClick={() => {
+            if (authUrl) window.open(authUrl, "_blank", "noopener,noreferrer");
+          }}
+        >
+          {t("openInNewTab")}
+        </Button>
+        <Button variant="secondary" icon={copied ? "check" : "content_copy"} onClick={onCopy}>
+          {t("copy")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Google-loopback providers (antigravity / agy) on a non-true-localhost origin.
  *
  * Replaces the old one-paragraph `googleOAuthWarning`, which instructed the operator to
@@ -344,32 +386,11 @@ export function OAuthManualInputPanel({
           isTrueLocalhost={isTrueLocalhost}
           googleHint={googleHint}
         />
-        <div>
-          <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
-          <div className="flex gap-2">
-            <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
-            {/* Opens in a NEW tab, from a user gesture: the browser does not block it and it
-                does not replace the panel. On a remote server the panel must stay open to
-                receive the callback, and navigating away from it stranded the login. */}
-            <Button
-              variant="secondary"
-              icon="open_in_new"
-              disabled={!authUrl}
-              onClick={() => {
-                if (authUrl) window.open(authUrl, "_blank", "noopener,noreferrer");
-              }}
-            >
-              {t("openInNewTab")}
-            </Button>
-            <Button
-              variant="secondary"
-              icon={copied === "auth_url" ? "check" : "content_copy"}
-              onClick={() => copy(authUrl, "auth_url")}
-            >
-              {t("copy")}
-            </Button>
-          </div>
-        </div>
+        <OAuthAuthUrlRow
+          authUrl={authUrl}
+          copied={copied === "auth_url"}
+          onCopy={() => copy(authUrl, "auth_url")}
+        />
         <div>
           <p className="text-sm font-medium mb-2">{t("step2PasteCallback")}</p>
           <p className="text-xs text-text-muted mb-2">

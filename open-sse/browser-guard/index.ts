@@ -90,6 +90,27 @@ function domainAllowed(host: string, allowed: ReadonlyArray<string>): boolean {
 }
 
 /**
+ * Julga o ALVO da ação contra a allowlist. Devolve o veredito de recusa, ou `null` quando o alvo
+ * está liberado. Uma ação que alcança a rede sem `url` é recusada aqui: sem host não há
+ * julgamento possível, e "não dá para decidir" tem que significar deny. `type` não alcança a
+ * rede, então só é julgado quando o chamador informa um alvo.
+ */
+function rejectTarget(action: BrowserAction, policy: BrowserPolicy): BrowserVerdict | null {
+  const reachesNetwork = NETWORK_REACHING_KINDS.has(action.kind);
+  if (reachesNetwork && action.url === undefined) {
+    return { decision: "deny", reason: `ação '${action.kind}' exige url para ser julgada` };
+  }
+  if (action.url === undefined) return null;
+
+  const host = hostOf(action.url);
+  if (!host) return { decision: "deny", reason: "URL inválida" };
+  if (!domainAllowed(host, policy.allowedDomains)) {
+    return { decision: "deny", reason: `domínio fora da allowlist: ${host}` };
+  }
+  return null;
+}
+
+/**
  * Decide uma ação de navegador. Fail-closed, na ordem:
  * - browser OFF → deny;
  * - origem PÁGINA e a ação não é `read` → deny (prompt injection não escala);
@@ -113,23 +134,8 @@ export function decideBrowserAction(action: BrowserAction, policy: BrowserPolicy
     };
   }
 
-  if (NETWORK_REACHING_KINDS.has(action.kind)) {
-    if (action.url === undefined) {
-      return { decision: "deny", reason: `ação '${action.kind}' exige url para ser julgada` };
-    }
-    const host = hostOf(action.url);
-    if (!host) return { decision: "deny", reason: "URL inválida" };
-    if (!domainAllowed(host, policy.allowedDomains)) {
-      return { decision: "deny", reason: `domínio fora da allowlist: ${host}` };
-    }
-  } else if (action.url !== undefined) {
-    // `type` não alcança a rede, mas se o chamador informou um alvo ele também é julgado.
-    const host = hostOf(action.url);
-    if (!host) return { decision: "deny", reason: "URL inválida" };
-    if (!domainAllowed(host, policy.allowedDomains)) {
-      return { decision: "deny", reason: `domínio fora da allowlist: ${host}` };
-    }
-  }
+  const targetRejection = rejectTarget(action, policy);
+  if (targetRejection) return targetRejection;
 
   if (EXTERNAL_EFFECT_KINDS.has(action.kind)) {
     return {

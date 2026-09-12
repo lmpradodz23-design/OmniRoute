@@ -3,25 +3,25 @@
  * Body: { action: BrowserAction, allowedDomains?: string[] }.
  *
  * Autenticado (management, escopo admin nas mutações) e gated por BROWSER_USE_ENABLED. Se
- * allowedDomains não vier no corpo, usa o override persistido no painel (key_value namespace
- * 'browser'). Efeito externo → aprovação humana; efeito originado na página → deny (prompt
+ * allowedDomains não vier no corpo, usa a allowlist persistida (`db/browserGuard.ts`). Efeito
+ * externo → aprovação humana; ação originada na página que não seja leitura → deny (prompt
  * injection não escala). Não executa nada.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import { getDbInstance } from "@/lib/db/core";
+import { getBrowserAllowedDomains } from "@/lib/db/browserGuard";
 import { traceSync } from "@/lib/otel";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { decideBrowserAction } from "@omniroute/open-sse/browser-guard/index.ts";
 
 /**
- * `origin` é a defesa central deste endpoint contra prompt injection: um efeito externo cuja
- * origem é a PÁGINA é sempre negado. Por isso ele é um enum fechado e não um string livre —
- * um valor inesperado não pode cair no ramo "confiável" por omissão. `strictObject` recusa
- * chaves desconhecidas para que nada contorne a decisão.
+ * `origin` é a defesa central deste endpoint contra prompt injection: uma ação originada na
+ * PÁGINA só pode ser `read`. Por isso ele é um enum fechado e não um string livre — um valor
+ * inesperado não pode cair no ramo "confiável" por omissão. `strictObject` recusa chaves
+ * desconhecidas para que nada contorne a decisão.
  */
 const actionSchema = z.strictObject({
   kind: z.enum(["navigate", "read", "click", "type", "submit", "download", "upload", "purchase"]),
@@ -33,23 +33,6 @@ const checkBodySchema = z.strictObject({
   action: actionSchema,
   allowedDomains: z.array(z.string().min(1).max(253)).max(256).optional(),
 });
-
-function storedAllowlist(): string[] {
-  try {
-    const row = getDbInstance()
-      .prepare(
-        "SELECT value FROM key_value WHERE namespace = 'browser' AND key = 'allowed_domains'"
-      )
-      .get() as { value: string } | undefined;
-    if (!row?.value) return [];
-    const parsed: unknown = JSON.parse(row.value);
-    // O valor persistido é dado, não contrato: se alguém gravou outra forma, a allowlist vira
-    // vazia (fail-closed) em vez de virar `undefined` dentro do motor de política.
-    return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
-  } catch {
-    return [];
-  }
-}
 
 export async function POST(req: NextRequest): Promise<Response> {
   const auth = await requireManagementAuth(req);
@@ -70,7 +53,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const { action, allowedDomains: fromBody } = validation.data;
-  const allowedDomains = fromBody ?? storedAllowlist();
+  const allowedDomains = fromBody ?? getBrowserAllowedDomains();
 
   const verdict = traceSync(
     "browser.check",
