@@ -17,6 +17,7 @@
  * down and the temp dir removed.
  */
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -48,9 +49,10 @@ export function bootEnv({ dataDir, port }, base = process.env) {
     DISABLE_SQLITE_AUTO_BACKUP: "true",
     // The exposed/production profile refuses to boot without these (readiness #3) — the gate
     // must exercise that profile, so it supplies throwaway values, never operator secrets.
-    JWT_SECRET: "standalone-boot-gate-jwt-secret-with-sufficient-length",
-    API_KEY_SECRET: "standalone-boot-gate-api-key-secret-long-enough",
-    STORAGE_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    // Generated per run (not literals) so no secret-shaped string lives in the repository.
+    JWT_SECRET: randomBytes(32).toString("hex"),
+    API_KEY_SECRET: randomBytes(32).toString("hex"),
+    STORAGE_ENCRYPTION_KEY: randomBytes(32).toString("hex"),
     OMNIROUTE_SKIP_UPDATE_CHECK: "1",
     // A fresh instance with no management password serves the client API to loopback
     // callers without a key by design (zero-config). The gate asserts that auth is WIRED,
