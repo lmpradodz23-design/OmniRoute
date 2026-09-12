@@ -270,6 +270,15 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 
 CMD ["node", "dev/run-standalone.mjs"]
 
+# Commit this image was built from, so a pulled digest can be mapped back to
+# source. The mutable `:next` channel makes that mapping the only way to answer
+# "what am I running" — `docker image inspect <ref> --format
+# '{{index .Config.Labels "org.opencontainers.image.revision"}}'`. Declared last
+# in the stage: the ARG changes on every commit, so anything after it rebuilds,
+# and only this metadata layer should.
+ARG OMNIROUTE_GIT_SHA=""
+LABEL org.opencontainers.image.revision="${OMNIROUTE_GIT_SHA}"
+
 # ── Runner Web (web-cookie providers: Gemini Web, Claude Turnstile) ───────────
 #
 #  Two image flavors:

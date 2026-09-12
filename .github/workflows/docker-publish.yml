@@ -223,6 +223,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-${{ matrix.arch }}
@@ -240,6 +241,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-web-${{ matrix.arch }}
@@ -265,6 +267,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-bun-base-${{ matrix.arch }}
@@ -290,6 +293,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-bun-web-${{ matrix.arch }}
