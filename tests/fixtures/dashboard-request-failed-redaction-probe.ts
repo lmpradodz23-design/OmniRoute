@@ -100,14 +100,18 @@ async function main(): Promise<void> {
     assert.equal(writerDrained, true, "call-log write must drain");
     const persisted = await callLogs.getCallLogById(callLogId);
     assert.ok(persisted, "failed attempt must still be available to internal diagnostics");
-    assert.equal(persisted.error, rawDiagnostic);
+    // Secrets never rest on disk: the call log stores the same sanitized diagnostic the
+    // dashboard receives (sanitizeErrorForLog runs before persistence, #12506), so a leaked
+    // provider path or key is not recoverable from the database either.
+    assert.equal(persisted.error, delivered.error);
+    assert.doesNotMatch(persisted.error, /sk-live-dashboard-secret|\/srv\/omniroute/);
 
     console.log(
       RESULT_PREFIX +
         JSON.stringify({
           delivered,
           replayMatches: JSON.stringify(replayed.payload) === JSON.stringify(delivered),
-          internalRawPreserved: persisted.error === rawDiagnostic,
+          internalSanitized: persisted.error === delivered.error,
           writerDrained,
         })
     );
