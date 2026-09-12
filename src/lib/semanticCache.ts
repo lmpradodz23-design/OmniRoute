@@ -235,6 +235,56 @@ export function extractSignatureContext(body: unknown): SignatureContext {
   return out;
 }
 
+/**
+ * Body-shaped object holding ONLY what the cache signature and the write-side cacheability
+ * check read: the conversation, `temperature`, `top_p` and the signature context.
+ */
+export type SignatureInputs = SignatureContext & {
+  messages: unknown;
+  temperature?: number;
+  top_p?: number;
+};
+
+/**
+ * Mutation-immune snapshot of the signature inputs of a request body, to be taken at cache
+ * READ time and handed to the cache WRITE paths.
+ *
+ * chatCore computes the read-time signature before the request pipeline runs and the write-time
+ * one after it, and that pipeline mutates the body object IN PLACE: sanitizeChatRequestBody()
+ * renames max_tokens → max_output_tokens (or back, depending on the target format) and replaces
+ * `tools` with their sanitized schemas. Keeping a reference to the body was enough while the
+ * signature only hashed the conversation, but once those fields joined the context (final audit
+ * X-2) the two signatures diverged for every request touched by the rename or by tool
+ * sanitization — the response was stored under a key no later request ever computed again
+ * (0% hit rate for those clients). So copy the inputs instead of pointing at the body.
+ *
+ * The conversation is stored already normalized (normalizeConversation is idempotent, so the
+ * store paths hashing it again produce the read-time digest); `temperature` / `top_p` are passed
+ * through verbatim so the read and write paths see the same raw values.
+ */
+export function snapshotSignatureInputs(body: unknown): SignatureInputs {
+  const record = asRecord(body);
+  return {
+    ...deepCopy(extractSignatureContext(record)),
+    messages: normalizeConversation(record.messages ?? record.input),
+    temperature: record.temperature as number | undefined,
+    top_p: record.top_p as number | undefined,
+  };
+}
+
+/** Deep copy of JSON-shaped data; falls back to the original when a value cannot be cloned. */
+function deepCopy<T>(value: T): T {
+  try {
+    return structuredClone(value);
+  } catch {
+    try {
+      return JSON.parse(JSON.stringify(value)) as T;
+    } catch {
+      return value;
+    }
+  }
+}
+
 /** JSON with sorted object keys so key order never changes the digest. */
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;

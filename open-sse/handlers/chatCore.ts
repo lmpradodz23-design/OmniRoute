@@ -418,6 +418,7 @@ import {
   setCachedResponse,
   isCacheableForRead,
   isCacheableForWrite,
+  snapshotSignatureInputs,
 } from "@/lib/semanticCache";
 import { saveIdempotency } from "@/lib/idempotencyLayer";
 import {
@@ -1236,12 +1237,14 @@ export async function handleChatCore({
 
   log?.debug?.("FORMAT", `${sourceFormat} → ${targetFormat} | stream=${stream}`);
 
-  // Preserve original body for cache signature — the body variable is mutated
-  // multiple times below (sanitization, memory/skills injection) before the
-  // cache store path runs at Phase 9.1 (non-streaming) / Phase 9.2 (streaming).
-  // Without this snapshot, the write-time signature differs from the read-time
-  // one, producing 0% hit rate. (#cache-signature-asymmetry)
-  const bodyForCacheWrite = body;
+  // Preserve the cache-signature inputs — the body is mutated multiple times below
+  // (sanitization, memory/skills injection) before the cache store path runs at
+  // Phase 9.1 (non-streaming) / Phase 9.2 (streaming). Without this snapshot, the
+  // write-time signature differs from the read-time one, producing 0% hit rate.
+  // It has to be a COPY, not a reference: sanitizeChatRequestBody() renames
+  // max_tokens ↔ max_output_tokens and swaps `tools` on this very object, and both
+  // are part of the signature context (X-2). (#cache-signature-asymmetry)
+  const bodyForCacheWrite = snapshotSignatureInputs(body);
 
   // ── Phase 9.1: Semantic cache check (temp=0, any streaming mode) ──
   const cacheHit = await checkSemanticCache({
