@@ -111,14 +111,31 @@ então `0,5,NaN,2,3` validava limpo apesar da regressão 5 → 2. **Correção:*
 
 ## 4. Pendências honestas (não corrigidas aqui)
 
-- A allowlist do navegador é lida de `key_value['browser']['allowed_domains']`, e **nada no
-  repositório escreve essa chave**. O "override persistido no painel" descrito no cabeçalho da rota
-  ainda não existe; o chamador precisa passar `allowedDomains` no corpo.
+- ~~A allowlist do navegador é lida de `key_value["browser"]["allowed_domains"]`, e nada no
+  repositório escreve essa chave.~~ **Resolvido** (branch `feat/browser-allowlist-ui`):
+  `setBrowserAllowedDomains` em `src/lib/db/browserGuard.ts` normaliza e valida (sem
+  esquema/caminho/porta/curinga, sem IP literal, ao menos dois rótulos, teto de 256) e grava
+  tudo-ou-nada; `GET`/`PUT /api/browser/allowlist` expõem a leitura (escopo `read`) e a escrita
+  (escopo `admin`), sem gate da flag para permitir preparar a lista antes de ligar o Browser Use;
+  o card "Browser Use domain allowlist" em Settings → Security edita a lista e avisa quando
+  `BROWSER_USE_ENABLED` está desligada. `POST /api/browser/check` sem `allowedDomains` passa a
+  usar a lista configurada (coberto por `tests/unit/browser-allowlist-route.test.ts`).
 - `GET /api/loop/{id}/stream` monta o corpo inteiro em memória em vez de streamar, então um cliente
   `EventSource` reconecta em laço (~3 s), reexecutando auth e leituras de banco.
-- Sem loja de aprovações de MCP, o estado `approved` não é alcançável por esta rota. É a resposta
-  correta enquanto não houver onde guardar a aprovação, mas o ciclo completo do plano
-  (descobrir → quarentena → verificar → revisar → aprovar → instalar) ainda não fecha.
+- **Resolvido — loja de aprovações de MCP.** Antes, sem ela, o estado `approved` não era
+  alcançável por `POST /api/mcp/review`. Agora: migração aditiva
+  `177_mcp_review_approvals.sql` (tabela `mcp_review_approvals` com `tenant_id` + índice, uma
+  linha corrente por `(tenant_id, name, source)`, permissões normalizadas, revogação por
+  `revoked_at` sem apagar linha) e o módulo `src/lib/db/mcpReviewApprovals.ts`. A rota de revisão
+  carrega o `prior` dessa loja pela `name` + `source` do candidato, nunca do corpo.
+  `POST /api/mcp/review/approve` (admin, corpo `strictObject`, flag `MCP_REVIEW_ENABLED`) grava a
+  aprovação humana, mas reavalia o candidato e recusa com `422 MCP_REVIEW_DENIED` o que o gate
+  nega; `POST /api/mcp/review/revoke` revoga. A re-revisão por permissão ampliada e por publisher
+  não verificado continua sendo decidida pelo motor puro. Limites honestos: `approved_by` só
+  identifica o ator quando o request passou pelo pipeline de authz (`<tipo>:<id>`); invocação em
+  processo fica `management:unattributed`. Não há histórico de aprovações — reaprovar sobrescreve
+  a linha corrente. E o ciclo do plano ainda não fecha em instalar/habilitar: não há instalador
+  ligado.
 - `decideBrowserAction` e `reviewMcpCandidate` não têm consumidor além do endpoint consultivo que
   os expõe: não há driver Playwright nem instalador de MCP ligado. Nada aqui é exploração remota
   hoje — é contrato de política, consertado antes de existir um executor que dependa dele.

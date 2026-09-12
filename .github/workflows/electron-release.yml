@@ -4,10 +4,19 @@ on:
   push:
     tags:
       - "v*"
-  # A dispatch builds the ref it is dispatched ON (`gh workflow run … --ref v3.8.50` rebuilds
-  # that tag; `--ref main` builds the repaired line). The ref is deliberately NOT an input:
-  # CodeQL flags an input-controlled checkout next to the npm cache on the default branch as
-  # cache poisoning (actions/cache-poisoning/poisonable-step), and `github.ref` is trusted.
+  # A dispatch does NOT build the ref it is dispatched on. `web-build`, the matrix `build`
+  # and `release` all check out `ref: needs.validate.outputs.version`, i.e. the version TAG.
+  # So `gh workflow run … --ref release/v3.8.51 -f version=v3.8.51` rebuilds and re-attaches
+  # assets from the code AT tag v3.8.51, whatever the dispatch ref contains. Pinning the
+  # build to the tag is intentional: a release is reproducible from its tag. Shipping a fix,
+  # or signed installers of new code, means cutting a new version tag (e.g. v3.8.52). The
+  # dispatch ref supplies only this workflow file and the signing helper sparse-checked-out
+  # in `build`. Proven by run 34710550989: dispatched from release/v3.8.51 at 18ec68ebc, its
+  # Windows leg still built tag v3.8.51 (1054f199d), which lacks the fix merged at 18ec68ebc,
+  # and failed again.
+  # The ref is deliberately NOT an input: CodeQL flags an input-controlled checkout next to
+  # the npm cache on the default branch as cache poisoning
+  # (actions/cache-poisoning/poisonable-step), and `github.ref` is trusted.
   workflow_dispatch:
     inputs:
       version:
@@ -289,11 +298,62 @@ jobs:
         working-directory: electron
         run: npm ci --no-audit --no-fund
 
+      # Code signing (audit/RELEASE_READINESS.md E-4). Signs THE MOMENT the owner adds
+      # the repository secrets; with none of them this builds unsigned, exactly as before.
+      # Setup + secret list: docs/guides/ELECTRON_GUIDE.md "Code Signing".
+      #
+      # - Secrets only ever enter through this step's `env:` (never interpolated into the
+      #   `run:` body — zizmor template-injection), and each one is gated on the matrix OS,
+      #   so the Windows leg never receives Apple credentials and vice versa. A missing
+      #   secret expands to "".
+      # - scripts/build/electron-signing.mjs turns that into what electron-builder 26.15.3
+      #   actually needs: it DELETES empty values (an empty CSC_LINK counts as "set" for
+      #   electron-builder on macOS), sets CSC_IDENTITY_AUTO_DISCOVERY=false on unsigned mac
+      #   legs, writes the App Store Connect .p8 to a 0600 temp file, adds
+      #   win.azureSignOptions only when the Azure set is complete, prints
+      #   "signing: enabled/disabled (missing secret X)" with names only, and runs
+      #   `npm run build:<target>`. A PARTIAL credential set fails the leg loudly instead of
+      #   shipping half-configured.
+      # - The helper is checked out from the WORKFLOW's own commit (no `ref:` = the tag on a
+      #   tag push, the dispatched branch on workflow_dispatch), not from the tag being
+      #   built: re-attaching signed installers to a tag that predates the helper
+      #   (`gh workflow run electron-release.yml --ref release/v3.8.51 -f version=v3.8.51`)
+      #   would otherwise fail on a missing file. Such an older tag signs with
+      #   electron-builder's defaults (hardenedRuntime on, its template entitlements).
+      - name: Checkout signing helper (workflow commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          path: .signing-helper
+          sparse-checkout: |
+            scripts/build/electron-signing.mjs
+          sparse-checkout-cone-mode: false
+
       - name: Build Electron for ${{ matrix.platform }}
         working-directory: electron
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:${{ matrix.target }}
+          BUILD_TARGET: ${{ matrix.target }}
+          # macOS: Developer ID Application certificate (.p12, base64) + notarization.
+          CSC_LINK: ${{ matrix.os == 'darwin' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'darwin' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_API_KEY_P8: ${{ matrix.os == 'darwin' && secrets.APPLE_API_KEY_P8 || '' }}
+          APPLE_API_KEY_ID: ${{ matrix.os == 'darwin' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ matrix.os == 'darwin' && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_ID: ${{ matrix.os == 'darwin' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.os == 'darwin' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ matrix.os == 'darwin' && secrets.APPLE_TEAM_ID || '' }}
+          # Windows: Authenticode certificate (.pfx, base64) OR Azure Trusted Signing.
+          WIN_CSC_LINK: ${{ matrix.os == 'win32' && secrets.WIN_CSC_LINK || '' }}
+          WIN_CSC_KEY_PASSWORD: ${{ matrix.os == 'win32' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          AZURE_TENANT_ID: ${{ matrix.os == 'win32' && secrets.AZURE_TENANT_ID || '' }}
+          AZURE_CLIENT_ID: ${{ matrix.os == 'win32' && secrets.AZURE_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ matrix.os == 'win32' && secrets.AZURE_CLIENT_SECRET || '' }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ matrix.os == 'win32' && secrets.AZURE_TRUSTED_SIGNING_ENDPOINT || '' }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ matrix.os == 'win32' && secrets.AZURE_TRUSTED_SIGNING_ACCOUNT || '' }}
+          AZURE_TRUSTED_SIGNING_PROFILE: ${{ matrix.os == 'win32' && secrets.AZURE_TRUSTED_SIGNING_PROFILE || '' }}
+        run: node ../.signing-helper/scripts/build/electron-signing.mjs --target "$BUILD_TARGET"
 
       - name: Smoke packaged Electron app
         if: matrix.platform != 'linux'

@@ -5697,26 +5697,34 @@ paths:
       description: |
         Evaluates one MCP server/package candidate with the deterministic MCP Review Gate
         (discover → quarantine → verify → review → approve → install → enable). The body
-        accepts ONLY `candidate` — there is no `prior` field. The underlying engine can compare
-        a candidate to a prior approval to detect broadened permissions or carry an approval
-        forward, but no endpoint or table persists MCP approvals yet, so accepting a
-        caller-supplied prior would let the caller's own claim of a past approval bypass the
-        gate it exists to enforce. Until that store exists, every candidate is fail-closed:
-        it is always evaluated as new.
+        accepts ONLY `candidate` — there is no `prior` field: a caller-supplied prior would let
+        the caller assert its own past approval and bypass the gate it exists to enforce.
+
+        The prior approval is server-side state. It is loaded from the MCP approval store —
+        written only by `POST /api/mcp/review/approve` and revoked by
+        `POST /api/mcp/review/revoke` — keyed by the candidate's exact `name` + `source` within
+        the tenant. No approval, or a revoked one, means the candidate is evaluated as new.
 
         The verdict is decided by code, not by a model. Permission comparisons are
         case-insensitive (each permission is trimmed and lowercased before matching):
 
         - flagged malicious, or requesting a forbidden permission (`secrets:exfiltrate`,
-          `billing:write`, `keys:read`, matched case-insensitively) → `denied`.
-        - otherwise → `review_required` (every candidate takes this branch today, since there is
-          never a prior); `reasons` also flags sensitive permissions (`fs:write`, `fs:delete`,
-          `shell:exec`, `process:spawn`, `net:listen`, `secrets:read`) when present, and
-          `newlyRequested` echoes every declared permission, normalized.
+          `billing:write`, `keys:read`, matched case-insensitively) → `denied`, even when an
+          approval is stored.
+        - no active approval → `review_required`; `reasons` also flags sensitive permissions
+          (`fs:write`, `fs:delete`, `shell:exec`, `process:spawn`, `net:listen`,
+          `secrets:read`) when present, and `newlyRequested` echoes every declared permission,
+          normalized.
+        - active approval, but the candidate declares a permission the approval did not cover →
+          `review_required`, with exactly those permissions in `newlyRequested`.
+        - active approval, no broadened permission, but `publisherVerified` is not explicitly
+          `true` → `review_required` (a missing verification counts as not verified).
+        - active approval, no broadened permission and `publisherVerified: true` → `approved`.
+          A different `version` alone does not force re-review.
 
-        `state` can in principle also be `approved` (or the read-only pipeline states
-        `discovered`/`quarantined`/`verified`) — the engine's full vocabulary — but only
-        `denied` and `review_required` are reachable through this route today.
+        `state` can in principle also be one of the read-only pipeline states
+        `discovered`/`quarantined`/`verified` — the engine's full vocabulary — but only
+        `denied`, `review_required` and `approved` are reachable through this route.
 
         Loopback-only by default, like the rest of `/api/mcp/*`: a non-loopback caller is
         accepted only with a manage/admin-scoped API key or an authenticated dashboard session.
@@ -5773,6 +5781,183 @@ paths:
                     type: string
               example:
                 error: MCP Review is disabled. Enable MCP_REVIEW_ENABLED in the OmniRoute panel.
+        "500":
+          description: >-
+            The approval store could not be read (generic `MCP review request failed`; the raw cause is not echoed).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+  /api/mcp/review/approve:
+    post:
+      tags: [Mcp]
+      summary: Record a human approval for an MCP candidate
+      description: |
+        Records the current human approval for one MCP server/package, keyed by the candidate's
+        `name` + `source` within the tenant. This is the only writer of the approval store that
+        `POST /api/mcp/review` reads its prior approval from. Approving again replaces the
+        stored approval (version, permissions, publisher flag, approver, timestamp) and clears
+        any revocation.
+
+        Approval cannot override the gate: the submitted candidate is evaluated first, and when
+        the verdict is `denied` (flagged malicious, or a forbidden permission such as
+        `keys:read`, matched case-insensitively) nothing is stored and the route answers `422`
+        with `error.details.code: MCP_REVIEW_DENIED`. A human can release what requires review,
+        not what the code forbids — and a forbidden permission added to a candidate later is
+        still `denied` by `POST /api/mcp/review` despite the stored approval.
+
+        Permissions are stored normalized: trimmed, lowercased, de-duplicated and sorted.
+        `approvedBy` is `<auth kind>:<subject id>` taken from the subject the authz pipeline
+        stamps on the request after authenticating it (an API key id, an access token id, or
+        `dashboard`) — never a credential value. A call that did not pass through that pipeline
+        carries no subject and is recorded as `management:unattributed`.
+
+        The response `verdict` is the gate re-run against the approval just stored: `approved`
+        when `publisherVerified` is `true`, otherwise still `review_required` (a later review
+        carries the approval only once the publisher is explicitly verified).
+
+        Loopback-only by default, like the rest of `/api/mcp/*`. Requires management
+        authentication; on the access-token credential path it requires `admin` scope (every
+        method under `/api/mcp`). Answers `404` while `MCP_REVIEW_ENABLED` is off.
+      x-loopback-only: true
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpReviewRequest"
+      responses:
+        "201":
+          description: Approval stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval, verdict]
+                properties:
+                  approval:
+                    $ref: "#/components/schemas/McpReviewApproval"
+                  verdict:
+                    $ref: "#/components/schemas/McpReviewVerdict"
+        "400":
+          description: >-
+            The body failed `strictObject` validation (unknown keys such as `prior`, wrong shape,
+            or an out-of-range field); `error.details` lists the offending fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: MCP_REVIEW_ENABLED is off
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              example:
+                error: MCP Review is disabled. Enable MCP_REVIEW_ENABLED in the OmniRoute panel.
+        "422":
+          description: >-
+            The MCP Review Gate denies this candidate (`error.details.code: MCP_REVIEW_DENIED`,
+            with the verdict's `reasons` in `error.details.reasons`); nothing is stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "500":
+          description: >-
+            The approval could not be stored (generic `MCP review request failed`; the raw cause is not echoed).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+  /api/mcp/review/revoke:
+    post:
+      tags: [Mcp]
+      summary: Revoke the active approval of an MCP server
+      description: |
+        Revokes the active approval for `name` + `source` within the tenant. Afterwards
+        `POST /api/mcp/review` evaluates that candidate as new again (`review_required`). The
+        stored row is not deleted: it keeps `revoked_at`/`revoked_by` until a new approval
+        replaces it. The revoker is attributed the same way as `approvedBy`.
+
+        This is a `POST` on a sub-resource rather than a `DELETE` with a body, because many
+        clients and proxies drop DELETE bodies and the server identity (`name` + `source`,
+        where `source` may be a URL) does not fit a path segment.
+
+        Loopback-only by default, like the rest of `/api/mcp/*`. Requires management
+        authentication; on the access-token credential path it requires `admin` scope (every
+        method under `/api/mcp`). Answers `404` while `MCP_REVIEW_ENABLED` is off.
+      x-loopback-only: true
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpReviewRevokeRequest"
+      responses:
+        "200":
+          description: Approval revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revoked, name, source]
+                properties:
+                  revoked:
+                    type: boolean
+                    enum: [true]
+                  name:
+                    type: string
+                  source:
+                    type: string
+        "400":
+          description: >-
+            The body failed `strictObject` validation (unknown keys, missing `name`/`source`,
+            or an out-of-range field); `error.details` lists the offending fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: >-
+            Either `MCP_REVIEW_ENABLED` is off (body `{ "error": "MCP Review is disabled. ..." }`),
+            or there is no active approval for this `name` + `source` (standard error envelope
+            with `error.details.code: MCP_APPROVAL_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [error]
+                    properties:
+                      error:
+                        type: string
+                  - $ref: "#/components/schemas/ApiErrorResponse"
+        "500":
+          description: >-
+            The approval store could not be updated (generic `MCP review request failed`; the raw cause is not echoed).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
 
   /api/browser/check:
     post:
@@ -5855,6 +6040,125 @@ paths:
                     type: string
               example:
                 error: Browser Use is disabled. Enable BROWSER_USE_ENABLED in the OmniRoute panel.
+
+  /api/browser/allowlist:
+    get:
+      tags: [Browser Guard]
+      summary: Read the persisted browser automation domain allowlist
+      description: |
+        Returns the domain allowlist configured in the panel (Settings → Security), which
+        `POST /api/browser/check` uses whenever its request body omits `allowedDomains`. Each
+        entry is a normalized host name and also allows its subdomains. The stored value is read
+        fail-closed: an unparsable or non-array value is an empty list, entries that fail the
+        write-side normalization are dropped, and an empty list denies every browser action.
+
+        The response also reports whether `BROWSER_USE_ENABLED` is on (the allowlist has no
+        effect while it is off) and the maximum number of entries. This route is intentionally
+        NOT gated by the flag, so an operator can prepare the allowlist before enabling Browser
+        Use; the route that decides actions (`POST /api/browser/check`) stays gated.
+
+        Requires management authentication; on the access-token credential path a `read`
+        scope is enough.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      responses:
+        "200":
+          description: The persisted allowlist, the flag state and the entry ceiling
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserAllowlistState"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+    put:
+      tags: [Browser Guard]
+      summary: Replace the persisted browser automation domain allowlist
+      description: |
+        Replaces the whole allowlist. Each entry is trimmed, lowercased, and stripped of leading
+        dots and of one trailing dot; duplicates are collapsed. The write is all-or-nothing: if
+        any entry is invalid nothing is saved and the `400` body lists the offending entries by
+        their `index` in the submitted array with a stable `reason` (the submitted value is
+        never echoed back):
+
+        - `empty` — nothing left after normalization;
+        - `too_long` — longer than 253 characters;
+        - `invalid_characters` — a scheme, path, port, userinfo, query, percent-encoding,
+          whitespace or wildcard (`*`); enter the host name only (subdomains already match);
+        - `non_ascii` — use the punycode (`xn--`) form of an internationalized domain, which is
+          what the guard compares against;
+        - `ip_literal` — IP addresses are refused (an IP allowlist is the shortest path from
+          browser automation to private networks or the cloud metadata endpoint); a final label
+          that is all digits counts as an IP;
+        - `single_label` — at least two labels are required (`localhost` or a bare TLD would
+          allow far too much). There is no Public Suffix List check: `co.uk` is accepted;
+        - `invalid_label` — an empty label, a label over 63 characters, or characters outside
+          letters, digits and inner hyphens.
+
+        An empty array is valid and clears the allowlist (every action is denied). Not gated by
+        `BROWSER_USE_ENABLED`, like the read.
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrowserAllowlistUpdateRequest"
+      responses:
+        "200":
+          description: The saved (normalized) allowlist, the flag state and the entry ceiling
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserAllowlistState"
+        "400":
+          description: >-
+            `invalid_body` — the body failed `strictObject` validation (unknown keys, a missing
+            or non-array `allowedDomains`, a non-string entry, an entry over 300 characters, or
+            more than 256 entries); `invalid_domains` — at least one entry was rejected (see
+            `invalid`); `too_many_domains` — more than 256 distinct domains after normalization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserAllowlistError"
+              example:
+                error: One or more domains are invalid
+                code: invalid_domains
+                invalid:
+                  - index: 1
+                    reason: ip_literal
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "500":
+          description: The allowlist could not be persisted (no internal detail is exposed)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                  requestId:
+                    type: string
+              example:
+                error:
+                  message: Could not save the browser allowlist
+                  type: server_error
 
   /api/otel/spans:
     get:
@@ -7894,8 +8198,9 @@ components:
       type: object
       additionalProperties: false
       description: >-
-        No `prior` field: MCP approvals are not yet persisted server-side, so a caller-supplied
-        prior approval is not accepted (it would let the caller assert its own approval).
+        No `prior` field: the prior approval is server-side state, loaded from the MCP approval
+        store by the candidate's `name` + `source`. A caller-supplied `prior` is an unknown key
+        and is rejected with `400`, since it would let the caller assert its own approval.
       required: [candidate]
       properties:
         candidate:
@@ -7905,10 +8210,11 @@ components:
       type: object
       description: >-
         The Review Gate's decision. Deterministic and fail-closed: malicious or a forbidden
-        permission → `denied`; otherwise → `review_required` (the only two states reachable
-        through `POST /api/mcp/review` today, since the request never carries a prior
-        approval). `approved`, and the read-only pipeline states `discovered`/`quarantined`/
-        `verified`, are part of the engine's vocabulary but not reachable through this route.
+        permission → `denied`; no active stored approval, a permission the approval did not
+        cover, or a publisher not explicitly verified → `review_required`; an active approval
+        with no broadened permission and `publisherVerified: true` → `approved`. The read-only
+        pipeline states `discovered`/`quarantined`/`verified` are part of the engine's
+        vocabulary but are not produced by these routes.
       required: [state, requiresHumanApproval, reasons, newlyRequested]
       properties:
         state:
@@ -7932,9 +8238,58 @@ components:
           items:
             type: string
           description: >-
-            Every declared permission on `candidate`, normalized (trimmed, lowercased). Always
-            the full (normalized) permission set through this route, since there is never a
-            prior to diff against.
+            Permissions, normalized (trimmed, lowercased), that the active stored approval does
+            not cover — every declared permission when there is no active approval. Empty for
+            `denied`, for `approved`, and when only the publisher check forces re-review.
+
+    McpReviewApproval:
+      type: object
+      description: >-
+        The active human approval stored for one MCP server, keyed by `name` + `source` within
+        the tenant.
+      required: [name, source, version, permissions, publisherVerified, approvedBy, approvedAt]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        source:
+          type: string
+          maxLength: 2048
+        version:
+          type: string
+          maxLength: 64
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Approved permissions, normalized (trimmed, lowercased, de-duplicated, sorted).
+        publisherVerified:
+          type: boolean
+          description: The candidate's `publisherVerified` at approval time (absent is stored as false).
+        approvedBy:
+          type: string
+          maxLength: 200
+          description: >-
+            `<auth kind>:<subject id>` of the authenticated management caller (for example
+            `dashboard_session:dashboard`), or `management:unattributed` when no authz subject
+            was stamped on the request. Never a credential value.
+        approvedAt:
+          type: string
+          format: date-time
+
+    McpReviewRevokeRequest:
+      type: object
+      additionalProperties: false
+      required: [name, source]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        source:
+          type: string
+          minLength: 1
+          maxLength: 2048
 
     BrowserCheckAction:
       type: object
@@ -7989,6 +8344,77 @@ components:
           enum: [allow, require_approval, deny]
         reason:
           type: string
+
+    BrowserAllowlistState:
+      type: object
+      required: [allowedDomains, enabled, maxDomains]
+      properties:
+        allowedDomains:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            maxLength: 253
+          description: >-
+            Normalized host names (lowercase, no scheme, path, port, wildcard or IP literal). Each
+            entry also allows its subdomains. Empty means every browser action is denied.
+        enabled:
+          type: boolean
+          description: >-
+            Effective value of `BROWSER_USE_ENABLED`. While false the allowlist is stored but has
+            no effect (`POST /api/browser/check` answers 404).
+        maxDomains:
+          type: integer
+          example: 256
+          description: Maximum number of distinct domains the allowlist can hold.
+
+    BrowserAllowlistUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [allowedDomains]
+      properties:
+        allowedDomains:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            maxLength: 300
+          description: >-
+            The complete replacement list, before normalization (surrounding whitespace and
+            leading dots are tolerated). An empty array clears the allowlist.
+
+    BrowserAllowlistError:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum: [invalid_body, invalid_domains, too_many_domains]
+        invalid:
+          type: array
+          description: Present when `code` is `invalid_domains`.
+          items:
+            type: object
+            required: [index, reason]
+            properties:
+              index:
+                type: integer
+                minimum: 0
+                description: Position of the rejected entry in the submitted array.
+              reason:
+                type: string
+                enum:
+                  [
+                    empty,
+                    too_long,
+                    invalid_characters,
+                    non_ascii,
+                    ip_literal,
+                    single_label,
+                    invalid_label,
+                  ]
 
     OtelSpan:
       type: object

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!--
+      Entitlements for every nested binary (Electron Helpers, frameworks, native
+      addons): build.mac.entitlementsInherit. Like the main plist, ignored on
+      unsigned builds.
+
+      The Next.js server does not run in the main process: electron/main.js spawns it
+      inside "OmniRoute Helper" with ELECTRON_RUN_AS_NODE=1
+      (electron/lib/resolveNodeHelper.js), so V8 in that process needs the same JIT
+      entitlements as the main app.
+    -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!--
+      That server dlopen()s prebuilt Node-API addons and their dylibs (better-sqlite3,
+      onnxruntime-node, @img/sharp, @wreq-js) that the afterPack hook restores into
+      Resources/app/node_modules. If library validation rejects one of them, the app does
+      NOT crash visibly: SQLite silently falls back to sql.js, which the macOS smoke
+      step does not detect. This is also exactly what electron-builder 26.15.3 would
+      apply to these binaries without this file
+      (app-builder-lib/templates/entitlements.mac.plist), so it adds no new relaxation.
+    -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

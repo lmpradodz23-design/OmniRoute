@@ -70,7 +70,24 @@ test("browser check: POST exige admin, GET fica read", () => {
   assert.equal(inferRequiredScope("GET", "/api/browser/check"), "read");
 });
 
+test("browser allowlist: PUT/POST/DELETE exigem admin, GET/HEAD ficam read", () => {
+  assert.equal(inferRequiredScope("PUT", "/api/browser/allowlist"), "admin");
+  assert.equal(inferRequiredScope("POST", "/api/browser/allowlist"), "admin");
+  assert.equal(inferRequiredScope("DELETE", "/api/browser/allowlist"), "admin");
+  assert.equal(inferRequiredScope("GET", "/api/browser/allowlist"), "read");
+  assert.equal(inferRequiredScope("HEAD", "/api/browser/allowlist"), "read");
+  // limite de segmento: um vizinho com o mesmo prefixo textual não herda o admin
+  assert.equal(inferRequiredScope("PUT", "/api/browser/allowlist-export"), "write");
+});
+
 test("mcp review: admin em todos os metodos (herda o prefixo /api/mcp)", () => {
   assert.equal(inferRequiredScope("POST", "/api/mcp/review"), "admin");
   assert.equal(inferRequiredScope("GET", "/api/mcp/review"), "admin");
+});
+
+test("mcp review approve/revoke: admin em todos os metodos (herda o prefixo /api/mcp)", () => {
+  assert.equal(inferRequiredScope("POST", "/api/mcp/review/approve"), "admin");
+  assert.equal(inferRequiredScope("GET", "/api/mcp/review/approve"), "admin");
+  assert.equal(inferRequiredScope("POST", "/api/mcp/review/revoke"), "admin");
+  assert.equal(inferRequiredScope("DELETE", "/api/mcp/review/revoke"), "admin");
 });
