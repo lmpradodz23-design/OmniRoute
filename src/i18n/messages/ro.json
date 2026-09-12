@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Nu s-au înregistrat încă utilizări specifice contului. Faceți cereri folosind conturi OAuth pentru a vedea datele aici."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Bun venit",
     "signIn": "Conectați-vă",
     "enterPassword": "Introduceți parola pentru a continua",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 este configurat, dar ascuns deoarece NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Conectați {providerName}",
     "waiting": "În așteptarea autorizației",
     "completeAuthInPopup": "Autorizare completă în pop-up.",

@@ -9831,6 +9831,7 @@
     "noAccountUsage": "ยังไม่มีการบันทึกการใช้งานเฉพาะบัญชี โปรดทำการร้องขอโดยใช้บัญชี OAuth เพื่อดูข้อมูลที่นี่"
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "ยินดีต้อนรับ",
     "signIn": "เข้าสู่ระบบ",
     "enterPassword": "ป้อนรหัสผ่านของคุณเพื่อดำเนินการต่อ",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 ได้รับการกำหนดค่าแต่ถูกซ่อนไว้ เนื่องจาก NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false"
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "เชื่อมต่อ {providerName}",
     "waiting": "รอการอนุญาต",
     "completeAuthInPopup": "กรอกการอนุญาตในป๊อปอัป",

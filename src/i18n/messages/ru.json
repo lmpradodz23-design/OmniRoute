@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Пока нет записей об использовании, связанных с аккаунтом. Делайте запросы, используя аккаунты OAuth, чтобы увидеть данные здесь."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Добро пожаловать",
     "signIn": "Войти",
     "enterPassword": "Введите свой пароль, чтобы продолжить",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 настроен, но скрыт, поскольку NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Подключите {providerName}",
     "waiting": "Ожидание авторизации",
     "completeAuthInPopup": "Полная авторизация во всплывающем окне.",

@@ -9831,6 +9831,7 @@
     "noAccountUsage": "まだアカウント固有の使用状況は記録されていません。ここでデータを見るには、OAuthアカウントを使用してリクエストを行ってください。"
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "ようこそ",
     "signIn": "サインイン",
     "enterPassword": "続行するにはパスワードを入力してください",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 は構成されていますが、NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false のため非表示になっています。"
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "{providerName} を接続します",
     "waiting": "承認を待っています",
     "completeAuthInPopup": "ポップアップで認証を完了します。",

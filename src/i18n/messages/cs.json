@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Žádné údaje o používání specifické pro účet zatím nebyly zaznamenány. Pro zobrazení dat zde provádějte požadavky pomocí účtů OAuth."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Vítejte",
     "signIn": "Přihlásit se",
     "enterPassword": "Zadejte heslo pro pokračování",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 je nakonfigurován, ale skrytý, protože NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Připojit {providerName}",
     "waiting": "Čekání na autorizaci",
     "completeAuthInPopup": "Dokončete autorizaci ve vyskakovacím okně.",

@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Még nincs fiók-specifikus használat rögzítve. Kérjük, használjon OAuth fiókokat az adatok megtekintéséhez itt."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Üdvözöljük",
     "signIn": "Jelentkezzen be",
     "enterPassword": "A folytatáshoz adja meg jelszavát",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "A SOCKS5 konfigurálva van, de rejtett, mert NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Csatlakozás {providerName}",
     "waiting": "Várakozás az engedélyezésre",
     "completeAuthInPopup": "Teljes engedélyezés a felugró ablakban.",

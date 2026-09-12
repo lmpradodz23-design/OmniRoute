@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Walang naitalang paggamit na partikular sa account. Gumawa ng mga kahilingan gamit ang mga OAuth account upang makita ang data dito."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Maligayang pagdating",
     "signIn": "Mag-sign in",
     "enterPassword": "Ilagay ang iyong password upang magpatuloy",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "Ang SOCKS5 ay na-configure ngunit nakatago dahil NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Ikonekta ang {providerName}",
     "waiting": "Naghihintay ng awtorisasyon",
     "completeAuthInPopup": "Kumpletuhin ang pahintulot sa popup.",

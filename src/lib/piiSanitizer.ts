@@ -17,7 +17,7 @@ import { isFeatureFlagEnabled, resolveFeatureFlag } from "@/shared/utils/feature
 
 const isEnabled = () => isFeatureFlagEnabled("PII_RESPONSE_SANITIZATION");
 const VALID_MODES = ["redact", "warn", "block", "off"] as const;
-type PiiMode = typeof VALID_MODES[number];
+type PiiMode = (typeof VALID_MODES)[number];
 
 const getMode = (): PiiMode => {
   const value = resolveFeatureFlag("PII_RESPONSE_SANITIZATION_MODE");
@@ -52,19 +52,22 @@ const PII_PATTERNS: PIIPattern[] = [
   },
   {
     name: "credit_card",
-    regex: /(?<=^|[^A-Za-z0-9])(?:\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}|\d{4}[-\s]?\d{6}[-\s]?\d{4,5})(?=$|[^A-Za-z0-9])/g,
+    regex:
+      /(?<=^|[^A-Za-z0-9])(?:\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}|\d{4}[-\s]?\d{6}[-\s]?\d{4,5})(?=$|[^A-Za-z0-9])/g,
     replacement: "[CC_REDACTED]",
     severity: "high",
   },
   {
     name: "phone_us",
-    regex: /(?<=^|[^A-Za-z0-9])(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?=$|[^A-Za-z0-9])/g,
+    regex:
+      /(?<=^|[^A-Za-z0-9])(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?=$|[^A-Za-z0-9])/g,
     replacement: "[PHONE_REDACTED]",
     severity: "medium",
   },
   {
     name: "phone_br",
-    regex: /(?<=^|[^A-Za-z0-9])(?:\+?55[-.\s]?)?\(?\d{2}\)?[-.\s]?(?:9\d{4}|[2-5]\d{3})[-.\s]?\d{4}(?=$|[^A-Za-z0-9])/g,
+    regex:
+      /(?<=^|[^A-Za-z0-9])(?:\+?55[-.\s]?)?\(?\d{2}\)?[-.\s]?(?:9\d{4}|[2-5]\d{3})[-.\s]?\d{4}(?=$|[^A-Za-z0-9])/g,
     replacement: "[PHONE_REDACTED]",
     severity: "medium",
   },
@@ -81,6 +84,29 @@ const PII_PATTERNS: PIIPattern[] = [
     severity: "high",
   },
   {
+    // CEP brasileiro. Exige a pista "cep" por perto, como o PIX abaixo. Sem ela o padrão
+    // NNNNN-NNN mordia o miolo de qualquer identificador hifenizado — auditoria de 2026-09-12
+    // mostrou "Pedido 12345-678", "Rastreio 90210-123" e "id ABC-12345-678-X" sendo
+    // redigidos. Como sanitizePIIResponse percorre a resposta inteira do modelo, isso era
+    // corrupção silenciosa de saída, não proteção de PII.
+    name: "cep",
+    regex: /(?<=\bceps?\b[\s\S]{0,20})\d{5}-\d{3}(?=$|[^A-Za-z0-9])/gi,
+    replacement: "[CEP_REDACTED]",
+    severity: "medium",
+  },
+  {
+    // Chave PIX aleatória (UUID v4), redigida só com a pista "pix" por perto — sem ela um
+    // UUID comum seria apagado. A pista vale ANTES ou DEPOIS da chave e atravessa quebra de
+    // linha: a versão anterior só olhava 30 caracteres à esquerda e parava no \n, então
+    // "<uuid> é a minha chave pix" e "chave Pix:\n<uuid>" — o formato de quem cola de um
+    // chat — passavam intactos. Falso negativo é a direção que importa aqui.
+    name: "pix_key",
+    regex:
+      /(?<=\bpix\b[\s\S]{0,80})[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?=[\s\S]{0,80}\bpix\b)/gi,
+    replacement: "[PIX_KEY_REDACTED]",
+    severity: "high",
+  },
+  {
     name: "ip_address",
     regex: /(?<=^|[^A-Za-z0-9])(?:\d{1,3}\.){3}\d{1,3}(?=$|[^A-Za-z0-9])/g,
     replacement: "[IP_REDACTED]",
@@ -88,7 +114,8 @@ const PII_PATTERNS: PIIPattern[] = [
   },
   {
     name: "ipv6_address",
-    regex: /(?<=^|[^A-Za-z0-9:])(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7}|(?:[0-9a-fA-F]{1,4}:){1,7}:|::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}|::|[0-9a-fA-F]{1,4}::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){2}:(?:[0-9a-fA-F]{1,4}:){0,4}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){3}:(?:[0-9a-fA-F]{1,4}:){0,3}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){4}:(?:[0-9a-fA-F]{1,4}:){0,2}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){5}:(?:[0-9a-fA-F]{1,4}:){0,1}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){6}:[0-9a-fA-F]{1,4})(?=$|[^A-Za-z0-9])(?!:[0-9a-fA-F:])/g,
+    regex:
+      /(?<=^|[^A-Za-z0-9:])(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7}|(?:[0-9a-fA-F]{1,4}:){1,7}:|::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}|::|[0-9a-fA-F]{1,4}::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){2}:(?:[0-9a-fA-F]{1,4}:){0,4}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){3}:(?:[0-9a-fA-F]{1,4}:){0,3}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){4}:(?:[0-9a-fA-F]{1,4}:){0,2}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){5}:(?:[0-9a-fA-F]{1,4}:){0,1}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){6}:[0-9a-fA-F]{1,4})(?=$|[^A-Za-z0-9])(?!:[0-9a-fA-F:])/g,
     replacement: "[IP_REDACTED]",
     severity: "low",
   },
@@ -142,8 +169,15 @@ export function sanitizePII(text: string, isStreaming = false): SanitizeResult {
     "\u2060", // Word Joiner
     "\u00AD", // Soft Hyphen
     // Bidirectional formatting controls
-    "\u202A", "\u202B", "\u202C", "\u202D", "\u202E",
-    "\u2066", "\u2067", "\u2068", "\u2069"
+    "\u202A",
+    "\u202B",
+    "\u202C",
+    "\u202D",
+    "\u202E",
+    "\u2066",
+    "\u2067",
+    "\u2068",
+    "\u2069",
   ]);
   const cleanToOrig: number[] = [];
   let cleanText = "";
@@ -314,7 +348,20 @@ export function sanitizePIIResponse(response: any): any {
         } else {
           for (const key of Object.keys(obj)) {
             // Skip known non-PII system metadata keys to optimize performance
-            if (["id", "model", "object", "created", "finish_reason", "finishReason", "role", "type", "index", "stop_reason"].includes(key)) {
+            if (
+              [
+                "id",
+                "model",
+                "object",
+                "created",
+                "finish_reason",
+                "finishReason",
+                "role",
+                "type",
+                "index",
+                "stop_reason",
+              ].includes(key)
+            ) {
               continue;
             }
             obj[key] = deepSanitize(obj[key], depth + 1);

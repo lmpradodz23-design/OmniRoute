@@ -36,6 +36,8 @@ export const ADMIN_MUTATION_PREFIXES: readonly string[] = [
   "/api/cli-tools/apply", // writes config onto the host filesystem
   "/api/loop", // start/advance/approve a Loop run releases external effects; GET status = read
   "/api/buzz", // rotate identity / flush the Buzz outbox to the relay; GET status = read
+  "/api/mcp/review", // approves or denies an MCP package — a supply-chain decision
+  "/api/browser/check", // decides browser automation policy, including the domain allowlist
 ];
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

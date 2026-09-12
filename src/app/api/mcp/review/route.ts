@@ -1,0 +1,77 @@
+/**
+ * POST /api/mcp/review — roda o MCP Review Gate determinístico sobre um candidato.
+ * Body: { candidate: McpCandidate }. A aprovação anterior é estado do servidor, nunca do corpo.
+ *
+ * Autenticado (management, escopo admin nas mutações) e gated por MCP_REVIEW_ENABLED. Código
+ * decide (não a IA): malicioso/permissão proibida → denied; novo ou permissão ampliada →
+ * review_required (aprovação humana).
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { traceSync } from "@/lib/otel";
+import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
+import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { reviewMcpCandidate } from "@omniroute/open-sse/mcp-review/index.ts";
+
+/**
+ * Limites reais, não decorativos: um candidato vem de um registry de terceiros, e este corpo é
+ * a fronteira. `strictObject` recusa chaves desconhecidas para que um campo inventado não
+ * atravesse até o motor de decisão, e o teto de permissões impede que uma lista gigante
+ * transforme a revisão num varredor de CPU.
+ */
+const permission = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9._:*-]+$/, "permission must match [A-Za-z0-9._:*-]");
+
+const candidateSchema = z.strictObject({
+  name: z.string().min(1).max(200),
+  source: z.string().min(1).max(2048),
+  version: z.string().min(1).max(64),
+  permissions: z.array(permission).max(256),
+  publisherVerified: z.boolean().optional(),
+  flaggedMalicious: z.boolean().optional(),
+});
+
+/**
+ * O corpo NÃO aceita `prior`. Ele aceitava, e `prior.approved` é exatamente a afirmação que o
+ * gate existe para não tomar na palavra: um candidato pedindo `shell:exec`, `fs:delete` e
+ * `secrets:read` acompanhado de `{"approved": true}` saía como `approved`, sem revisão humana,
+ * porque nada amarrava aquele prior a um registro — nem sequer o `name` era comparado.
+ *
+ * A aprovação anterior é estado do servidor, e o servidor ainda não tem onde guardá-la: não
+ * existe endpoint de aprovação nem tabela de aprovações de MCP neste momento. Enquanto não
+ * existir, a resposta correta é a fail-closed — todo candidato é tratado como novo e volta como
+ * `review_required`. O motor puro continua aceitando `prior` para quando esse registro existir.
+ */
+const reviewBodySchema = z.strictObject({
+  candidate: candidateSchema,
+});
+
+export async function POST(req: NextRequest): Promise<Response> {
+  const auth = await requireManagementAuth(req);
+  if (auth) return auth;
+  if (!isFeatureFlagEnabled("MCP_REVIEW_ENABLED")) {
+    return NextResponse.json(
+      { error: "MCP Review is disabled. Enable MCP_REVIEW_ENABLED in the OmniRoute panel." },
+      { status: 404 }
+    );
+  }
+
+  const validation = validateBody(reviewBodySchema, await req.json().catch(() => ({})));
+  if (isValidationFailure(validation)) {
+    return NextResponse.json(
+      { error: "candidate {name, source, version, permissions[]} is required" },
+      { status: 400 }
+    );
+  }
+
+  const { candidate } = validation.data;
+  const verdict = traceSync("mcp.review", { route: "/api/mcp/review", provider: "mcp" }, () =>
+    reviewMcpCandidate(candidate)
+  );
+  return NextResponse.json({ verdict });
+}

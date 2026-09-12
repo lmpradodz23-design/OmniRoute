@@ -9831,6 +9831,7 @@
     "noAccountUsage": "尚未記錄任何帳戶特定的使用情況。請使用 OAuth 帳戶發送請求以在此查看數據。"
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "歡迎",
     "signIn": "登入",
     "enterPassword": "輸入您的密碼以繼續",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 已設定但已隱藏，因為 NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false。"
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "連線 {providerName}",
     "waiting": "等待授權",
     "completeAuthInPopup": "在彈出視窗中完成授權。",

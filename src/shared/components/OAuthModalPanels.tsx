@@ -203,6 +203,48 @@ export function OAuthLoopbackMismatchPanel({
 }
 
 /**
+ * Passo 1 do fluxo manual: mostrar a URL de autorização, abrir e copiar.
+ *
+ * Componente próprio porque o botão "abrir em nova aba" levou `OAuthManualInputPanel` acima do
+ * teto de linhas por função — e porque esta linha é uma unidade coesa por si só.
+ */
+function OAuthAuthUrlRow({
+  authUrl,
+  copied,
+  onCopy,
+}: {
+  authUrl: string;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  const t = useTranslations("oauthModal");
+  return (
+    <div>
+      <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
+      <div className="flex gap-2">
+        <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
+        {/* Abre em NOVA aba, a partir de um gesto do usuário: o navegador não bloqueia e não
+            substitui o painel. Num servidor remoto o painel precisa continuar aberto para
+            receber o retorno, e sair dele deixava o login sem caminho de volta. */}
+        <Button
+          variant="secondary"
+          icon="open_in_new"
+          disabled={!authUrl}
+          onClick={() => {
+            if (authUrl) window.open(authUrl, "_blank", "noopener,noreferrer");
+          }}
+        >
+          {t("openInNewTab")}
+        </Button>
+        <Button variant="secondary" icon={copied ? "check" : "content_copy"} onClick={onCopy}>
+          {t("copy")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Google-loopback providers (antigravity / agy) on a non-true-localhost origin.
  *
  * Replaces the old one-paragraph `googleOAuthWarning`, which instructed the operator to
@@ -344,19 +386,11 @@ export function OAuthManualInputPanel({
           isTrueLocalhost={isTrueLocalhost}
           googleHint={googleHint}
         />
-        <div>
-          <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
-          <div className="flex gap-2">
-            <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
-            <Button
-              variant="secondary"
-              icon={copied === "auth_url" ? "check" : "content_copy"}
-              onClick={() => copy(authUrl, "auth_url")}
-            >
-              {t("copy")}
-            </Button>
-          </div>
-        </div>
+        <OAuthAuthUrlRow
+          authUrl={authUrl}
+          copied={copied === "auth_url"}
+          onCopy={() => copy(authUrl, "auth_url")}
+        />
         <div>
           <p className="text-sm font-medium mb-2">{t("step2PasteCallback")}</p>
           <p className="text-xs text-text-muted mb-2">
@@ -367,8 +401,8 @@ export function OAuthManualInputPanel({
           {provider === "zed-hosted" && (
             <p className="text-xs text-amber-500 mb-2">
               After signing in, Zed redirects to a local address like{" "}
-              <code className="font-mono">http://127.0.0.1:&lt;port&gt;/?user_id=...</code> which the
-              browser may show as unreachable — that is expected. Copy the FULL URL from the
+              <code className="font-mono">http://127.0.0.1:&lt;port&gt;/?user_id=...</code> which
+              the browser may show as unreachable — that is expected. Copy the FULL URL from the
               browser address bar (the access token is inside it) and paste it above.
             </p>
           )}

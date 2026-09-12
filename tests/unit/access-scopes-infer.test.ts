@@ -61,3 +61,16 @@ test("Loop Engine and Buzz Hub: mutations are admin, status reads stay read", ()
   // segment boundary: lookalike prefixes are NOT admin
   assert.equal(inferRequiredScope("POST", "/api/loopback-thing"), "write");
 });
+
+// ---- Cobertura dos prefixos da Fase 2 (auditoria de 2026-09-12) -------------
+// A auditoria notou que nenhum caso tocava as linhas novas, entao a suite passava
+// verde com ou sem elas.
+test("browser check: POST exige admin, GET fica read", () => {
+  assert.equal(inferRequiredScope("POST", "/api/browser/check"), "admin");
+  assert.equal(inferRequiredScope("GET", "/api/browser/check"), "read");
+});
+
+test("mcp review: admin em todos os metodos (herda o prefixo /api/mcp)", () => {
+  assert.equal(inferRequiredScope("POST", "/api/mcp/review"), "admin");
+  assert.equal(inferRequiredScope("GET", "/api/mcp/review"), "admin");
+});

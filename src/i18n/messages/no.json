@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Ingen konto-spesifik bruk registrert ennå. Gjør forespørsel med OAuth-kontoer for å se data her."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Velkommen",
     "signIn": "Logg på",
     "enterPassword": "Skriv inn passordet ditt for å fortsette",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 er konfigurert, men skjult fordi NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Koble til {providerName}",
     "waiting": "Venter på autorisasjon",
     "completeAuthInPopup": "Fullfør autorisasjonen i popup.",

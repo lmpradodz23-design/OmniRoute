@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
@@ -16,9 +17,7 @@ import { useEffect, useState } from "react";
  */
 export default function CallbackPage() {
   const [status, setStatus] = useState<"processing" | "success" | "done" | "manual">("processing");
-  const [currentUrl] = useState(() =>
-    typeof window === "undefined" ? "" : window.location.href
-  );
+  const [currentUrl] = useState(() => (typeof window === "undefined" ? "" : window.location.href));
   const t = useTranslations("auth");
 
   useEffect(() => {
@@ -86,10 +85,7 @@ export default function CallbackPage() {
     if (window.opener) {
       for (const origin of trustedTargetOrigins) {
         try {
-          window.opener.postMessage(
-            { type: "oauth_callback", data: callbackData },
-            origin
-          );
+          window.opener.postMessage({ type: "oauth_callback", data: callbackData }, origin);
           sent = true;
         } catch (e) {
           console.log("postMessage failed:", e);
@@ -179,6 +175,18 @@ export default function CallbackPage() {
             <div className="bg-surface border border-border rounded-lg p-3 text-left">
               <code className="text-xs break-all">{currentUrl}</code>
             </div>
+            {/* The login may have replaced the tab instead of opening a popup, in which case
+                there is no opener to close and nothing here navigates back. Without this the
+                user is simply stranded on the callback page. */}
+            <Link
+              href="/dashboard/providers"
+              className="mt-4 inline-flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">
+                arrow_back
+              </span>
+              {t("backToOmniRoute")}
+            </Link>
           </>
         )}
       </div>
