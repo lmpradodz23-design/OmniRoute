@@ -223,6 +223,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-${{ matrix.arch }}
@@ -240,6 +241,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-web-${{ matrix.arch }}
@@ -265,6 +267,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-bun-base-${{ matrix.arch }}
@@ -290,6 +293,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
+            OMNIROUTE_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-bun-web-${{ matrix.arch }}
@@ -499,6 +503,53 @@ jobs:
         if: needs.prepare.outputs.version != 'main'
         run: |
           docker buildx imagetools inspect "${GHCR_IMAGE_NAME}:${VERSION}"
+
+      # The published image is what a first-time user pulls, and until now nothing
+      # proved it boots: the job validated manifests and scanned for CVEs, but never
+      # started a container. Run it exactly as the README tells a reader to, with no
+      # secrets and no configuration, and require the dashboard's own liveness probe
+      # to answer. A tag that cannot serve /healthz must not be left published.
+      - name: Smoke test the published image (boots and serves)
+        if: needs.prepare.outputs.version != 'main'
+        run: |
+          set -euo pipefail
+          ref="${GHCR_IMAGE_NAME}:${VERSION}"
+          echo "Booting $ref the way the README documents it"
+          docker run -d --name omniroute-smoke             -p 127.0.0.1:20128:20128 -v omniroute-smoke-data:/app/data "$ref"
+
+          ok=""
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 5 http://127.0.0.1:20128/healthz >/dev/null 2>&1; then
+              ok="yes"
+              echo "/healthz answered after ${i}s"
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' omniroute-smoke 2>/dev/null)" != "true" ]; then
+              echo "::error::Container exited before serving /healthz"
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -z "$ok" ]; then
+            echo "----- container logs -----"
+            docker logs omniroute-smoke 2>&1 | tail -100 || true
+            docker rm -f omniroute-smoke >/dev/null 2>&1 || true
+            docker volume rm omniroute-smoke-data >/dev/null 2>&1 || true
+            echo "::error::${ref} does not serve /healthz — refusing to call this image usable"
+            exit 1
+          fi
+
+          # The catalog endpoint is the first thing a coding tool calls. Unauthenticated
+          # it must answer with a real HTTP status, never a connection reset.
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 http://127.0.0.1:20128/v1/models || echo 000)
+          echo "GET /v1/models -> $code"
+          docker rm -f omniroute-smoke >/dev/null 2>&1 || true
+          docker volume rm omniroute-smoke-data >/dev/null 2>&1 || true
+          if [ "$code" = "000" ]; then
+            echo "::error::/v1/models did not respond"
+            exit 1
+          fi
 
       - name: Generate CycloneDX SBOM (image, advisory)
         if: needs.prepare.outputs.version != 'main'
