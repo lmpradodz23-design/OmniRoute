@@ -123,3 +123,57 @@ test("createLoopRun: comeca report-only, discover, sequence 0", () => {
   assert.equal(run.sequenceNumber, 0);
   assert.ok(run.correlationId.length > 0);
 });
+
+test("stateMachine (L1): etapa rejeitada sem nova proposta -> escalated (nao volta a ciclar ate o budget)", () => {
+  const run = createLoopRun({ pattern: "x", budget: BUDGET });
+  run.phase = "execute";
+  run.status = "awaiting_approval";
+  const step = proposeStep(run, {
+    title: "abrir PR",
+    proposedEffect: { kind: "git_pr", summary: "PR #1" },
+  });
+  step.status = "rejected"; // humano rejeitou; nenhuma nova etapa proposta
+  const { run: after, note } = advance(run, { policy: { reportOnly: true } });
+  assert.equal(after.status, "escalated");
+  assert.equal(after.phase, "execute"); // nao avancou de fase escondendo a rejeicao
+  assert.match(note, /rejeit/i);
+});
+
+test("stateMachine (L1): rejeicao COM nova proposta segue o gate normal (nao escala)", () => {
+  const run = createLoopRun({ pattern: "x", budget: BUDGET });
+  run.phase = "execute";
+  run.status = "awaiting_approval";
+  const rejected = proposeStep(run, {
+    title: "v1",
+    proposedEffect: { kind: "git_pr", summary: "1" },
+  });
+  rejected.status = "rejected";
+  proposeStep(run, { title: "v2", proposedEffect: { kind: "git_pr", summary: "2" } });
+  const { run: after } = advance(run, { policy: { reportOnly: true } });
+  assert.equal(after.status, "awaiting_approval");
+});
+
+test("stateMachine (L2): teto de tempo e AUTO-IMPOSTO a partir de createdAt (chamador nao passa consumed)", () => {
+  const run = createLoopRun({ pattern: "x", budget: { ...BUDGET, maxWallClockMs: 60_000 } });
+  assert.ok(Number.isFinite(run.createdAt) && run.createdAt > 0);
+  const { run: after } = advance(run, {
+    policy: { reportOnly: true },
+    now: run.createdAt + 61_000, // 61 s decorridos, sem consumed
+  });
+  assert.equal(after.status, "aborted");
+  assert.ok(after.usage.wallClockMs >= 61_000);
+});
+
+test("stateMachine (L2): dentro do teto, usage.wallClockMs reflete o tempo decorrido (e nunca regride)", () => {
+  const run = createLoopRun({ pattern: "x", budget: BUDGET });
+  const r1 = advance(run, { policy: { reportOnly: true }, now: run.createdAt + 5_000 });
+  assert.equal(r1.run.status, "report_only");
+  assert.equal(r1.run.usage.wallClockMs, 5_000);
+  // consumed maior que o decorrido prevalece (o motor nunca reduz o que o chamador reportou)
+  const r2 = advance(r1.run, {
+    policy: { reportOnly: true },
+    consumed: { wallClockMs: 10_000 },
+    now: run.createdAt + 6_000,
+  });
+  assert.equal(r2.run.usage.wallClockMs, 15_000);
+});

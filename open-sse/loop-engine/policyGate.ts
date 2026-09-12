@@ -74,11 +74,3 @@ export function decideEffect(
   // Chegou aqui: kind não-destrutivo, fora de report-only, e liberado pelo operador.
   return { outcome: "allow" };
 }
-
-/** true se o efeito pode ser executado sem parar para humano, sob o contexto dado. */
-export function isAutoExecutable(
-  effect: LoopProposedEffect | undefined,
-  ctx: PolicyContext
-): boolean {
-  return decideEffect(effect, ctx).outcome === "allow";
-}

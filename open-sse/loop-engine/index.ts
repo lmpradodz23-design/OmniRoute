@@ -9,14 +9,15 @@
  */
 import { randomUUID } from "node:crypto";
 
+import { emptyUsage } from "./budget.ts";
 import type { LoopBudget, LoopRun, LoopStep } from "./types.ts";
 
 export * from "./types.ts";
-export { addUsage, checkBudget, budgetPressure, emptyUsage } from "./budget.ts";
-export { decideEffect, isAutoExecutable, type PolicyContext } from "./policyGate.ts";
-export { advance, type AdvanceInput, type AdvanceResult } from "./stateMachine.ts";
+export { checkBudget } from "./budget.ts";
+export { decideEffect } from "./policyGate.ts";
+export { advance, type AdvanceInput } from "./stateMachine.ts";
 
-export const DEFAULT_LOOP_BUDGET: LoopBudget = {
+const DEFAULT_LOOP_BUDGET: LoopBudget = {
   maxTokens: 200_000,
   maxWallClockMs: 15 * 60_000, // 15 min
   maxAttempts: 3,
@@ -35,11 +36,12 @@ export function createLoopRun(params: {
     phase: "discover",
     status: "report_only",
     budget: { ...DEFAULT_LOOP_BUDGET, ...params.budget },
-    usage: { tokens: 0, wallClockMs: 0, attempts: 0 },
+    usage: emptyUsage(),
     steps: [],
     correlationId: params.correlationId ?? randomUUID(),
     taskId: params.taskId,
     sequenceNumber: 0,
+    createdAt: Date.now(),
   };
 }
 

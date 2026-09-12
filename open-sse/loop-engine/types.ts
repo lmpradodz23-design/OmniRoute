@@ -94,7 +94,13 @@ export interface LoopRun {
   /** Idempotência / correlação para a ponte outbox-inbox. */
   readonly correlationId: string;
   readonly taskId?: string;
+  /**
+   * Versão persistida do run: toda mutação gravada incrementa (guarda otimista no repositório).
+   * Também correlaciona eventos do Buzz.
+   */
   sequenceNumber: number;
+  /** Instante de criação (epoch ms). O motor mede `usage.wallClockMs` a partir daqui. */
+  readonly createdAt: number;
 }
 
 /** Decisão do Policy Engine para um efeito proposto. Código clássico decide, não a IA. */

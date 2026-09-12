@@ -36,13 +36,3 @@ export function checkBudget(budget: LoopBudget, usage: LoopBudgetUsage): BudgetC
   if (usage.attempts > budget.maxAttempts) exceeded.push("attempts");
   return { ok: exceeded.length === 0, exceeded };
 }
-
-/** Fração consumida (0..1+) da dimensão mais próxima do limite — para alertas. */
-export function budgetPressure(budget: LoopBudget, usage: LoopBudgetUsage): number {
-  const fractions = [
-    budget.maxTokens > 0 ? usage.tokens / budget.maxTokens : 0,
-    budget.maxWallClockMs > 0 ? usage.wallClockMs / budget.maxWallClockMs : 0,
-    budget.maxAttempts > 0 ? usage.attempts / budget.maxAttempts : 0,
-  ];
-  return Math.max(0, ...fractions);
-}
