@@ -39,6 +39,7 @@
 2. CI (`quality.yml`, `ci.yml`, `semgrep.yml`, `codeql.yml`) verde — inclui secret scan estrito e supply-chain pins.
    - 2026-09-12: o primeiro CI do PR #5 reprovou 7 jobs (31 testes + 8 gates); rodada de correção registrada em `TEST_MATRIX.md` §6 e `FINAL_THREE_AGENT_REVIEW.md` §7 — 3 HIGH corrigidos (2 do fix loop, 1 pré-existente de segurança). Evidência do CI verde, do merge e do digest GHCR: preenchida abaixo quando ocorrer.
 3. Imagem: `docker-publish.yml` → `ghcr.io/lmprado-dz23/omniroute:3.8.51` (GITHUB_TOKEN; sem Docker Hub).
+   - 2026-09-12: **PR #5 mesclado** em `release/v3.8.51` (merge commit `bd518dafd`, 18/18 checks verdes no HEAD `4941e7fad`, 184 commits). O `docker-publish.yml` disparado pelo merge (run 34682049955) falhou nos dois builds em "Login to Docker Hub" (`Username and password required`): o fork não tem `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` (a run anterior na base, 34373763565, falhou igual). Correção: o workflow passa a detectar as credenciais do Docker Hub e, na ausência, publica só no GHCR (tags, login, manifest e descrição do Docker Hub condicionais; inspeção pós-publicação pelo GHCR). Evidência da imagem GHCR: preenchida quando a run passar.
 4. npm: `npm-publish.yml` (gate `repository.url` = fork) — **somente** com autorização explícita adicional.
 5. Electron: build sem assinatura só para smoke interno; instaladores públicos exigem E-4.
 6. Rollback: `audit/ROLLBACK.md` (npm/Docker/Electron/código-fonte + banco).
