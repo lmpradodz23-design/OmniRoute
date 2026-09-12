@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!--
+      Entitlements for the MAIN OmniRoute.app executable (build.mac.entitlements).
+      They only take effect on a code-signed build: electron-builder 26.15.3 builds
+      the sign options (MacTargetHelper.buildSignOptions) only after a signing
+      identity was found, so unsigned builds ignore this file entirely.
+
+      Deliberately NOT here:
+      - com.apple.security.network.client / network.server: App Sandbox entitlements.
+        They have no effect on a Developer ID app that is not sandboxed, and the
+        hardened runtime does not restrict sockets, so the local server on
+        127.0.0.1 needs nothing extra.
+      - com.apple.security.cs.disable-library-validation: the main process loads no
+        third-party native addon (electron/main.js requires only Node built-ins and
+        electron-updater). The Node server that does runs in the Helper; see
+        entitlements.mac.inherit.plist.
+    -->
+    <!-- V8 JIT under the hardened runtime; Electron 20+ on arm64 crashes at launch without it. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- V8 / WebAssembly still map writable+executable memory outside MAP_JIT; required by Electron's signing guidance. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+  </dict>
+</plist>

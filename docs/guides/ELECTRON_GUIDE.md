@@ -223,30 +223,138 @@ Env overrides: `ELECTRON_SMOKE_APP_EXECUTABLE`, `ELECTRON_SMOKE_URL`, `ELECTRON_
 
 ## Code Signing
 
-`electron/package.json` does **not** wire signing credentials directly. Pass them via env vars to `electron-builder`:
+> **Status (v3.8.51):** the release pipeline is **ready to sign**, but no certificate has
+> been provided yet, so the published installers are still **unsigned**: Windows shows a
+> SmartScreen warning, and macOS Gatekeeper blocks the first launch. Signing turns on
+> per platform the moment the repository secrets below exist. No code change is needed.
 
-### macOS
+### How the pipeline decides
+
+- The `Build Electron for <platform>` step in `.github/workflows/electron-release.yml`
+  receives the secrets **only through `env:`**, each gated on the matrix OS. The Windows leg
+  never sees Apple credentials, and the macOS legs never see Windows ones.
+- `scripts/build/electron-signing.mjs` runs the build and logs one line per leg with secret
+  **names only**, e.g. `signing: enabled (Developer ID Application certificate from MAC_CSC_LINK)`
+  or `signing: disabled (missing secret WIN_CSC_LINK, …)`.
+- **No secrets** → unsigned build with the same artifacts as before. **A partial set** (e.g.
+  `APPLE_API_KEY_ID` without `APPLE_API_ISSUER`) → that leg fails with the list of missing
+  secrets. The other legs and the release job still run. A macOS certificate without any
+  notarization credentials builds a signed but **not notarized** app, with a warning.
+- `electron/package.json` → `build.mac` sets `hardenedRuntime: true` plus two entitlement
+  files, applied only to signed builds:
+  - `electron/assets/entitlements.mac.plist` covers the main app: V8 JIT and unsigned executable
+    memory.
+  - `electron/assets/entitlements.mac.inherit.plist` covers the helpers, which also get
+    library-validation off. The server runs inside the Electron Helper and loads prebuilt
+    native addons.
+
+  Network entitlements are not needed: they apply only to sandboxed (Mac App Store) apps.
+
+### Repository secrets to create
+
+Create them under **Settings → Secrets and variables → Actions → New repository secret**,
+or with `gh secret set <NAME> -R LMPrado-DZ23/OmniRoute` (it reads the value from stdin
+and never echoes it). Never commit a certificate, key, or password.
+
+**macOS: signing** (both required to sign):
+
+| Secret                 | Contains                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| `MAC_CSC_LINK`         | base64 of the **Developer ID Application** certificate + private key exported as `.p12`    |
+| `MAC_CSC_KEY_PASSWORD` | the password chosen when exporting that `.p12` (an empty one works but is not recommended) |
+
+**macOS: notarization.** Pick ONE option; if both are complete, the API key wins.
+
+| Option                                     | Secret                        | Contains                                                                |
+| ------------------------------------------ | ----------------------------- | ----------------------------------------------------------------------- |
+| A: App Store Connect API key (recommended) | `APPLE_API_KEY_P8`            | the downloaded `AuthKey_XXXXXXXXXX.p8` file (PEM text, or base64 of it) |
+| A                                          | `APPLE_API_KEY_ID`            | the 10-character Key ID                                                 |
+| A                                          | `APPLE_API_ISSUER`            | the Issuer ID (UUID) shown above the keys list                          |
+| B: Apple ID                                | `APPLE_ID`                    | the Apple Account e-mail of a team member                               |
+| B                                          | `APPLE_APP_SPECIFIC_PASSWORD` | an app-specific password generated at account.apple.com                 |
+| B                                          | `APPLE_TEAM_ID`               | the 10-character Team ID                                                |
+
+**Windows.** Pick ONE option; if the Azure set is complete, it wins.
+
+| Option                      | Secret                           | Contains                                                                  |
+| --------------------------- | -------------------------------- | ------------------------------------------------------------------------- |
+| A: Authenticode certificate | `WIN_CSC_LINK`                   | base64 of the code-signing certificate + private key exported as `.pfx`   |
+| A                           | `WIN_CSC_KEY_PASSWORD`           | the `.pfx` export password                                                |
+| B: Azure Trusted Signing    | `AZURE_TENANT_ID`                | Microsoft Entra tenant ID of the app registration                         |
+| B                           | `AZURE_CLIENT_ID`                | client (application) ID of that app registration                          |
+| B                           | `AZURE_CLIENT_SECRET`            | a client secret of that app registration                                  |
+| B                           | `AZURE_TRUSTED_SIGNING_ENDPOINT` | the account's regional endpoint, e.g. `https://eus.codesigning.azure.net` |
+| B                           | `AZURE_TRUSTED_SIGNING_ACCOUNT`  | the Trusted Signing account name                                          |
+| B                           | `AZURE_TRUSTED_SIGNING_PROFILE`  | the certificate profile name                                              |
+
+For option B, the app registration needs the **Trusted Signing Certificate Profile Signer**
+role on the certificate profile. electron-builder installs the `TrustedSigning` PowerShell
+module on the runner at build time.
+
+### Exporting the certificates as base64
+
+macOS (Keychain Access → My Certificates → expand "Developer ID Application: …" so the
+private key is included → Export → `.p12` with a strong password):
 
 ```bash
-export APPLE_ID=<email>
-export APPLE_APP_SPECIFIC_PASSWORD=<password>
-export APPLE_TEAM_ID=<id>
-export CSC_LINK=path/to/cert.p12
-export CSC_KEY_PASSWORD=<cert-password>
-npm run electron:build:mac
+base64 -i DeveloperID.p12 | tr -d '\n' > DeveloperID.p12.b64
+gh secret set MAC_CSC_LINK -R LMPrado-DZ23/OmniRoute < DeveloperID.p12.b64
+gh secret set MAC_CSC_KEY_PASSWORD -R LMPrado-DZ23/OmniRoute        # prompts for the value
+gh secret set APPLE_API_KEY_P8 -R LMPrado-DZ23/OmniRoute < AuthKey_XXXXXXXXXX.p8
+rm DeveloperID.p12.b64
 ```
 
-### Windows
+Windows (PowerShell, with an exportable `.pfx`):
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("codesign.pfx")) | gh secret set WIN_CSC_LINK -R LMPrado-DZ23/OmniRoute
+gh secret set WIN_CSC_KEY_PASSWORD -R LMPrado-DZ23/OmniRoute
+```
+
+### Prerequisites and cost (general terms; check current vendor pricing)
+
+- **Apple:** an Apple Developer Program membership (about US$99/year, individual or
+  organization). The Account Holder creates the **Developer ID Application** certificate
+  under Certificates, Identifiers & Profiles. For option A, create a Team API key with
+  the Developer role under App Store Connect → Users and Access → Integrations. The `.p8`
+  can be downloaded only once.
+- **Windows certificate (option A):** an OV or EV code-signing certificate from a public CA,
+  typically a few hundred US$ per year after identity validation. Since June 2023, CAs issue
+  new code-signing keys only on hardware tokens or cloud HSMs, which cannot be exported as a
+  `.pfx`. Option A therefore fits only a certificate you already hold as an exportable file.
+  Otherwise use option B.
+- **Windows Azure Trusted Signing (option B):** an Azure subscription with a Trusted Signing
+  account (a low monthly fee) and a validated identity. Eligibility rules for organizations and
+  individuals are set by Microsoft.
+- SmartScreen reputation builds up with downloads, so the first signed releases may still
+  show a warning for a while. Once a release is signed, keep signing every later release
+  with the same publisher.
+- Linux AppImage/deb packages are not code-signed by this pipeline.
+
+### Attaching signed installers to an existing release
+
+After the secrets exist, re-run the desktop build for the tag. `publish_npm=false` keeps the
+npm leg from running again:
 
 ```bash
-export CSC_LINK=path/to/cert.pfx
-export CSC_KEY_PASSWORD=<cert-password>
-npm run electron:build:win
+gh workflow run electron-release.yml --ref release/v3.8.51 -f version=v3.8.51 -f publish_npm=false
 ```
 
-### Linux
+(Add `-R LMPrado-DZ23/OmniRoute` when running outside a clone.) The legs build the code of
+tag `v3.8.51`, but take the signing helper from the dispatched branch. A tag created before
+the helper existed therefore signs with electron-builder's defaults: hardened runtime on,
+plus electron-builder's template entitlements. The release job re-uploads the installers and
+the `latest*.yml` updater manifests under the same names. Check the log for the
+`signing: enabled` lines, then verify the downloaded files:
 
-AppImage signing is optional — set `LINUX_GPG_KEY` if signing.
+```bash
+codesign --verify --deep --strict --verbose=2 /Applications/OmniRoute.app
+spctl --assess --type execute --verbose /Applications/OmniRoute.app   # "source=Notarized Developer ID"
+```
+
+```powershell
+Get-AuthenticodeSignature .\OmniRoute.Setup.3.8.51.exe | Format-List Status, SignerCertificate
+```
 
 ## Distribution
 
