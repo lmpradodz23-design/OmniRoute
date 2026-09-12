@@ -39,14 +39,13 @@ export function __setGuardedFetchImplForTest(impl: GuardedFetchImpl | null): voi
   fetchImplForTest = impl;
 }
 
+import { isRedirectStatus, rejectBlockedRedirect } from "./blockedRedirect";
 import {
   pinnedLookup,
   resolveAndAssertWebhookTarget,
   type WebhookLookupFn,
 } from "./hardenedWebhookFetch";
-import { OutboundUrlGuardError } from "./outboundUrlGuard";
 import { arePrivateProviderUrlsAllowed } from "./outboundUrlGuardPolicy";
-import { normalizeHost } from "./privateHost";
 
 export interface GuardedFetchOptions {
   method?: string;
@@ -72,6 +71,51 @@ export type GuardedNetworkOptions = Pick<GuardedFetchOptions, "lookup" | "allowP
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** Closes a pinned dispatcher whose response body the caller never consumed. */
 const DISPATCHER_BACKSTOP_MS = 60_000;
+
+type UndiciResponseBody = NonNullable<Awaited<ReturnType<typeof undiciFetch>>["body"]>;
+
+/**
+ * Keep the pinned dispatcher alive until the body settles (end, error or cancel), then release
+ * it through `settle`. A pull-based wrapper rather than a TransformStream: the DOM lib this
+ * project typechecks against has no `cancel` hook on Transformer.
+ */
+function releaseDispatcherWhenSettled(
+  body: UndiciResponseBody,
+  settle: () => void
+): ReadableStream<Uint8Array<ArrayBuffer>> {
+  const reader = body.getReader();
+  return new ReadableStream<Uint8Array<ArrayBuffer>>({
+    async pull(streamController) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          streamController.close();
+          settle();
+          return;
+        }
+        streamController.enqueue(value as Uint8Array<ArrayBuffer>);
+      } catch (error) {
+        settle();
+        streamController.error(error);
+      }
+    },
+    cancel(reason) {
+      settle();
+      return reader.cancel(reason);
+    },
+  });
+}
+
+/** Abort the guarded request when the caller's signal fires (or already has). */
+function followCallerSignal(
+  signal: AbortSignal | undefined,
+  controller: AbortController,
+  onCallerAbort: () => void
+): void {
+  if (!signal) return;
+  if (signal.aborted) controller.abort();
+  else signal.addEventListener("abort", onCallerAbort, { once: true });
+}
 
 export async function guardedFetch(
   input: string | URL,
@@ -99,10 +143,7 @@ export async function guardedFetch(
   const controller = new AbortController();
   const headerTimer = setTimeout(() => controller.abort(), timeoutMs);
   const onCallerAbort = () => controller.abort();
-  if (signal) {
-    if (signal.aborted) controller.abort();
-    else signal.addEventListener("abort", onCallerAbort, { once: true });
-  }
+  followCallerSignal(signal, controller, onCallerAbort);
 
   let settled = false;
   let backstop: ReturnType<typeof setTimeout> | undefined;
@@ -126,23 +167,9 @@ export async function guardedFetch(
       dispatcher: agent,
     });
 
-    if (res.status >= 300 && res.status < 400) {
-      // Never follow a redirect: the hop could point at an internal service the validation
-      // never saw. Read no body.
-      try {
-        await res.body?.cancel();
-      } catch {
-        /* ignore */
-      }
-      throw new OutboundUrlGuardError(
-        `Redirect blocked for ${method} ${target.url.toString()} (${res.status})`,
-        {
-          code: "OUTBOUND_URL_GUARD_BLOCKED",
-          url: target.url.toString(),
-          hostname: normalizeHost(target.url.hostname),
-        }
-      );
-    }
+    // Never follow a redirect: the hop could point at an internal service the validation
+    // never saw. Read no body.
+    if (isRedirectStatus(res.status)) await rejectBlockedRedirect(res, method, target.url);
 
     const responseHeaders = new Headers();
     res.headers.forEach((value, key) => responseHeaders.append(key, value));
@@ -159,32 +186,7 @@ export async function guardedFetch(
     backstop = setTimeout(settle, DISPATCHER_BACKSTOP_MS);
     backstop.unref?.();
 
-    // Keep the pinned dispatcher alive until the body settles (end, error or cancel), then
-    // release it. A pull-based wrapper rather than a TransformStream: the DOM lib this project
-    // typechecks against has no `cancel` hook on Transformer.
-    const reader = res.body.getReader();
-    const guardedBody = new ReadableStream<Uint8Array<ArrayBuffer>>({
-      async pull(streamController) {
-        try {
-          const { done, value } = await reader.read();
-          if (done) {
-            streamController.close();
-            settle();
-            return;
-          }
-          streamController.enqueue(value as Uint8Array<ArrayBuffer>);
-        } catch (error) {
-          settle();
-          streamController.error(error);
-        }
-      },
-      cancel(reason) {
-        settle();
-        return reader.cancel(reason);
-      },
-    });
-
-    return new Response(guardedBody, {
+    return new Response(releaseDispatcherWhenSettled(res.body, settle), {
       status: res.status,
       statusText: res.statusText,
       headers: responseHeaders,

@@ -81,6 +81,52 @@ function formatSeconds(ms: number): string {
   return Number.isInteger(seconds) ? String(seconds) : seconds.toFixed(1);
 }
 
+type ConnectionTestDiagnosisParams = NonNullable<
+  NonNullable<ConnectionTestFailureLike["diagnosis"]>["params"]
+>;
+
+/** The server's own sentence, in precedence order: `error`, `warning`, `diagnosis.message`. */
+function readConnectionTestFailureText(
+  result: ConnectionTestFailureLike | null | undefined
+): string | null {
+  const candidates = [result?.error, result?.warning, result?.diagnosis?.message];
+  const found = candidates.find((v) => typeof v === "string" && v.trim());
+  return typeof found === "string" ? found.trim() : null;
+}
+
+function readHostParam(params: ConnectionTestDiagnosisParams | null): string | null {
+  return typeof params?.host === "string" && params.host.trim() ? params.host.trim() : null;
+}
+
+function readTimeoutParam(params: ConnectionTestDiagnosisParams | null): number | null {
+  return typeof params?.timeoutMs === "number" && params.timeoutMs > 0 ? params.timeoutMs : null;
+}
+
+/** Message key for a typed transport code; a timeout of unknown duration has its own sentence. */
+function connectionTestMessageKey(code: string, timeoutMs: number | null): string {
+  return code === "UPSTREAM_TIMEOUT" && !timeoutMs
+    ? "apiErrors.upstreamTimeoutUnknownDuration"
+    : CONNECTION_TEST_CODE_MESSAGE_KEYS[code];
+}
+
+/**
+ * Translated headline for a typed transport failure (host + seconds substituted), or null
+ * when the message catalog yields nothing usable.
+ */
+function translateConnectionTestFailure(
+  translate: ApiErrorTranslate,
+  code: string,
+  params: ConnectionTestDiagnosisParams | null
+): string | null {
+  const host = readHostParam(params) ?? (translate("apiErrors.unknownHost") || "the provider");
+  const timeoutMs = readTimeoutParam(params);
+  const translated = translate(connectionTestMessageKey(code, timeoutMs), {
+    host,
+    ...(timeoutMs ? { seconds: formatSeconds(timeoutMs) } : {}),
+  });
+  return translated && translated.trim() ? translated : null;
+}
+
 /**
  * User-facing presentation of a failed `/api/providers/{id}/test` result: a translated
  * headline for typed transport failures (host + timeout substituted), otherwise the
@@ -91,27 +137,11 @@ export function presentConnectionTestFailure(
   { translate, fallback }: Pick<PresentApiErrorOptions, "translate" | "fallback">
 ): PresentedApiError {
   const diagnosis = result?.diagnosis ?? null;
-  const rawCandidates = [result?.error, result?.warning, diagnosis?.message];
-  const raw = rawCandidates.find((v) => typeof v === "string" && v.trim())?.trim() ?? fallback;
+  const raw = readConnectionTestFailureText(result) ?? fallback;
   const code = isTransportFailureCode(diagnosis?.code) ? diagnosis.code : null;
   if (!code || !translate) return { message: raw, code, detail: null };
 
-  const params = diagnosis?.params ?? null;
-  const host =
-    typeof params?.host === "string" && params.host.trim()
-      ? params.host.trim()
-      : translate("apiErrors.unknownHost") || "the provider";
-  const timeoutMs =
-    typeof params?.timeoutMs === "number" && params.timeoutMs > 0 ? params.timeoutMs : null;
-  const key =
-    code === "UPSTREAM_TIMEOUT" && !timeoutMs
-      ? "apiErrors.upstreamTimeoutUnknownDuration"
-      : CONNECTION_TEST_CODE_MESSAGE_KEYS[code];
-  const translated = translate(key, {
-    host,
-    ...(timeoutMs ? { seconds: formatSeconds(timeoutMs) } : {}),
-  });
-  const message = translated && translated.trim() ? translated : raw;
+  const message = translateConnectionTestFailure(translate, code, diagnosis?.params ?? null) ?? raw;
   return { message, code, detail: raw !== message ? raw : null };
 }
 

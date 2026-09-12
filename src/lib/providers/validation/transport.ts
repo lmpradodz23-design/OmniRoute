@@ -11,6 +11,15 @@ import {
 import { isPrivateHost } from "@/shared/network/outboundUrlGuard";
 import { getProviderValidationGuard } from "@/shared/network/outboundUrlGuardPolicy";
 import { selectProxyForValidation } from "@omniroute/open-sse/services/proxyAutoSelector.ts";
+import {
+  describeUnreachableReason,
+  formatSeconds,
+  hasTransportEvidence,
+  hostOf,
+  isTlsCause,
+  readCauseCode,
+  readTimeoutMs,
+} from "./transportFailureEvidence";
 
 export type ProjectedProviderValidationResult<T> = {
   [K in keyof T]: K extends "error" | "warning" ? string | null : T[K];
@@ -196,91 +205,48 @@ export type ValidationTransportFailure = {
   reason: string | null;
 };
 
-const TLS_CAUSE_CODES = new Set([
-  "CERT_HAS_EXPIRED",
-  "CERT_NOT_YET_VALID",
-  "CERT_REJECTED",
-  "CERT_UNTRUSTED",
-  "DEPTH_ZERO_SELF_SIGNED_CERT",
-  "ERR_TLS_CERT_ALTNAME_INVALID",
-  "ERR_TLS_HANDSHAKE_TIMEOUT",
-  "HOSTNAME_MISMATCH",
-  "SELF_SIGNED_CERT_IN_CHAIN",
-  "UNABLE_TO_GET_ISSUER_CERT",
-  "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
-  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-]);
-
-const UNREACHABLE_REASON_TEXT: Readonly<Record<string, string>> = {
-  ECONNREFUSED: "connection refused",
-  ECONNRESET: "connection reset",
-  EAI_AGAIN: "host not found",
-  EHOSTUNREACH: "host unreachable",
-  ENETUNREACH: "network unreachable",
-  ENOTFOUND: "host not found",
-  EPIPE: "connection closed",
-  ETIMEDOUT: "connection timed out",
-  UND_ERR_CONNECT_TIMEOUT: "connection timed out",
-  UND_ERR_SOCKET: "connection closed",
-};
-
-function readCauseCode(value: unknown, depth = 0): string | null {
-  if (!value || typeof value !== "object" || depth > 4) return null;
-  const record = value as { code?: unknown; errors?: unknown; cause?: unknown };
-  if (typeof record.code === "string" && record.code.trim()) return record.code.trim();
-  if (Array.isArray(record.errors)) {
-    for (const nested of record.errors) {
-      const nestedCode = readCauseCode(nested, depth + 1);
-      if (nestedCode) return nestedCode;
-    }
-  }
-  return readCauseCode(record.cause, depth + 1);
+function isTimeoutFailure(error: Error, outbound: SafeOutboundFetchError | null): boolean {
+  return outbound?.code === "TIMEOUT" || error.name === "FetchTimeoutError";
 }
 
-// undici reports every socket-level failure as `TypeError: fetch failed` whose `cause`
-// carries the OS/TLS code. `safeOutboundFetch` keeps that text as the wrapper's message
-// (and the TypeError as its cause), so the sentence may sit at any depth of the chain.
-function hasFetchFailedMessage(value: unknown, depth = 0): boolean {
-  if (!value || typeof value !== "object" || depth > 4) return false;
-  const record = value as { message?: unknown; errors?: unknown; cause?: unknown };
-  if (typeof record.message === "string" && /^fetch failed\b/i.test(record.message)) return true;
-  if (
-    Array.isArray(record.errors) &&
-    record.errors.some((e) => hasFetchFailedMessage(e, depth + 1))
-  ) {
-    return true;
-  }
-  return hasFetchFailedMessage(record.cause, depth + 1);
+function timeoutFailure(host: string | null, timeoutMs: number | null): ValidationTransportFailure {
+  const where = host ?? "the provider";
+  const after = timeoutMs ? ` after ${formatSeconds(timeoutMs)} s` : "";
+  return {
+    code: "UPSTREAM_TIMEOUT",
+    host,
+    timeoutMs,
+    reason: null,
+    message: `Could not connect to ${where}: timed out${after}. Check the URL and that the service is running.`,
+  };
 }
 
-// OS / undici / TLS cause codes that prove the upstream never answered.
-function isNetworkCauseCode(code: string | null): boolean {
-  if (!code) return false;
-  if (Object.prototype.hasOwnProperty.call(UNREACHABLE_REASON_TEXT, code)) return true;
-  if (TLS_CAUSE_CODES.has(code) || code === "EPROTO") return true;
-  return /^(UND_ERR_|EAI_|ERR_SSL_|ERR_TLS_)/.test(code);
+function tlsFailure(host: string | null, causeCode: string | null): ValidationTransportFailure {
+  const where = host ?? "the provider";
+  const detail = causeCode ? ` (${causeCode})` : "";
+  return {
+    code: "UPSTREAM_TLS",
+    host,
+    timeoutMs: null,
+    reason: causeCode,
+    message: `TLS handshake with ${where} failed${detail}. Check the certificate and the https:// URL.`,
+  };
 }
 
-function isTlsCause(code: string | null, message: string): boolean {
-  if (
-    code &&
-    (TLS_CAUSE_CODES.has(code) || code.startsWith("ERR_SSL_") || code.startsWith("ERR_TLS_"))
-  ) {
-    return true;
-  }
-  if (code === "EPROTO") return /ssl|tls|certificate|handshake/i.test(message);
-  return /self[- ]signed certificate|certificate has expired|unable to verify the first certificate|wrong version number|ssl3_|tlsv1/i.test(
-    message
-  );
-}
-
-function hostOf(url: unknown): string | null {
-  if (typeof url !== "string" || !url) return null;
-  try {
-    return new URL(url).host || null;
-  } catch {
-    return null;
-  }
+function unreachableFailure(
+  host: string | null,
+  causeCode: string | null
+): ValidationTransportFailure {
+  const where = host ?? "the provider";
+  const reasonText = describeUnreachableReason(causeCode);
+  const detail = reasonText ? ` (${reasonText})` : "";
+  return {
+    code: "UPSTREAM_UNREACHABLE",
+    host,
+    timeoutMs: null,
+    reason: causeCode,
+    message: `Could not connect to ${where}${detail}. Check the URL and that the service is running.`,
+  };
 }
 
 /** Classify a thrown validation error as a typed transport failure, or null when it is not one. */
@@ -292,62 +258,23 @@ export function describeValidationTransportFailure(
     const outbound = error instanceof SafeOutboundFetchError ? error : null;
     if (outbound && outbound.code !== "TIMEOUT" && outbound.code !== "NETWORK_ERROR") return null;
     const host = hostOf(outbound?.url ?? (error as { url?: unknown }).url);
-    const where = host ?? "the provider";
     // The wrapper's own `code` is the outbound category (NETWORK_ERROR, …); the OS/TLS
     // cause code lives in its cause chain. A bare error may carry the code itself.
     const causeCode = readCauseCode(outbound ? outbound.cause : error);
     const message = typeof error.message === "string" ? error.message : "";
 
-    if (outbound?.code === "TIMEOUT" || error.name === "FetchTimeoutError") {
-      const rawTimeout = (error as { timeoutMs?: unknown }).timeoutMs;
-      const timeoutMs = typeof rawTimeout === "number" && rawTimeout > 0 ? rawTimeout : null;
-      const after = timeoutMs ? ` after ${formatSeconds(timeoutMs)} s` : "";
-      return {
-        code: "UPSTREAM_TIMEOUT",
-        host,
-        timeoutMs,
-        reason: null,
-        message: `Could not connect to ${where}: timed out${after}. Check the URL and that the service is running.`,
-      };
-    }
+    if (isTimeoutFailure(error, outbound)) return timeoutFailure(host, readTimeoutMs(error));
 
-    // `safeOutboundFetch` wraps WHATEVER `fetch` threw as NETWORK_ERROR — a proxy-patch
-    // error, a body-parser throw, a test mock — so the category alone is not evidence
-    // that the host was unreachable. Only undici's "fetch failed" or an OS/TLS cause
-    // code proves a transport failure; anything else keeps its own (sanitized) message
+    // The NETWORK_ERROR category alone is not evidence that the host was unreachable (see
+    // `hasTransportEvidence`); anything without proof keeps its own (sanitized) message
     // and its HTTP semantics, instead of being presented as "Could not connect to …".
-    const tls = isTlsCause(causeCode, message);
-    if (!tls && !hasFetchFailedMessage(error) && !isNetworkCauseCode(causeCode)) return null;
-
-    if (tls) {
-      const detail = causeCode ? ` (${causeCode})` : "";
-      return {
-        code: "UPSTREAM_TLS",
-        host,
-        timeoutMs: null,
-        reason: causeCode,
-        message: `TLS handshake with ${where} failed${detail}. Check the certificate and the https:// URL.`,
-      };
-    }
-
-    const reasonText = causeCode ? UNREACHABLE_REASON_TEXT[causeCode] || causeCode : null;
-    const detail = reasonText ? ` (${reasonText})` : "";
-    return {
-      code: "UPSTREAM_UNREACHABLE",
-      host,
-      timeoutMs: null,
-      reason: causeCode,
-      message: `Could not connect to ${where}${detail}. Check the URL and that the service is running.`,
-    };
+    if (isTlsCause(causeCode, message)) return tlsFailure(host, causeCode);
+    if (!hasTransportEvidence(error, causeCode)) return null;
+    return unreachableFailure(host, causeCode);
   } catch {
     // Classification is advisory; hostile accessors must not escape the safe error boundary.
     return null;
   }
-}
-
-function formatSeconds(ms: number): string {
-  const seconds = ms / 1000;
-  return Number.isInteger(seconds) ? String(seconds) : seconds.toFixed(1);
 }
 
 export function toValidationErrorResult(error: unknown) {

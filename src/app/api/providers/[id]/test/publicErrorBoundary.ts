@@ -50,6 +50,113 @@ export type ClassifyTypedFailureArgs = ClassifyFailureArgs & {
   timeoutMs?: number | null;
 };
 
+/** Sanitized, non-empty host and positive timeout the dashboard substitutes into the sentence. */
+function toTransportFailureParams(
+  host: string | null,
+  timeoutMs: number | null
+): TransportFailureDiagnosisParams {
+  return {
+    host: typeof host === "string" && host.trim() ? toSafeMessage(host, "") || null : null,
+    timeoutMs: typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : null,
+  };
+}
+
+/** The HTTP status as diagnosis code when known, otherwise the heuristic's own code. */
+function statusCodeOr(numericStatus: number | null, fallback: string): string {
+  return numericStatus ? String(numericStatus) : fallback;
+}
+
+type MessageHeuristic = {
+  /** Lower-cased substrings of the sanitized message that select this diagnosis. */
+  needles: readonly string[];
+  type: string;
+  source: string;
+  code: string;
+  /** Report the HTTP status (when known) instead of `code`. */
+  preferStatus: boolean;
+};
+
+/** Substring heuristics, in precedence order, applied after every status-driven branch. */
+const MESSAGE_HEURISTICS: readonly MessageHeuristic[] = [
+  {
+    needles: ["token expired", "expired"],
+    type: "token_expired",
+    source: "oauth",
+    code: "token_expired",
+    preferStatus: false,
+  },
+  {
+    needles: [
+      "invalid api key",
+      "token invalid",
+      "revoked",
+      "access denied",
+      "unauthorized",
+      "forbidden",
+    ],
+    type: "upstream_auth_error",
+    source: "upstream",
+    code: "auth_failed",
+    preferStatus: true,
+  },
+  {
+    needles: ["rate limit", "quota", "too many requests"],
+    type: "upstream_rate_limited",
+    source: "upstream",
+    code: "rate_limited",
+    preferStatus: true,
+  },
+  {
+    needles: ["fetch failed", "network", "timeout", "timed out", "econn", "enotfound", "socket"],
+    type: "network_error",
+    source: "upstream",
+    code: "network_error",
+    preferStatus: false,
+  },
+];
+
+function classifyByMessageHeuristics(
+  normalized: string,
+  message: string,
+  numericStatus: number | null
+) {
+  const match = MESSAGE_HEURISTICS.find((heuristic) =>
+    heuristic.needles.some((needle) => normalized.includes(needle))
+  );
+  if (!match) {
+    return makeDiagnosis(
+      "upstream_error",
+      "upstream",
+      message,
+      statusCodeOr(numericStatus, "upstream_error")
+    );
+  }
+  const code = match.preferStatus ? statusCodeOr(numericStatus, match.code) : match.code;
+  return makeDiagnosis(match.type, match.source, message, code);
+}
+
+/** Status-driven diagnoses first (401/403, 429, 5xx), then the message heuristics. */
+function classifyUpstreamFailure(
+  provider: string | undefined,
+  normalized: string,
+  message: string,
+  numericStatus: number | null
+) {
+  if (numericStatus === 401 || numericStatus === 403) {
+    return classifyAmbiguousOrAuthError(provider, normalized, message, numericStatus);
+  }
+
+  if (numericStatus === 429) {
+    return makeDiagnosis("upstream_rate_limited", "upstream", message, "429");
+  }
+
+  if (numericStatus && numericStatus >= 500) {
+    return makeDiagnosis("upstream_unavailable", "upstream", message, String(numericStatus));
+  }
+
+  return classifyByMessageHeuristics(normalized, message, numericStatus);
+}
+
 export function classifyFailure({
   error,
   statusCode = null,
@@ -69,10 +176,7 @@ export function classifyFailure({
   }
 
   if (typeof code === "string" && TRANSPORT_FAILURE_CODES.has(code)) {
-    const params: TransportFailureDiagnosisParams = {
-      host: typeof host === "string" && host.trim() ? toSafeMessage(host, "") || null : null,
-      timeoutMs: typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : null,
-    };
+    const params = toTransportFailureParams(host, timeoutMs);
     return { ...makeDiagnosis("network_error", "upstream", message, code), params };
   }
 
@@ -82,74 +186,12 @@ export function classifyFailure({
 
   // #1444: a deactivated account is distinct from a revoked/expired token — surface it
   // as account_deactivated (which the dashboard renders as "Account Deactivated") before
-  // the generic 401/403 branch below would mark it "upstream_auth_error".
+  // the generic 401/403 branch would mark it "upstream_auth_error".
   if (isAccountDeactivatedMessage(normalized)) {
     return makeDiagnosis("account_deactivated", "account", message, "account_deactivated");
   }
 
-  if (numericStatus === 401 || numericStatus === 403) {
-    return classifyAmbiguousOrAuthError(provider, normalized, message, numericStatus);
-  }
-
-  if (numericStatus === 429) {
-    return makeDiagnosis("upstream_rate_limited", "upstream", message, "429");
-  }
-
-  if (numericStatus && numericStatus >= 500) {
-    return makeDiagnosis("upstream_unavailable", "upstream", message, String(numericStatus));
-  }
-
-  if (normalized.includes("token expired") || normalized.includes("expired")) {
-    return makeDiagnosis("token_expired", "oauth", message, "token_expired");
-  }
-
-  if (
-    normalized.includes("invalid api key") ||
-    normalized.includes("token invalid") ||
-    normalized.includes("revoked") ||
-    normalized.includes("access denied") ||
-    normalized.includes("unauthorized") ||
-    normalized.includes("forbidden")
-  ) {
-    return makeDiagnosis(
-      "upstream_auth_error",
-      "upstream",
-      message,
-      numericStatus ? String(numericStatus) : "auth_failed"
-    );
-  }
-
-  if (
-    normalized.includes("rate limit") ||
-    normalized.includes("quota") ||
-    normalized.includes("too many requests")
-  ) {
-    return makeDiagnosis(
-      "upstream_rate_limited",
-      "upstream",
-      message,
-      numericStatus ? String(numericStatus) : "rate_limited"
-    );
-  }
-
-  if (
-    normalized.includes("fetch failed") ||
-    normalized.includes("network") ||
-    normalized.includes("timeout") ||
-    normalized.includes("timed out") ||
-    normalized.includes("econn") ||
-    normalized.includes("enotfound") ||
-    normalized.includes("socket")
-  ) {
-    return makeDiagnosis("network_error", "upstream", message, "network_error");
-  }
-
-  return makeDiagnosis(
-    "upstream_error",
-    "upstream",
-    message,
-    numericStatus ? String(numericStatus) : "upstream_error"
-  );
+  return classifyUpstreamFailure(provider, normalized, message, numericStatus);
 }
 
 /** Allowlist the CLI health fields safe to expose outside the local runtime boundary. */

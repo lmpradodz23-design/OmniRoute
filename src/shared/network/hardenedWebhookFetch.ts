@@ -21,6 +21,7 @@ import dnsp from "node:dns/promises";
 
 import { Agent, fetch as undiciFetch } from "undici";
 
+import { isRedirectStatus, rejectBlockedRedirect } from "./blockedRedirect";
 import {
   CLOUD_METADATA_BLOCKED_MESSAGE,
   OutboundUrlGuardError,
@@ -62,7 +63,9 @@ export function pinnedLookup(pinned: ResolvedAddress) {
   return (_hostname: string, options: unknown, callback: unknown) => {
     const cb = callback as PinnedLookupCallback;
     const wantsAll =
-      typeof options === "object" && options !== null && (options as { all?: boolean }).all === true;
+      typeof options === "object" &&
+      options !== null &&
+      (options as { all?: boolean }).all === true;
     if (wantsAll) {
       cb(null, [{ address: pinned.address, family: pinned.family }]);
     } else {
@@ -179,6 +182,30 @@ export interface HardenedWebhookFetchResult {
   isPrivateTarget: boolean;
 }
 
+type UndiciResponse = Awaited<ReturnType<typeof undiciFetch>>;
+
+/**
+ * Body policy of the diagnostic response: withheld (cancelled unread) under the webhook-test
+ * contract for a private target, otherwise read and truncated to `maxBodyBytes`.
+ */
+async function readDiagnosticBody(
+  res: UndiciResponse,
+  withhold: boolean,
+  maxBodyBytes: number
+): Promise<string> {
+  if (withhold) {
+    // Connectivity diagnostics only — never the body of an internal service.
+    try {
+      await res.body?.cancel();
+    } catch {
+      /* ignore */
+    }
+    return "";
+  }
+  const bodyText = await res.text();
+  return bodyText.length > maxBodyBytes ? bodyText.slice(0, maxBodyBytes) + "…" : bodyText;
+}
+
 /**
  * Perform the hardened request: resolve+validate, pin the ip, block redirects, and withhold the
  * body of a private target. Throws `OutboundUrlGuardError` when the target (or a redirect hop) is
@@ -225,36 +252,15 @@ export async function hardenedWebhookFetch(
       dispatcher: agent,
     });
 
-    if (res.status >= 300 && res.status < 400) {
-      // Never follow a redirect: the hop could point at an internal service the initial
-      // validation never saw. Surface a blocked diagnostic and read no body.
-      try {
-        await res.body?.cancel();
-      } catch {
-        /* ignore */
-      }
-      throw new OutboundUrlGuardError(
-        `Redirect blocked for ${method} ${target.url.toString()} (${res.status})`,
-        {
-          code: "OUTBOUND_URL_GUARD_BLOCKED",
-          url: target.url.toString(),
-          hostname: normalizeHost(target.url.hostname),
-        }
-      );
-    }
+    // Never follow a redirect: the hop could point at an internal service the initial
+    // validation never saw. Surface a blocked diagnostic and read no body.
+    if (isRedirectStatus(res.status)) await rejectBlockedRedirect(res, method, target.url);
 
-    let bodyText = "";
-    if (target.isPrivateTarget && withholdPrivateBody) {
-      // Connectivity diagnostics only — never the body of an internal service.
-      try {
-        await res.body?.cancel();
-      } catch {
-        /* ignore */
-      }
-    } else {
-      bodyText = await res.text();
-      if (bodyText.length > maxBodyBytes) bodyText = bodyText.slice(0, maxBodyBytes) + "…";
-    }
+    const bodyText = await readDiagnosticBody(
+      res,
+      target.isPrivateTarget && withholdPrivateBody,
+      maxBodyBytes
+    );
 
     return { status: res.status, ok: res.ok, bodyText, isPrivateTarget: target.isPrivateTarget };
   } finally {

@@ -59,6 +59,63 @@ interface RedactState {
   seen: WeakSet<object>;
 }
 
+/** Redact an Error's message and stack; the original instance when nothing changed. */
+function redactError(value: Error): Error {
+  const message = redactSecrets(value.message || "");
+  const stack = redactSecrets(value.stack || "");
+  // Untouched error → keep the original instance so pino's err serializer still runs.
+  if (message === (value.message || "") && stack === (value.stack || "")) return value;
+  // Return a redacted CLONE (not the original — it may be used elsewhere) that is still
+  // a real Error, so pino's err serializer produces the usual {type, message, stack}.
+  const cloned = new Error(message);
+  cloned.name = value.name;
+  cloned.stack = stack;
+  return cloned;
+}
+
+/** Redact every item; the original array when nothing changed. */
+function redactArray(value: unknown[], depth: number, state: RedactState): unknown[] {
+  let changed = false;
+  const out = value.map((item) => {
+    const redacted = redactValue(item, depth + 1, state);
+    if (redacted !== item) changed = true;
+    return redacted;
+  });
+  return changed ? out : value;
+}
+
+/**
+ * A credential-bearing key (`SENSITIVE_KEY`) censors its whole non-empty string value; every
+ * other property is redacted by content.
+ */
+function redactProperty(
+  key: string,
+  original: unknown,
+  depth: number,
+  state: RedactState
+): unknown {
+  return typeof original === "string" && original.length > 0 && SENSITIVE_KEY.test(key)
+    ? CENSOR
+    : redactValue(original, depth + 1, state);
+}
+
+/** Redact every own property; the original object when nothing changed. */
+function redactObject(
+  value: Record<string, unknown>,
+  depth: number,
+  state: RedactState
+): Record<string, unknown> {
+  let changed = false;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(value)) {
+    const original = value[key];
+    const redacted = redactProperty(key, original, depth, state);
+    if (redacted !== original) changed = true;
+    out[key] = redacted;
+  }
+  return changed ? out : value;
+}
+
 function redactValue(value: unknown, depth: number, state: RedactState): unknown {
   if (state.budget <= 0 || depth > MAX_DEPTH) return value;
   state.budget -= 1;
@@ -68,41 +125,9 @@ function redactValue(value: unknown, depth: number, state: RedactState): unknown
   if (state.seen.has(value)) return value; // circular guard
   state.seen.add(value);
 
-  if (value instanceof Error) {
-    const message = redactSecrets(value.message || "");
-    const stack = redactSecrets(value.stack || "");
-    // Untouched error → keep the original instance so pino's err serializer still runs.
-    if (message === (value.message || "") && stack === (value.stack || "")) return value;
-    // Return a redacted CLONE (not the original — it may be used elsewhere) that is still
-    // a real Error, so pino's err serializer produces the usual {type, message, stack}.
-    const cloned = new Error(message);
-    cloned.name = value.name;
-    cloned.stack = stack;
-    return cloned;
-  }
-
-  if (Array.isArray(value)) {
-    let changed = false;
-    const out = value.map((item) => {
-      const redacted = redactValue(item, depth + 1, state);
-      if (redacted !== item) changed = true;
-      return redacted;
-    });
-    return changed ? out : value;
-  }
-
-  let changed = false;
-  const out: Record<string, unknown> = {};
-  for (const key of Object.keys(value as Record<string, unknown>)) {
-    const original = (value as Record<string, unknown>)[key];
-    const redacted =
-      typeof original === "string" && original.length > 0 && SENSITIVE_KEY.test(key)
-        ? CENSOR
-        : redactValue(original, depth + 1, state);
-    if (redacted !== original) changed = true;
-    out[key] = redacted;
-  }
-  return changed ? out : value;
+  if (value instanceof Error) return redactError(value);
+  if (Array.isArray(value)) return redactArray(value, depth, state);
+  return redactObject(value as Record<string, unknown>, depth, state);
 }
 
 /**
