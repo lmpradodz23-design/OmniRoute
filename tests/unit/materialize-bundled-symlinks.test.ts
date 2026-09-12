@@ -266,8 +266,10 @@ test("materializeBundledSymlinks drops a nested link whose absolute target is go
     const binDir = join(nm, "global-agent", "node_modules", ".bin");
     mkdirSync(binDir, { recursive: true });
     writeFileSync(join(binDir, "keep.txt"), "not a link");
+    // An absolute target that cannot exist on any machine. A path like /home/runner/work/...
+    // is real on the GitHub runner itself, where the link would be live, not dangling.
     symlinkSync(
-      "/home/runner/work/OmniRoute/OmniRoute/node_modules/global-agent/node_modules/semver/bin/semver.js",
+      join(root, "build-machine", "semver", "bin", "semver.js"),
       join(binDir, "semver"),
       "file"
     );
