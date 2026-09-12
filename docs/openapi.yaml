@@ -9596,14 +9596,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/keys/{id}/reveal:
-    get:
-      tags:
-        - Keys
-      summary: "GET keys › <id> › reveal"
-      responses:
-        "200":
-          description: OK
   /api/keys/{id}/usage-limits:
     get:
       tags:
