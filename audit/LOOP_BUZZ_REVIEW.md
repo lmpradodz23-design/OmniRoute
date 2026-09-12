@@ -109,3 +109,100 @@ Ordem de correção:
 9. L1–L7.
 
 **NÃO VERIFICADO:** gates `dead-code`, `licenses`, `type-coverage`, `duplication`, `forgotten-sibling-tests` (ferramenta ausente/EINVAL neste checkout Windows); comportamento contra um `buzz-relay` real (nenhum teste de integração existe); `check:env-doc-sync` em Linux (inferido pelo código do gate, não executado).
+
+## 2. Auditor B — Security / DevSecOps (relatório integral)
+
+Confirmado: o lado Loop commitado no HEAD `4b70d75ec` é byte a byte o que auditei (`git diff 8ffc8a6dc HEAD -- <loop>` vazio); as 10 modificações no working tree do Loop são do outro agente e **não fazem parte desta auditoria**. O lado Buzz no working tree só difere no refactor de `useEffect` de `buzz/page.tsx` (commit `6986295c0`, já revisto — sem impacto de segurança). Segue o relatório final.
+
+---
+
+## Relatório final — Auditor B (Security / DevSecOps) — Loop Engine + Buzz Hub
+
+**Base auditada:** `R = C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`, branch `feat/loop-buzz-on-v3851`, escopo Loop pelo conteúdo commitado (`git show HEAD:…`, HEAD `4b70d75ec`, idêntico a `8ffc8a6dc`) e Buzz pelo working tree. Linhas citadas referem-se ao conteúdo commitado. Somente leitura: nada editado/commitado por mim.
+
+**Efeitos colaterais divulgados:** `check-route-guard-membership.ts` abriu o DB real `C:\Users\zodyp\.omniroute\storage.sqlite` e rodou o migration runner (aditivo/idempotente); `audit-dashboard-pages.mjs` gravou `R/scripts/i18n/_audit.json` (gitignored).
+
+**Verificações executadas (output real):** 7 testes novos **36/36 pass**; ESLint escopo **0 erros**; `tsc -p open-sse/tsconfig.json` **0 erros**; `tsc -p tsconfig.typecheck-api.json` 289 pré-existentes, **0 no escopo**; `check-route-validation` PASS (contornado — H2); `check-error-helper`, `check-db-rules`, `check-migration-numbering`, `check-fetch-targets`, `check-openapi-routes`, `check-deps` OK; `lockfile-lint` direto OK. PoCs (a)–(e) executados a partir do scratchpad, sem tocar no repo.
+
+### HIGH
+
+**H1 — Chave secreta Nostr em texto puro em `key_value`, fora da criptografia em repouso e da auditoria**
+
+- Evidência: `R/src/lib/buzzService.ts:24-35` grava `generateSecretKey()` cru em `('buzz','agent_sk')`; sem `encryptSensitive` (`R/src/lib/db/encryption.ts:281`); `R/src/lib/db/storageEncryptionAudit.ts:34` só cobre `namespace='secrets'`. PoC: `row.value === sk → true | looksEncrypted → false`.
+- Causa: namespace novo sem seguir a convenção (`webhooks.ts:105`).
+- Impacto: backup/export do DB vaza a identidade do agente → impersonation no relay (assinatura + NIP-42). Viola CLAUDE.md §6.
+- Correção: `encryptSensitive` na escrita, `decrypt` na leitura; incluir `key_value where namespace='buzz'` em `SENSITIVE_COLUMNS`.
+- Teste: com `STORAGE_ENCRYPTION_KEY`, `looksEncrypted(row.value)` e chave estável entre chamadas.
+
+**H2 — Gate T06 contornado; 4 rotas mutáveis sem schema → budget anulável e entradas sem limite**
+
+- Evidência: `R/scripts/check/check-route-validation.mjs:9` regex `request\.json\(`; rotas usam `req.json()` (`R/src/app/api/loop/route.ts:50`, `[id]/advance/route.ts:22`, `[id]/approve/route.ts:23`, `R/src/app/api/buzz/route.ts:30`). PoC: regex casa `req.json(` = false. `budget` sem validação → `createLoopRun` spread (`R/open-sse/loop-engine/index.ts:37`); PoC: `maxTokens:"abc"` + 999.999.999 tokens → `report_only`, `checkBudget.ok=true` (`budget.ts:34`, NaN). `pattern/taskId/correlationId` sem limite, persistidos (`loopEngine.ts:55`) e copiados ao outbox (`buzzProducer.ts:39`).
+- Impacto: "estourou → aborta" anulável por token `write`; DoS de disco; gate reporta PASS falso.
+- Correção: zod + `validateBody()` nas 4 rotas (budget inteiro positivo com teto; `pattern ≤128` `[A-Za-z0-9._-]`; ids ≤64); regex do gate `\b\w+\.json\s*\(`.
+- Teste: gate com fixture `req.json(`; POST `/api/loop` com `budget.maxTokens:"abc"` → 400.
+
+**H3 — `approveStep` ignora o Policy Gate; kinds AUTONOMY_DENIED viram "approved" e o gate nunca roda**
+
+- Evidência: `R/src/lib/loopRunner.ts:80-90` não exige `awaiting_approval`, nem `step.status==="proposed"`, nem re-avalia `decideEffect`; `stateMachine.ts:60` só avalia `proposed`. PoC: step `delete` pré-aprovado → `approved`, run atravessa `execute` (`note "-> checkpoint"`); idem `purchase`.
+- Impacto: invariante "código decide" (`policyGate.ts:13-28`) falso no estado persistido; qualquer executor futuro que confie em `approved` executa efeito negado. Mitigação: nada executa hoje.
+- Correção: exigir `awaiting_approval` + `proposed` e `decideEffect(effect,{reportOnly:false}).outcome!=="deny"`; senão 409.
+- Teste: aprovar `delete`/`purchase` → erro; aprovar sem `awaiting_approval` → erro.
+
+### MEDIUM
+
+**M1 — Aprovar/trocar relay/flush exigem só escopo `write`; sem linha na matriz de autz** — `R/src/server/authz/accessScopes.ts:52-62` (prefixos ausentes; o próprio arquivo pede adição para rotas sensíveis); zero ocorrências de loop/buzz em `src/server/authz` e `tests/unit/authz`. Fallback MANAGEMENT ok (`classify.ts:111-126`); `requireManagementAuth` nos 6 handlers; key de cliente sem `manage` → 403 (`requireManagementAuth.ts:141-156`). Correção: `/api/loop`, `/api/buzz` em `ADMIN_MUTATION_PREFIXES` + linha em `route-origin-auth-matrix.test.ts`. Teste: `inferRequiredScope("POST","/api/loop/x/approve")==="admin"`.
+
+**M2 — URL do relay sem guarda de rede** — `R/src/app/api/buzz/route.ts:36` só `/^wss?:\/\//`; `wsAdapter.ts:49` conecta a qualquer host. PoC: aceitos `ws://user:pass@10.0.0.5`, `ws://169.254.169.254/`, `wss://attacker.example`. Guardas existentes não reutilizadas (`outboundUrlGuard.ts:74`, `privateHost.ts:113`; `parseOutboundUrl:95` só http/https). Com M1: token `write` redireciona o relay e o flush envia outbox + AUTH assinado. Correção: `new URL`, rejeitar creds embutidas, bloquear metadata sempre, privado salvo loopback/política, `wss://` fora de loopback. Teste: cada URL acima → 400; `ws://localhost:3000` → 200.
+
+**M3 — Adapter WS sem `maxPayload`, validação de shape, backpressure, reconexão ou deadline** — `wsAdapter.ts:49` (default 100 MiB, `node_modules/ws/lib/websocket.js:675`); `:107-111` só verifica assinatura; `buzzConsumer.ts:40` persiste sem cap; sem `close` handler; flush 50×8 s sem deadline (`flush/route.ts`). **NÃO VERIFICADO dinamicamente** (sem relay). Correção: `maxPayload:1<<20`, `perMessageDeflate:false`, validar kind/content ≤64 KiB/tags, deadline total. Teste: servidor `ws` local com 2 MiB → descartado.
+
+**M4 — `err.message` bruto ao cliente e status errado** — `advance/route.ts:29-32`, `approve/route.ts:34-37` (qualquer erro vira 404), `flush/route.ts:26-29` (erros do `ws` com hostname/DNS); nada via `createErrorResponse` (`errorResponse.ts:12`). Correção: erros tipados, mensagem genérica no flush, detalhe só em log redigido. Teste: relay inalcançável → body sem hostname.
+
+**M5 — Budget de tempo é "honor system"** — `stateMachine.ts:49` soma só o `consumed` do chamador; só `attempts` é auto-imposto (`:83`); `maxWallClockMs` nunca medido. Correção: medir a partir de `created_at` (coluna já existe). Teste: `maxWallClockMs=1` + `created_at` passado → `aborted` sem `consumed`.
+
+**M6 — i18n: 6 chaves inexistentes e páginas hard
+
+C:\Users\zodyp\Downloads\Nova pasta>oded** — `featureFlagDefinitions.ts:663,675`, `sidebarVisibility/sections.ts` (`loopEngine`, `loopEngineSubtitle`, `buzzHub`, `buzzHubSubtitle`): 0 ocorrências em `src/i18n/messages/*.json`; `audit-dashboard-pages.mjs`: ambas as páginas `t() calls=0`, strings pt-BR hardcoded. Correção: chaves em `en.json` + `useTranslations`; teste espelhando `tests/unit/settings-i18n-keys.test.ts` / `gamification-admin-sidebar-i18n.test.ts`. (`i18n:check` FAIL é em `docs/security/*.md [pl]`, não atribuível ao branch.)
+
+### LOW
+
+- **L1** Tenant: PK global `buzz_outbox.id`/`buzz_inbox.event_id` (`175_….sql:43,57`); `enqueueOutbox` relê sem tenant (`buzzBridge.ts:60-62`); `markOutbox` sem tenant (`:94-100`); `saveLoopRun ON CONFLICT(id)` sem tenant (`loopEngine.ts:57`); rotas sempre `DEFAULT_TENANT`. Teórico hoje.
+- **L2** `GET /api/buzz` (flag OFF) gera e persiste a chave secreta como efeito colateral de leitura (`buzzService.ts:93`).
+- **L3** `BUZZ_RELAY_URL` não documentada (0 ocorrências em `.env.example`/docs); default `ws://localhost:3000` colide com porta usual do Next dev.
+- **L4** 6 rotas novas ausentes de `docs/openapi.yaml` (gate passa com threshold 30%).
+- **L5** Painel: "Aprovar" e "Salvar relay" sem confirmação; `relayUrl` (possivelmente com creds, M2) exibido e retornado no status.
+
+### IMPROVEMENT
+
+- **I1** `startBuzzInboxSubscription` sem callers em `src/` — consumidor não integrado (bom para fail-closed no boot; pendência funcional).
+- **I2** Considerar `approve`, `PUT /api/buzz`, `flush` em `ALWAYS_PROTECTED_API_PATHS` (`routeGuard.ts:128`) sob `requireLogin=false`.
+- **I3** `approveStep` sem audit trail de quem aprovou.
+
+### FALSE_POSITIVE / VERIFICADO OK
+
+- XSS via Buzz: inbox nunca renderizado; React escapa; sem `dangerouslySetInnerHTML`.
+- Boot com flag OFF: nada inicia; flush → `skipped`; `resolveBuzzAdapter` → `Disabled` (`index.ts:32`); rotas Loop → 404. Defaults `"false"` (`featureFlagDefinitions.ts:666,678`).
+- IDOR por id: `getLoopRun` filtra tenant (`loopEngine.ts:93-97`) com teste; não explorável hoje.
+- Supply chain: `@noble/*` 2.4.0 pinados, sha512, `registry.npmjs.org` (`package-lock.json:6942-6960`), allowlisted (`74927a4b3`); `lockfile-lint` OK. **NÃO VERIFICADO:** `check-licenses` (binário ausente).
+- Migração 175: aditiva, `IF NOT EXISTS`, `tenant_id` + índices, não destrutiva; outbox idempotente por PK real.
+- Segredo não aparece em logs/erros/respostas (só `agentPubkey`) — mas ver H1.
+- Gates `check-lockfile`/`check-*-typecheck` falham por `spawnSync npx.cmd EINVAL` (Node 24/Windows — ambiente); `check-openapi-security-tiers`/`check-file-size` falham em arquivos fora do diff (pré-existente).
+
+---
+
+### Veredito: **REPROVADO** (para publicação neste estado)
+
+Flags OFF e report-only contêm o raio de dano, mas H1 viola regra inegociável de segredos, H2 anula o budget e contorna um gate do repo, e H3 quebra o invariante "código decide". Ordem de correção antes de publicar:
+
+1. **H1** — criptografar `agent_sk` em repouso + auditoria de armazenamento.
+2. **H3** — `approveStep` respeitar estado + `decideEffect`.
+3. **H2** — schemas zod nas 4 rotas + corrigir regex do gate T06.
+4. **M2** — guarda de rede na URL do relay.
+5. **M1** — prefixos em `ADMIN_MUTATION_PREFIXES` + linha na matriz.
+6. **M4** — sanitizar erros.
+7. **M3** — `maxPayload`, shape do evento, deadline do flush.
+8. **M5** — wall-clock medido pelo motor.
+9. **M6** — chaves i18n + `useTranslations`.
+10. L1–L5, I1–I3 em follow-up.
+
+**Nota:** as edições em andamento no working tree do Loop (10 arquivos, outro agente) podem já endereçar H2/H3/M4/M5 — precisam de re-auditoria após commit; este relatório não as cobre.
