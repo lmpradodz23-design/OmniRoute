@@ -19,6 +19,35 @@ import { deriveLiveWsPath, resolveLiveWsUrl, sanitizeLiveWsPort } from "@/shared
 
 const WS_RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 
+/** Close code the live server uses after `{ type: "error", code: "FORBIDDEN_ORIGIN" }`. */
+export const LIVE_WS_CLOSE_FORBIDDEN_ORIGIN = 4003;
+const SERVER_ERROR_FORBIDDEN_ORIGIN = "FORBIDDEN_ORIGIN";
+
+/**
+ * Whether the client should schedule another connection attempt after a close.
+ *
+ * A refused Origin (close 4003 / FORBIDDEN_ORIGIN frame) is a policy decision
+ * by the server, not a transient fault: retrying cannot succeed until the
+ * server or its configuration changes. Final audit C-01 caught a dashboard on
+ * a second instance looping through the back-off ladder for 40 minutes
+ * (345 console errors) against another instance's daemon. Pure so it can be
+ * unit-tested without a socket.
+ */
+export function shouldReconnectAfterClose({
+  autoReconnect,
+  closeCode,
+  lastServerErrorCode,
+}: {
+  autoReconnect: boolean;
+  closeCode: number | undefined;
+  lastServerErrorCode?: string | null;
+}): boolean {
+  if (!autoReconnect) return false;
+  if (closeCode === LIVE_WS_CLOSE_FORBIDDEN_ORIGIN) return false;
+  if (lastServerErrorCode === SERVER_ERROR_FORBIDDEN_ORIGIN) return false;
+  return true;
+}
+
 // Must stay <= the server's HEARTBEAT_TIMEOUT_MS (35s in src/server/ws/liveServer.ts) so a
 // healthy, connected-but-idle client is never force-terminated by the server's heartbeat sweep.
 // Matches the server's own HEARTBEAT_INTERVAL_MS (15s).
@@ -63,12 +92,17 @@ export interface DashboardConnectionState {
   isConnecting: boolean;
   error: string | null;
   reconnectAttempt: number;
+  /**
+   * The server refused this page's Origin (FORBIDDEN_ORIGIN / 4003): the
+   * client has stopped reconnecting; only an explicit `reconnect()` retries.
+   */
+  unavailable: boolean;
 }
 
 // ── Core Hook ─────────────────────────────────────────────────────────────
 
 export interface UseLiveDashboardOptions {
-  /** WebSocket URL (default: ws://hostname:20132) */
+  /** WebSocket URL (default: the port announced by /api/v1/ws?handshake=1 on the page's host) */
   wsUrl?: string;
   /** Whether the WebSocket connection should be active (default: true) */
   enabled?: boolean;
@@ -99,6 +133,7 @@ export function useLiveDashboard({
     isConnecting: false,
     error: null,
     reconnectAttempt: 0,
+    unavailable: false,
   });
 
   // Runtime discovery of the public WS URL via the handshake endpoint.
@@ -193,6 +228,9 @@ export function useLiveDashboard({
 
       const ws = new WebSocket(wsUrlWithAuth);
       wsRef.current = ws;
+      // Last `{ type: "error" }` frame the server sent on this socket; the
+      // close handler uses it to tell a policy refusal from a transient drop.
+      let lastServerErrorCode: string | null = null;
 
       ws.onopen = () => {
         if (!mountedRef.current) return;
@@ -201,6 +239,7 @@ export function useLiveDashboard({
           isConnecting: false,
           error: null,
           reconnectAttempt: 0,
+          unavailable: false,
         });
 
         // Subscribe to channels
@@ -254,6 +293,7 @@ export function useLiveDashboard({
               }
             }
           } else if (msg.type === "error") {
+            lastServerErrorCode = typeof msg.code === "string" ? msg.code : null;
             console.error("[LiveWS] Server error:", msg.code, msg.message);
           }
         } catch {
@@ -261,17 +301,30 @@ export function useLiveDashboard({
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (closeEvent) => {
         stopPingHeartbeat();
         if (!mountedRef.current) return;
         wsRef.current = null;
+        const closeCode = closeEvent?.code;
+        const reconnectAllowed = shouldReconnectAfterClose({
+          autoReconnect,
+          closeCode,
+          lastServerErrorCode,
+        });
+        const refusedOrigin =
+          closeCode === LIVE_WS_CLOSE_FORBIDDEN_ORIGIN ||
+          lastServerErrorCode === SERVER_ERROR_FORBIDDEN_ORIGIN;
         setConnection((prev) => ({
           ...prev,
           isConnected: false,
           isConnecting: false,
+          unavailable: refusedOrigin,
+          error: refusedOrigin
+            ? "Live server refused this page's origin (FORBIDDEN_ORIGIN); not retrying"
+            : prev.error,
         }));
 
-        if (autoReconnect) {
+        if (reconnectAllowed) {
           const attempt = connection.reconnectAttempt;
           const delay = WS_RECONNECT_DELAYS[Math.min(attempt, WS_RECONNECT_DELAYS.length - 1)];
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -323,6 +376,7 @@ export function useLiveDashboard({
         isConnecting: false,
         error: null,
         reconnectAttempt: 0,
+        unavailable: false,
       });
       return;
     }
@@ -347,6 +401,7 @@ export function useLiveDashboard({
     wsRef.current?.close();
     setConnection((prev) => ({
       ...prev,
+      unavailable: false,
       reconnectAttempt: prev.reconnectAttempt + 1,
     }));
   }, []);

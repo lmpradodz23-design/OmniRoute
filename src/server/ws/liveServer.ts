@@ -43,10 +43,16 @@ import {
   buildAllowedHosts,
   isOriginAllowed as isOriginAllowedPure,
 } from "./liveServerAllowList";
+import { getRuntimePorts } from "@/lib/runtime/ports";
 
 // ── Config ────────────────────────────────────────────────────────────────
 
 const DEFAULT_PORT = 20132;
+/** Compiled-in default port of the live dashboard WebSocket daemon. */
+export const LIVE_WS_DEFAULT_PORT = DEFAULT_PORT;
+// The HTTP base port the defaults are relative to (20128 → live WS 20132).
+const DEFAULT_BASE_PORT = 20128;
+const LIVE_WS_PORT_OFFSET = DEFAULT_PORT - DEFAULT_BASE_PORT;
 // Loopback by default. Opt-in to LAN exposure via LIVE_WS_HOST=0.0.0.0 — the
 // caller is then responsible for fronting it with a TLS terminator + origin
 // allow-list. Mirrors the route guard "local-only by default" posture.
@@ -647,10 +653,87 @@ export function isLiveWsEnabled(): boolean {
   return v === "1" || v.toLowerCase() === "true";
 }
 
+export interface LiveWsPortPlan {
+  /** True when the operator pinned the port with LIVE_WS_PORT (no fallback). */
+  explicit: boolean;
+  /** Ports to try, in order. */
+  candidates: number[];
+}
+
+/**
+ * Which port(s) the auto-started daemon should try to bind.
+ *
+ * - `LIVE_WS_PORT` set → exactly that port, never anything else.
+ * - Otherwise the compiled-in default first, and — when this instance runs on
+ *   a non-default HTTP port — a deterministic fallback derived from that port
+ *   (same +4 offset the defaults use: 20128 → 20132). Final audit C-01: a
+ *   second instance started with `PORT=20413` next to the operator's default
+ *   instance lost the 20132 bind (EADDRINUSE, non-fatal since #6324) and its
+ *   dashboard then dialled the FIRST instance's daemon, which rightly refused
+ *   the Origin. The fallback gives every instance a daemon of its own without
+ *   an extra variable; being deterministic, a tab that reconnects across a
+ *   server restart keeps dialling the right port.
+ *
+ * The fallback never collides with the instance's own HTTP listeners.
+ */
+export function resolveLiveWsPortPlan(env: NodeJS.ProcessEnv = process.env): LiveWsPortPlan {
+  const explicit = env.LIVE_WS_PORT ? Number.parseInt(env.LIVE_WS_PORT, 10) : Number.NaN;
+  if (Number.isInteger(explicit) && explicit > 0 && explicit < 65536) {
+    return { explicit: true, candidates: [explicit] };
+  }
+
+  const ports = getRuntimePorts(env);
+  const candidates = [DEFAULT_PORT];
+  if (ports.port !== DEFAULT_BASE_PORT) {
+    const listeners = new Set([ports.port, ports.apiPort, ports.dashboardPort, DEFAULT_PORT]);
+    let fallback = ports.port + LIVE_WS_PORT_OFFSET;
+    // Skip past the instance's own listeners (bounded: the listener set is tiny).
+    while (listeners.has(fallback)) fallback += 1;
+    if (fallback < 65536) candidates.push(fallback);
+  }
+  return { explicit: false, candidates };
+}
+
+/**
+ * Auto-start the daemon following `resolveLiveWsPortPlan(env)`.
+ *
+ * Publishes the port that was actually bound as `LIVE_WS_PORT` on `env` when
+ * the operator did not set one: `/api/v1/ws?handshake=1` (what the browser
+ * reads to learn the port) and the in-process event bridge
+ * (`open-sse/handlers/chatCore/telemetryHelpers.ts`) resolve the daemon port
+ * from that variable at call time, so the announced port always matches the
+ * bound one. Only EADDRINUSE moves on to the next candidate; any other bind
+ * failure is surfaced as-is.
+ */
+export async function autoStartLiveDashboardServer(
+  env: NodeJS.ProcessEnv = process.env,
+  start: (port: number, host: string) => Promise<import("http").Server> = startLiveDashboardServer
+): Promise<{ server: import("http").Server; port: number }> {
+  const host = env.LIVE_WS_HOST || DEFAULT_HOST;
+  const plan = resolveLiveWsPortPlan(env);
+  for (let i = 0; i < plan.candidates.length; i++) {
+    const port = plan.candidates[i];
+    try {
+      const server = await start(port, host);
+      if (!plan.explicit) env.LIVE_WS_PORT = String(port);
+      return { server, port };
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException | null)?.code;
+      const hasNext = i + 1 < plan.candidates.length;
+      if (code !== "EADDRINUSE" || !hasNext) throw err;
+      console.warn(
+        "[LiveWS] Port %d is already in use; retrying on %d (derived from this instance's PORT)",
+        port,
+        plan.candidates[i + 1]
+      );
+    }
+  }
+  // Unreachable: the loop either returns or throws on its last candidate.
+  throw new Error("[LiveWS] No port candidate to bind");
+}
+
 if (!isBuildOrTest() && isLiveWsEnabled()) {
-  const port = parseInt(process.env.LIVE_WS_PORT || String(DEFAULT_PORT), 10);
-  const host = process.env.LIVE_WS_HOST || DEFAULT_HOST;
-  startLiveDashboardServer(port, host).catch((err) => {
+  autoStartLiveDashboardServer().catch((err) => {
     console.error("[LiveWS] Failed to start: %s", err instanceof Error ? err.message : String(err));
   });
 }

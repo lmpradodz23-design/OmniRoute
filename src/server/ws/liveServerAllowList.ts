@@ -10,22 +10,54 @@
  * `LIVE_WS_ALLOWED_HOSTS` opt-in for LAN/Tailscale deployments.
  */
 
+import { getRuntimePorts } from "@/lib/runtime/ports";
+
 const DEFAULT_HOST = "127.0.0.1";
 
 /**
- * Default origins allowed to open a WebSocket against the local dashboard.
- * These match the loopback HTTP listener at port 20128.
+ * Loopback hosts a browser can show the dashboard on. The dashboard's WS
+ * Origin is exactly `http://<one of these>:<listener port>`.
+ *
+ * 0.0.0.0 is the "unspecified" address but browsers treat it as loopback when
+ * the user pastes it into the address bar; the dashboard is reachable at
+ * http://0.0.0.0:<port> and its WS Origin is exactly that string. Same
+ * local-only posture as the others — it never refers to a LAN host.
  */
-export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = Object.freeze([
-  "http://127.0.0.1:20128",
-  "http://localhost:20128",
-  "http://[::1]:20128",
-  // 0.0.0.0 is the "unspecified" address but browsers treat it as loopback
-  // when the user pastes it into the address bar; the dashboard is reachable
-  // at http://0.0.0.0:20128 and its WS Origin is exactly that string. Same
-  // local-only posture as the entries above — it never refers to a LAN host.
-  "http://0.0.0.0:20128",
+const LOOPBACK_ORIGIN_HOSTS: readonly string[] = Object.freeze([
+  "127.0.0.1",
+  "localhost",
+  "[::1]",
+  "0.0.0.0",
 ]);
+
+/**
+ * Origins allowed to open a WebSocket against the local dashboard, derived
+ * from the ports this instance actually listens on (`PORT` / `OMNIROUTE_PORT`,
+ * `API_PORT`, `DASHBOARD_PORT` — see `src/lib/runtime/ports.ts`).
+ *
+ * Final audit C-01: the list used to be a compiled-in `…:20128` quartet, so an
+ * instance started on any other port (tray, `PORT=`, Docker) refused its own
+ * dashboard with FORBIDDEN_ORIGIN and the client reconnected forever. Every
+ * configured listener is a page the browser can be on when it opens the live
+ * socket, so each one is an allowed Origin — on loopback hosts only.
+ */
+export function deriveLoopbackOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
+  const ports = getRuntimePorts(env);
+  const uniquePorts = [...new Set([ports.port, ports.apiPort, ports.dashboardPort])];
+  const origins: string[] = [];
+  for (const port of uniquePorts) {
+    for (const host of LOOPBACK_ORIGIN_HOSTS) {
+      origins.push(`http://${host}:${port}`);
+    }
+  }
+  return origins;
+}
+
+/**
+ * The origins allowed when nothing is configured (default port 20128 for
+ * every listener). Kept as a frozen constant because tests and docs pin it.
+ */
+export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = Object.freeze(deriveLoopbackOrigins({}));
 
 /**
  * Parse a comma-separated env value into a set of trimmed, non-empty entries.
@@ -41,11 +73,12 @@ export function parseCsvEnv(value: string | undefined | null): Set<string> {
 }
 
 /**
- * Build the static origin allow-list from defaults + LIVE_WS_ALLOWED_ORIGINS.
+ * Build the static origin allow-list: the loopback origins of this instance's
+ * configured listeners + the explicit LIVE_WS_ALLOWED_ORIGINS extension.
  */
 export function buildAllowedOrigins(env: NodeJS.ProcessEnv = process.env): Set<string> {
   const extra = parseCsvEnv(env.LIVE_WS_ALLOWED_ORIGINS);
-  return new Set([...DEFAULT_ALLOWED_ORIGINS, ...extra]);
+  return new Set([...deriveLoopbackOrigins(env), ...extra]);
 }
 
 /**
