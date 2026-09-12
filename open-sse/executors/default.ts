@@ -63,6 +63,7 @@ import { forwardOpencodeClientHeaders } from "../utils/opencodeHeaders.ts";
 import { resolveZaiUrl } from "./default/zaiFormatOverride.ts";
 import { normalizePoolConfig } from "./default/poolConfig.ts";
 import { acquireNvidiaConcurrencySlot } from "./default/nvidiaConcurrencyGate.ts";
+import { assertKnownProviderBaseUrl } from "./default/unknownProviderGuard.ts";
 import { resolveAlibabaProviderBaseUrl } from "@/shared/constants/alibabaProviderRegions";
 import { usesCcWireImage } from "../services/ccWireImageBuiltins.ts";
 
@@ -463,15 +464,7 @@ export class DefaultExecutor extends BaseExecutor {
           return normalizeOpenAIChatUrl(customBaseUrl);
         }
         const entry = getRegistryEntry(this.provider);
-        // R-17: an id outside every catalog inherits PROVIDERS.openai as `this.config`
-        // (constructor fallback), which used to send that provider's credentials to
-        // api.openai.com. Without a connection-supplied base URL, fail explicitly.
-        if (!PROVIDERS[this.provider] && !entry && !LOCAL_PROVIDERS[this.provider]) {
-          throw new Error(
-            `Unknown provider "${this.provider}": no base URL configured — refusing to fall back ` +
-              `to the OpenAI default endpoint with this provider's credentials`
-          );
-        }
+        assertKnownProviderBaseUrl(this.provider, entry);
         const url = this.config.baseUrl;
         return entry?.urlSuffix ? `${url}${entry.urlSuffix}` : url;
       }

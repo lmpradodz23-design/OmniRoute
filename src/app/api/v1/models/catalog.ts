@@ -77,7 +77,12 @@ import {
   selectCompatibleNodeForPrefix,
 } from "@/lib/providerNodePrefixes";
 import { applyCatalogPostFilters, finalizeCatalogResponse } from "./catalogResponse";
-import { getUnavailableLocalCliProviderKeys } from "./catalogLocalCliAvailability";
+import { blockUnavailableLocalCliProviders } from "./catalogLocalCliGate";
+import {
+  BUILTIN_AUTO_YIELD_INTERVAL,
+  createCatalogBuildYielder,
+  yieldCatalogBuildTurn,
+} from "./catalogBuildYield";
 import {
   isNoAuthProviderBlocked,
   isNoAuthProviderKey,
@@ -167,12 +172,6 @@ export type { CachedCatalog, BackgroundRefreshScheduler } from "./catalogCache";
 export type CatalogResponseOptions = {
   scheduleBackgroundRefresh?: BackgroundRefreshScheduler;
 };
-
-const BUILTIN_AUTO_YIELD_INTERVAL = 2;
-
-function yieldCatalogBuildTurn(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
-}
 
 /**
  * Build unified OpenAI-compatible model catalog response.
@@ -278,18 +277,8 @@ async function buildUnifiedModelsResponseCore(
   corsHeaders: Record<string, string> = {}
 ) {
   const diagnosticHeaders = getCatalogDiagnosticsHeaders({ request });
-  // #9147: this builder walks connections + model registries at catalog scale with no
-  // event-loop yield, so a large deployment pins the single Node.js thread for the
-  // whole build (reporter: 183 connections / 2000+ models → 10.1s stall that blocks the
-  // dashboard WS heartbeat). Yield every `catYIELD_EVERY` items across the hot loops.
-  const catYIELD_EVERY = 5;
-  let catYieldCount = 0;
-  const maybeYieldCatalogBuild = async (): Promise<void> => {
-    catYieldCount++;
-    if (catYieldCount % catYIELD_EVERY === 0) {
-      await yieldCatalogBuildTurn();
-    }
-  };
+  // #9147: yield every 5 items across the hot loops (see catalogBuildYield.ts).
+  const maybeYieldCatalogBuild = createCatalogBuildYielder(5);
   try {
     // #9147: `getModelIsHidden()` is a SQLite read per call (custom row + compat list)
     // and the build consults it ~16× per entry. Bulk-load the hidden-model map once
@@ -482,20 +471,7 @@ async function buildUnifiedModelsResponseCore(
       registerConnectionKey(conn.provider, conn);
     }
 
-    // C-05: local-CLI no-auth providers (auggie, devin-cli-agentic, zcode,
-    // codex-app-server) are zero-config only while the CLI / app-server they
-    // drive exists on this machine; otherwise every row they add fails at
-    // request time. Fold the unavailable ones into the same gate as
-    // settings.blockedProviders so every listing loop below hides them exactly
-    // like an operator-disabled provider. Free/web no-auth providers keep the
-    // documented zero-config listing (#2798). Probe failure fails open.
-    try {
-      for (const key of await getUnavailableLocalCliProviderKeys({ connections })) {
-        blockedProviders.add(key);
-      }
-    } catch (e) {
-      console.log("[catalog] Could not probe local CLI providers:", e);
-    }
+    await blockUnavailableLocalCliProviders(blockedProviders, { connections });
 
     // noAuth providers have no DB rows; settings.blockedProviders disables them.
     for (const p of Object.values(NOAUTH_PROVIDERS)) {

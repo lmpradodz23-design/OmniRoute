@@ -87,11 +87,10 @@ import { compressMcpRegistryMetadata } from "./descriptionCompressor.ts";
 import { reduceToolManifest, readMcpToolProfileFromEnv } from "./toolCardinality.ts";
 import { smartFilterText } from "../services/compression/engines/mcpAccessibility/index.ts";
 import {
-  DEFAULT_MCP_ACCESSIBILITY_CONFIG,
-  clampMcpAccessibilityConfig,
-  type McpAccessibilityConfig,
-} from "../services/compression/engines/mcpAccessibility/constants.ts";
-import { getDbInstance, ensureDbInitialized } from "../../src/lib/db/core.ts";
+  readMcpAccessibilityConfig,
+  readMcpDescriptionCompressionEnabled,
+} from "./descriptionSettings.ts";
+import { ensureDbInitialized } from "../../src/lib/db/core.ts";
 import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { toNumber } from "../../src/shared/utils/numeric.ts";
@@ -128,32 +127,6 @@ const TOTAL_MCP_TOOL_COUNT = countUniqueMcpTools({
 });
 
 type JsonRecord = Record<string, unknown>;
-
-function readMcpDescriptionCompressionEnabled(): boolean {
-  try {
-    const row = getDbInstance()
-      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-      .get("compression", "mcpDescriptionCompressionEnabled") as { value?: string } | undefined;
-    if (!row?.value) return true;
-    return JSON.parse(row.value) !== false;
-  } catch {
-    return true;
-  }
-}
-
-function readMcpAccessibilityConfig(): McpAccessibilityConfig {
-  try {
-    const row = getDbInstance()
-      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-      .get("compression", "mcpAccessibility") as { value?: string } | undefined;
-    if (!row?.value) return { ...DEFAULT_MCP_ACCESSIBILITY_CONFIG };
-    // clampMcpAccessibilityConfig bounds every field (and folds in the non-object guard), so a
-    // persisted out-of-range maxTextChars can't make smartFilterText truncate the whole text.
-    return clampMcpAccessibilityConfig(JSON.parse(row.value));
-  } catch {
-    return { ...DEFAULT_MCP_ACCESSIBILITY_CONFIG };
-  }
-}
 
 function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};

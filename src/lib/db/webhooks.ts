@@ -5,6 +5,7 @@
 
 import { getDbInstance } from "./core";
 import { decrypt, encrypt, isEncryptionEnabled } from "./encryption";
+import { encryptWebhookSecretsAtRest } from "./encryptionAtRest";
 import crypto from "crypto";
 
 export type WebhookKind = "slack" | "telegram" | "discord" | "custom";
@@ -211,26 +212,5 @@ export function disableWebhooksWithHighFailures(threshold = 10): number {
  */
 export function encryptExistingWebhookSecrets(): number {
   if (!isEncryptionEnabled()) return 0;
-  const db = getDbInstance();
-  const rows = db
-    .prepare(
-      "SELECT id, secret FROM webhooks WHERE secret IS NOT NULL AND secret <> '' AND secret NOT LIKE 'enc:v1:%'"
-    )
-    .all() as Array<{ id: string; secret: string }>;
-  if (rows.length === 0) return 0;
-
-  const update = db.prepare("UPDATE webhooks SET secret = ? WHERE id = ?");
-  let migrated = 0;
-  const runAll = db.transaction(() => {
-    for (const row of rows) {
-      const enc = encrypt(row.secret);
-      // Only write back a genuine ciphertext — never re-store plaintext (passthrough) as if migrated.
-      if (typeof enc === "string" && enc.startsWith("enc:v1:")) {
-        update.run(enc, row.id);
-        migrated++;
-      }
-    }
-  });
-  runAll();
-  return migrated;
+  return encryptWebhookSecretsAtRest(getDbInstance());
 }

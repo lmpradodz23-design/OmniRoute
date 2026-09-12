@@ -2,15 +2,16 @@
  * db/apiKeys.js — API key management.
  */
 
-import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { getDbInstance, rowToCamel } from "./core";
 import { backupDbFile } from "./backup";
 import { registerDbStateResetter } from "./stateReset";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
 import { checkKeyModelAccess } from "./apiKeyGroups";
-import { API_KEY_COLUMN_FALLBACKS } from "./apiKeyColumnFallbacks";
-import { decrypt, encrypt, encryptSensitive, isEncryptionEnabled } from "./encryption";
+import { ensureApiKeysColumns, resetApiKeysSchemaCheck } from "./apiKeys/schemaColumns";
+import { hashKey } from "./apiKeys/storageFields";
+import { decrypt, encryptSensitive, isEncryptionEnabled } from "./encryption";
+import { encryptApiKeysAtRest } from "./encryptionAtRest";
 import {
   appendUsageLimitUpdates,
   hasUsageLimitUpdate,
@@ -69,9 +70,6 @@ import type { AccessSchedule, RateLimitRule } from "./apiKeys/types";
 
 // ──────────────── Performance Optimizations ────────────────
 
-// Schema check memoization - only run once
-let _schemaChecked = false;
-
 type JsonRecord = Record<string, unknown>;
 
 interface CacheEntry<TValue> {
@@ -87,6 +85,8 @@ interface CreateApiKeyOptions {
 }
 
 export type { AccessSchedule, RateLimitRule } from "./apiKeys/types";
+export { ensureApiKeysColumns } from "./apiKeys/schemaColumns";
+export { deriveApiKeyStorageFields } from "./apiKeys/storageFields";
 
 interface ApiKeyMetadata {
   id: string;
@@ -400,44 +400,6 @@ async function getPublishedModelLookupTarget(
   return null;
 }
 
-/** The slice of a database handle the schema check needs — satisfied by every adapter. */
-interface ApiKeysSchemaDb {
-  prepare: (sql: string) => { all: (...params: unknown[]) => unknown[] };
-  exec: (sql: string) => void;
-}
-
-function ensureApiKeyColumn(
-  db: ApiKeysSchemaDb,
-  columnNames: Set<string>,
-  column: (typeof API_KEY_COLUMN_FALLBACKS)[number]
-): void {
-  if (columnNames.has(column.name)) return;
-  db.exec(`ALTER TABLE api_keys ADD COLUMN ${column.definition}`);
-  console.log(`[DB] Added api_keys.${column.name} column`);
-}
-
-/**
- * Adds any api_keys column this module relies on that the physical schema still lacks
- * (fallback columns such as key_hash are added lazily here, not by a migration). Callers
- * that write api_keys rows outside this module — the legacy JSON importers — must run it
- * before preparing their INSERT, or a fresh database rejects the key_hash column.
- */
-export function ensureApiKeysColumns(db: ApiKeysSchemaDb) {
-  if (_schemaChecked) return;
-
-  try {
-    const columns = db.prepare("PRAGMA table_info(api_keys)").all() as ApiKeyRow[];
-    const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
-    for (const column of API_KEY_COLUMN_FALLBACKS) {
-      ensureApiKeyColumn(db, columnNames, column);
-    }
-    _schemaChecked = true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn("[DB] Failed to verify api_keys schema:", message);
-  }
-}
-
 let _stmtDb: ApiKeysDbLike | null = null;
 function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
   ensureApiKeysColumns(db);
@@ -677,56 +639,6 @@ export async function getApiKeyById(id: string) {
   return camelRow;
 }
 
-function hashKeySync(key: string): string {
-  if (!key || typeof key !== "string") return "";
-  // CodeQL: This is intentionally SHA-256, NOT password hashing. API keys are
-  // high-entropy random tokens (not user-chosen passwords) and need fast O(1)
-  // comparison for per-request validation. bcrypt/scrypt would add ~100ms per
-  // request, which is unacceptable for an API proxy.
-  // lgtm[js/insufficient-password-hash]
-  return createHash("sha256").update(key).digest("hex"); // nosemgrep: insufficient-password-hash
-}
-
-async function hashKey(key: string): Promise<string> {
-  return hashKeySync(key);
-}
-
-/**
- * Storage columns for an api_keys row written outside createApiKey — the legacy db.json
- * startup migration and the dashboard JSON import. Validation and metadata lookups
- * resolve rows by `key_hash` only, so a row inserted with just `key` is invisible to
- * auth: the imported key authenticates nothing and the dashboard cannot describe it.
- * Same at-rest rule as createApiKey (#7): the plaintext is never stored when encryption
- * is configured. An already-encrypted value (`enc:v1:`, e.g. re-imported from an export
- * of an encrypted database) is decrypted for hashing; if that fails the row keeps the
- * value verbatim and no hash — it cannot authenticate, but the import does not abort.
- */
-export function deriveApiKeyStorageFields(value: unknown): {
-  key: string | null;
-  keyHash: string | null;
-  keyPrefix: string | null;
-} {
-  if (typeof value !== "string" || value.length === 0) {
-    return { key: null, keyHash: null, keyPrefix: null };
-  }
-  let plaintext: string | null | undefined = value;
-  if (value.startsWith("enc:v1:")) {
-    try {
-      plaintext = decrypt(value);
-    } catch {
-      plaintext = null;
-    }
-    // Passthrough mode (no encryption key configured) hands the ciphertext back untouched.
-    if (typeof plaintext === "string" && plaintext.startsWith("enc:v1:")) plaintext = null;
-  }
-  if (!plaintext) return { key: value, keyHash: null, keyPrefix: null };
-  return {
-    key: encryptSensitive(plaintext) ?? plaintext,
-    keyHash: hashKeySync(plaintext),
-    keyPrefix: plaintext.slice(0, 12),
-  };
-}
-
 export async function createApiKey(
   name: string,
   machineId: string,
@@ -808,27 +720,7 @@ export async function createApiKey(
  */
 export function encryptExistingApiKeyPlaintext(): number {
   if (!isEncryptionEnabled()) return 0;
-  const db = getDbInstance();
-  const rows = db
-    .prepare(
-      "SELECT id, key FROM api_keys WHERE key IS NOT NULL AND key <> '' AND key NOT LIKE 'enc:v1:%'"
-    )
-    .all() as Array<{ id: string; key: string }>;
-  if (rows.length === 0) return 0;
-
-  const update = db.prepare("UPDATE api_keys SET key = ? WHERE id = ?");
-  let migrated = 0;
-  const runAll = db.transaction(() => {
-    for (const row of rows) {
-      const enc = encrypt(row.key);
-      if (typeof enc === "string" && enc.startsWith("enc:v1:")) {
-        update.run(enc, row.id);
-        migrated++;
-      }
-    }
-  });
-  runAll();
-  return migrated;
+  return encryptApiKeysAtRest(getDbInstance());
 }
 
 export async function regenerateApiKey(id: string) {
@@ -1698,7 +1590,7 @@ function clearPreparedStatementCache() {
   _stmtGetKeyMetadata = null;
   _stmtInsertKey = null;
   _stmtDeleteKey = null;
-  _schemaChecked = false; // Also reset schema check for new connection
+  resetApiKeysSchemaCheck(); // Also reset schema check for new connection
 }
 
 /**

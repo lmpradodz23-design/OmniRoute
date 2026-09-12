@@ -36,16 +36,11 @@ import {
   type CallLogArtifact,
 } from "../usage/callLogArtifacts";
 import { assertStorageEncryptionConfigured, migrateLegacyEncryptedString } from "./encryption";
-import { encryptExistingWebhookSecrets } from "./webhooks";
-import {
-  deriveApiKeyStorageFields,
-  encryptExistingApiKeyPlaintext,
-  ensureApiKeysColumns,
-} from "./apiKeys";
+import { encryptApiKeysAtRest, encryptWebhookSecretsAtRest } from "./encryptionAtRest";
+import { importLegacyJsonApiKeys } from "./core/legacyJsonApiKeys";
 import { invalidateDbCache } from "./readCache";
 import { rowToCamel } from "./caseMapping";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
-import { parseModelAccessMode } from "./apiKeys/modelAccessMode";
 import { getExistingDbInstance as getDb, setDbInstance as setDb } from "./singleton";
 // Re-exported so existing call sites that pull these helpers off the core module keep working.
 export { toSnakeCase, toCamelCase, objToSnake, rowToCamel, cleanNulls } from "./caseMapping";
@@ -1414,7 +1409,7 @@ export function getDbInstance(): SqliteDatabase {
 
   // #8: encrypt any webhook HMAC secret still stored in plaintext (idempotent; no-op without key).
   try {
-    const encryptedWebhookSecrets = encryptExistingWebhookSecrets();
+    const encryptedWebhookSecrets = encryptWebhookSecretsAtRest(db);
     if (encryptedWebhookSecrets > 0) {
       console.log(`[DB] Encrypted ${encryptedWebhookSecrets} plaintext webhook secret(s) at rest.`);
     }
@@ -1425,7 +1420,7 @@ export function getDbInstance(): SqliteDatabase {
 
   // #7: encrypt any API key still stored in plaintext in the `key` column (idempotent; no-op without key).
   try {
-    const encryptedApiKeys = encryptExistingApiKeyPlaintext();
+    const encryptedApiKeys = encryptApiKeysAtRest(db);
     if (encryptedApiKeys > 0) {
       console.log(`[DB] Encrypted ${encryptedApiKeys} plaintext API key(s) at rest.`);
     }
@@ -1710,29 +1705,7 @@ function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
           updatedAt: normalizedCombo.updatedAt || new Date().toISOString(),
         });
       }
-      // key_hash/key_prefix are how validateApiKey/getApiKeyMetadata find a row — writing
-      // only `key` produced keys that never authenticated after the startup migration.
-      // Both are lazily-added fallback columns: ensure them before preparing the INSERT.
-      ensureApiKeysColumns(db);
-      const insertKey = db.prepare(`
-        INSERT OR REPLACE INTO api_keys (id, name, key, key_hash, key_prefix, machine_id, model_access_mode, allowed_models, no_log, created_at)
-        VALUES (@id, @name, @key, @keyHash, @keyPrefix, @machineId, @modelAccessMode, @allowedModels, @noLog, @createdAt)
-      `);
-      for (const apiKey of data.apiKeys || []) {
-        const storage = deriveApiKeyStorageFields(apiKey.key);
-        insertKey.run({
-          id: apiKey.id,
-          name: apiKey.name,
-          key: storage.key,
-          keyHash: storage.keyHash,
-          keyPrefix: storage.keyPrefix,
-          machineId: apiKey.machineId || null,
-          modelAccessMode: parseModelAccessMode(apiKey.modelAccessMode, apiKey.allowedModels),
-          allowedModels: JSON.stringify(apiKey.allowedModels || []),
-          noLog: apiKey.noLog ? 1 : 0,
-          createdAt: apiKey.createdAt || new Date().toISOString(),
-        });
-      }
+      importLegacyJsonApiKeys(db, data.apiKeys || []);
     });
 
     migrate();
