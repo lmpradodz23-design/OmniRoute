@@ -95,6 +95,34 @@ publicar de verdade no pacote `omniroute`, que pertence ao upstream: `npm view o
 5. Electron: build sem assinatura só para smoke interno; instaladores públicos exigem E-4.
 6. Rollback: `audit/ROLLBACK.md` (npm/Docker/Electron/código-fonte + banco).
 
+### 3.3 v3.8.52 — as quatro ressalvas da v3.8.51 (2026-09-12)
+
+**Por que uma versão nova.** A tag `v3.8.51` foi criada em `1054f199d`, e `lock-released-branch.yml`
+recusa push em `release/v3.8.51` depois da tag (Hard Rule #18). As mesclagens dos PRs #15 e #16
+nesse branch acionaram a trava: o conteúdo ficou, nenhum histórico foi reescrito. `release/v3.8.52`
+foi cortado dessa ponta (`00d83cd74`) e recebeu o restante. A trava passa nele.
+
+| Ressalva publicada com a v3.8.51 | Correção | PR |
+| --- | --- | --- |
+| Sem instalador Windows: a verificação do bundle comparava o destino do symlink cru, e o Windows o lê com prefixo de unidade | ambos os lados normalizados; um link que aponta para outro lugar continua reprovando | #15 |
+| `GET /api/loop/{id}/stream` montava a resposta inteira | `ReadableStream` real: snapshot, delta por mudança, `: ping`, fechamento em estado terminal, teto de 10 min, retomada por `Last-Event-ID` | #16 |
+| Sem registro de aprovações, o gate de MCP pedia revisão humana para sempre | tabela `mcp_review_approvals` (migração 177), `POST /api/mcp/review/approve` e `/revoke` (admin); a revisão lê a aprovação só do servidor | #17 |
+| Instaladores sem assinatura | pipeline assina macOS (Developer ID + notarização) e Windows (Authenticode ou Azure Trusted Signing) quando os segredos existem; sem eles o build sem assinatura continua verde | #18 |
+| A allowlist do navegador não tinha tela | `GET`/`PUT /api/browser/allowlist` e card em Settings → Security; só hosts, com motivo por entrada recusada | #19 |
+
+Cada PR passou a CI completa antes da mesclagem. O #17 e o #19 rodaram a CI um sem o outro. A
+verificação dos dois juntos é a CI deste PR de release (#20), sobre a ponta com os cinco.
+
+**Bloqueio externo que continua (E-4).** O pipeline de assinatura está pronto, mas nenhum certificado
+foi cadastrado. Os instaladores da v3.8.52 saem **sem assinatura** até o dono do repositório criar os
+segredos listados em `docs/guides/ELECTRON_GUIDE.md` (seção Code Signing): `MAC_CSC_LINK`,
+`MAC_CSC_KEY_PASSWORD` e as credenciais de notarização da Apple no macOS; `WIN_CSC_LINK` e
+`WIN_CSC_KEY_PASSWORD`, ou os segredos do Azure Trusted Signing, no Windows.
+
+**Evidência de publicação.** Digests da imagem e lista de assets dos instaladores ficam nas notas da
+GitHub Release `v3.8.52`: depois da tag este branch também fica travado, então a evidência não pode
+voltar para cá.
+
 ## 4. Riscos residuais conhecidos
 
 - SC-3/SC-9/SC-10 (LOW/MEDIUM, rastreados): `adm-zip` via `onnxruntime-node` (install-time), download no `postinstall`, `latest` sem quote em `autoUpdate.ts`.
