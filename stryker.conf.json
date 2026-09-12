@@ -245,6 +245,7 @@
       "tests/unit/error-classification.test.ts",
       "tests/unit/error-message-sanitization.test.ts",
       "tests/unit/error-path-redaction-bare-segment-prose-c03.test.ts",
+      "tests/unit/error-sanitizer-glued-sk-linear.test.ts",
       "tests/unit/error-sanitizer-sk-key-qv45.test.ts",
       "tests/unit/error-sensitive-redaction.test.ts",
       "tests/unit/execute-chat-resource-pressure-breaker.test.ts",
