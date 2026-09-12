@@ -242,8 +242,10 @@ test("C-05: codex-app-server is listed when the app-server is configured through
 test("C-05: a cache-miss probe that exceeds the wait bound fails open for that build and lands in the cache afterwards", async () => {
   const availability = await loadAvailabilityModule();
   await availability.__resetLocalCliAvailabilityCacheForTest();
-  // A 0ms bound cannot be met by any real probe (fs/PATH lookups are async), so
-  // this build must keep the providers instead of blocking on the probe.
+  // A probe that is still running when the wait bound expires must not block this build.
+  // The probe is made deterministically slower than the 0 ms bound (on a fast host a real
+  // probe can settle within the same tick, which made this case racy).
+  availability.__setLocalCliProbeDelayForTest(150);
   const pending = await availability.getLocalCliProviderAvailability(
     { connections: [] },
     { waitForProbeMs: 0 }
@@ -255,6 +257,7 @@ test("C-05: a cache-miss probe that exceeds the wait bound fails open for that b
   assert.equal(pending.get("codex-app-server")?.available, false);
 
   // Once the in-flight probes settle, the definitive verdicts are served from cache.
+  availability.__setLocalCliProbeDelayForTest(0);
   await availability.__resetLocalCliAvailabilityCacheForTest();
   await availability.getLocalCliProviderAvailability(
     { connections: [] },

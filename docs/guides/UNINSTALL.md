@@ -114,7 +114,7 @@ Because it is irreversible, the script never erases on the flag alone:
 npm run uninstall:full -- --yes
 ```
 
-The script erases `DATA_DIR` when that variable is set, otherwise `~/.omniroute` (`%USERPROFILE%\.omniroute` on Windows). On Windows, where the data normally lives in `%APPDATA%\omniroute`, point it at the right folder:
+The script resolves the data directory exactly like the app does (table above): `DATA_DIR` when that variable is set, otherwise `%APPDATA%\omniroute` on Windows (or a legacy `%USERPROFILE%\.omniroute` if one exists), `~/.omniroute` (or `$XDG_CONFIG_HOME/omniroute`) on macOS/Linux — it prints the folder before asking for confirmation. Only if your data lives somewhere else, point it there explicitly:
 
 ```powershell
 $env:DATA_DIR = "$env:APPDATA\omniroute"; npm run uninstall:full

@@ -8,6 +8,7 @@
 
 import { markServerReady, markServerStarting } from "@/lib/serverLifecycle";
 import { normalizeBootError } from "@/lib/instrumentationBootError";
+import { warmLocalCliProviderAvailability } from "@/app/api/v1/models/catalogLocalCliAvailability";
 
 function getRandomBytes(byteLength: number): Uint8Array {
   const bytes = new Uint8Array(byteLength);
@@ -314,7 +315,7 @@ export async function registerQuotaFetchers(): Promise<void> {
         id: typeof node.id === "string" ? node.id : null,
         prefix: typeof node.prefix === "string" ? node.prefix : null,
         baseUrl: typeof node.baseUrl === "string" ? node.baseUrl : null,
-      })),
+      }))
     );
   } catch (error) {
     console.warn("[STARTUP] Moonshot custom-node fetcher scan skipped:", error);
@@ -599,6 +600,9 @@ export async function registerNodejs(): Promise<void> {
   // Warm the model catalog's durable, apiKey-independent sub-caches at
   // startup — see warmModelCatalogCache() for why the top-level Response
   // cache alone doesn't deliver this. Fire-and-forget, non-fatal.
+  // Probe the local-CLI providers now (final audit D-4) so the first catalogue build
+  // finds settled verdicts instead of waiting on `where` inside its own time budget.
+  void warmLocalCliProviderAvailability();
   void warmModelCatalogCache();
 
   if (!isBackgroundServicesDisabled()) {
@@ -630,12 +634,14 @@ export async function registerNodejs(): Promise<void> {
 
       // Conductor bridge (PRD Conductor RF1): mirrors OmniConductor hub tasks into the
       // A2A TaskManager via the hub SSE. Opt-in — self-gated on CONDUCTOR_HUB_URL.
-      import("@/lib/conductor/boot").then((m) => {
-        if (m.initConductorBridge()) console.log("[STARTUP] Conductor bridge started");
-      }).catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn("[STARTUP] Conductor bridge failed to start (non-fatal):", msg);
-      }),
+      import("@/lib/conductor/boot")
+        .then((m) => {
+          if (m.initConductorBridge()) console.log("[STARTUP] Conductor bridge started");
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[STARTUP] Conductor bridge failed to start (non-fatal):", msg);
+        }),
 
       // Proactive connection-cooldown recovery (#8): re-validate connections whose
       // transient `rate_limited_until` window has elapsed OUTSIDE the request hot path,

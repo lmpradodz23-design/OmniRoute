@@ -212,8 +212,12 @@ type CachedVerdict = { verdict: LocalCliAvailability; expiresAt: number };
 const verdictCache = new Map<string, CachedVerdict>();
 const inflightProbes = new Map<string, Promise<LocalCliAvailability>>();
 let testOverrides: Record<string, boolean> | null = null;
+// Test seam: a probe on a fast host can settle within the same tick as a 0 ms wait bound,
+// which makes the "fail open while pending" case racy; tests inject a delay instead.
+let testProbeDelayMs = 0;
 
 async function runBinaryProbe(providerId: string, env: LookupEnv): Promise<LocalCliAvailability> {
+  if (testProbeDelayMs > 0) await new Promise((r) => setTimeout(r, testProbeDelayMs));
   let verdict: ProbeVerdict;
   try {
     if (providerId === "auggie") verdict = await probeAuggie(env);
@@ -338,6 +342,10 @@ export async function getUnavailableLocalCliProviderKeys(
 }
 
 /** Test hook: force verdicts per provider id (`null` restores the real probes). */
+export function __setLocalCliProbeDelayForTest(ms: number): void {
+  testProbeDelayMs = Math.max(0, ms);
+}
+
 export function __setLocalCliAvailabilityForTest(overrides: Record<string, boolean> | null): void {
   testOverrides = overrides ? { ...overrides } : null;
 }
@@ -346,4 +354,17 @@ export function __setLocalCliAvailabilityForTest(overrides: Record<string, boole
 export async function __resetLocalCliAvailabilityCacheForTest(): Promise<void> {
   await Promise.allSettled([...inflightProbes.values()]);
   verdictCache.clear();
+}
+
+/**
+ * Startup warm-up (final audit D-4): probe the binary-backed providers before the first
+ * catalogue build, so a cold build never waits on `where` / `command -v` inside its 8 s
+ * budget and never has to fail open for a whole cache cycle. codex-app-server is derived
+ * from configuration on every build and needs no warm-up. Never throws.
+ */
+export function warmLocalCliProviderAvailability(): Promise<void> {
+  return getLocalCliProviderAvailability({ connections: [] }, { waitForProbeMs: Infinity }).then(
+    () => undefined,
+    () => undefined
+  );
 }

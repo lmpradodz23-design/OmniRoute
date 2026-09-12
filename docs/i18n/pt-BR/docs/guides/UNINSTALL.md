@@ -110,7 +110,7 @@ Por ser irreversível, o script nunca apaga só com a flag:
 npm run uninstall:full -- --yes
 ```
 
-O script apaga `DATA_DIR` quando essa variável está definida; caso contrário, `~/.omniroute` (`%USERPROFILE%\.omniroute` no Windows). No Windows, onde os dados normalmente ficam em `%APPDATA%\omniroute`, aponte-o para a pasta certa:
+O script resolve a pasta de dados exatamente como o aplicativo (tabela acima): `DATA_DIR` quando essa variável está definida; caso contrário, `%APPDATA%\omniroute` no Windows (ou uma pasta antiga `%USERPROFILE%\.omniroute`, se existir), `~/.omniroute` (ou `$XDG_CONFIG_HOME/omniroute`) no macOS/Linux — ele mostra a pasta antes de pedir a confirmação. Só se os seus dados estiverem em outro lugar, aponte-o explicitamente:
 
 ```powershell
 $env:DATA_DIR = "$env:APPDATA\omniroute"; npm run uninstall:full

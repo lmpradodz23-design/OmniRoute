@@ -653,7 +653,9 @@ export default function ProviderOnboardingWizard() {
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-primary/25 bg-primary/10 p-3 text-sm text-primary"
+          // Neutral surface: `primary` is red/pink in the default theme and a non-technical user
+          // read the in-progress test as an error (final audit D-3).
+          className="rounded-lg border border-border bg-bg-subtle p-3 text-sm text-text-muted"
         >
           {status}
         </div>
