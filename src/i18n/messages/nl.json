@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Er zijn nog geen account-specifieke gegevens geregistreerd. Doe verzoeken met OAuth-accounts om hier gegevens te zien."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Welkom",
     "signIn": "Log in",
     "enterPassword": "Voer uw wachtwoord in om door te gaan",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 is geconfigureerd maar verborgen omdat NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Verbind {providerName}",
     "waiting": "Wachten op toestemming",
     "completeAuthInPopup": "Volledige autorisatie in pop-up.",

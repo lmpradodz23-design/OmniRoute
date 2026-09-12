@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Ei tilikohtaisia käyttöjä ole vielä tallennettu. Tee pyyntöjä OAuth-tileillä nähdäksesi tiedot täällä."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Tervetuloa",
     "signIn": "Kirjaudu sisään",
     "enterPassword": "Anna salasanasi jatkaaksesi",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 on määritetty, mutta piilotettu, koska NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Yhdistä {providerName}",
     "waiting": "Odotetaan lupaa",
     "completeAuthInPopup": "Täydellinen valtuutus ponnahdusikkunassa.",

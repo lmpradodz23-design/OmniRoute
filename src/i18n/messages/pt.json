@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Ainda não há utilização específica da conta registada. Faça pedidos usando contas OAuth para ver dados aqui."
   },
   "auth": {
+    "backToOmniRoute": "Voltar ao OmniRoute",
     "welcome": "Bem vindo",
     "signIn": "Iniciar sessão",
     "enterPassword": "Digite sua senha para continuar",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 está configurado, mas oculto porque NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "Abrir num novo separador",
     "title": "Conectar {providerName}",
     "waiting": "Aguardando autorização",
     "completeAuthInPopup": "Autorização completa no pop-up.",

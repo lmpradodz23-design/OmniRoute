@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Ще не зафіксовано жодного використання, пов'язаного з обліковим записом. Використовуйте облікові записи OAuth для отримання даних тут."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Ласкаво просимо",
     "signIn": "Увійдіть",
     "enterPassword": "Введіть свій пароль, щоб продовжити",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 налаштовано, але приховано, оскільки NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Підключити {providerName}",
     "waiting": "Очікування авторизації",
     "completeAuthInPopup": "Повна авторизація у спливаючому вікні.",

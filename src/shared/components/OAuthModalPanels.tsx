@@ -348,6 +348,19 @@ export function OAuthManualInputPanel({
           <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
           <div className="flex gap-2">
             <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
+            {/* Opens in a NEW tab, from a user gesture: the browser does not block it and it
+                does not replace the panel. On a remote server the panel must stay open to
+                receive the callback, and navigating away from it stranded the login. */}
+            <Button
+              variant="secondary"
+              icon="open_in_new"
+              disabled={!authUrl}
+              onClick={() => {
+                if (authUrl) window.open(authUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              {t("openInNewTab")}
+            </Button>
             <Button
               variant="secondary"
               icon={copied === "auth_url" ? "check" : "content_copy"}
@@ -367,8 +380,8 @@ export function OAuthManualInputPanel({
           {provider === "zed-hosted" && (
             <p className="text-xs text-amber-500 mb-2">
               After signing in, Zed redirects to a local address like{" "}
-              <code className="font-mono">http://127.0.0.1:&lt;port&gt;/?user_id=...</code> which the
-              browser may show as unreachable — that is expected. Copy the FULL URL from the
+              <code className="font-mono">http://127.0.0.1:&lt;port&gt;/?user_id=...</code> which
+              the browser may show as unreachable — that is expected. Copy the FULL URL from the
               browser address bar (the access token is inside it) and paste it above.
             </p>
           )}

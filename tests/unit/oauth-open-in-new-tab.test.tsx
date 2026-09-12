@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 //
 // Prova do fix "abre a mesma página por cima e não volta": no passo manual do login OAuth
-// (cenário de servidor REMOTO — isTrueLocalhost=false), o painel agora oferece um botão
-// "Abrir em nova aba" que dispara window.open(authUrl, "_blank") — gesto do usuário, então o
-// navegador não bloqueia e NÃO abre por cima do painel. O painel segue aberto para receber o retorno.
+// (cenário de servidor REMOTO — isTrueLocalhost=false), o painel oferece um botão que dispara
+// window.open(authUrl, "_blank") — gesto do usuário, então o navegador não bloqueia e NÃO abre
+// por cima do painel. O painel segue aberto para receber o retorno.
+//
+// O mock de next-intl devolve a própria chave, então o rótulo procurado é a chave i18n
+// `openInNewTab`, não um texto literal: o produto é inglês-primeiro com 41 locales e um
+// literal aqui voltaria a travar o botão num idioma só.
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -44,7 +48,7 @@ function findButtonByText(text: string): HTMLButtonElement | undefined {
 describe("OAuthManualInputPanel — abrir login em nova aba (fix servidor remoto)", () => {
   const AUTH_URL = "https://api.anthropic.com/oauth/authorize?client_id=x&code_challenge=y";
 
-  it('clicar "Abrir em nova aba" chama window.open(authUrl, "_blank")', () => {
+  it('clicar no botão de abrir chama window.open(authUrl, "_blank")', () => {
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
     act(() => {
@@ -65,8 +69,8 @@ describe("OAuthManualInputPanel — abrir login em nova aba (fix servidor remoto
       );
     });
 
-    const btn = findButtonByText("Abrir em nova aba");
-    expect(btn, 'botão "Abrir em nova aba" deve existir').toBeTruthy();
+    const btn = findButtonByText("openInNewTab");
+    expect(btn, "o botão de abrir em nova aba deve existir").toBeTruthy();
 
     act(() => {
       btn!.click();
@@ -97,7 +101,7 @@ describe("OAuthManualInputPanel — abrir login em nova aba (fix servidor remoto
       );
     });
 
-    const btn = findButtonByText("Abrir em nova aba");
+    const btn = findButtonByText("openInNewTab");
     expect(btn).toBeTruthy();
     expect(btn!.disabled).toBe(true);
     act(() => btn!.click());

@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Tiada penggunaan khusus akaun yang direkodkan lagi. Buat permintaan menggunakan akaun OAuth untuk melihat data di sini."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Selamat datang",
     "signIn": "Log masuk",
     "enterPassword": "Masukkan kata laluan anda untuk meneruskan",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 dikonfigurasikan tetapi tersembunyi kerana NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Sambungkan {providerName}",
     "waiting": "Menunggu kebenaran",
     "completeAuthInPopup": "Lengkapkan kebenaran dalam pop timbul.",

@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Chưa có dữ liệu sử dụng theo tài khoản nào. Hãy thực hiện các yêu cầu bằng tài khoản OAuth để xem dữ liệu tại đây."
   },
   "auth": {
+    "backToOmniRoute": "Quay lại OmniRoute",
     "welcome": "Chào mừng",
     "signIn": "Đăng nhập",
     "enterPassword": "Nhập mật khẩu của bạn để tiếp tục",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 đã được cấu hình nhưng bị ẩn vì NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "Mở trong tab mới",
     "title": "Kết nối {providerName}",
     "waiting": "Đang chờ ủy quyền",
     "completeAuthInPopup": "Hoàn tất ủy quyền trong cửa sổ bật lên.",

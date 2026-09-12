@@ -9831,6 +9831,7 @@
     "noAccountUsage": "હજી સુધી કોઈ ખાતા-વિશિષ્ટ ઉપયોગ નોંધાયો નથી. અહીં ડેટા જોવા માટે OAuth ખાતા ઉપયોગ કરીને વિનંતીઓ કરો."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Welcome",
     "signIn": "Sign in",
     "enterPassword": "Enter your password to continue",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 is configured but hidden because NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Connect {providerName}",
     "waiting": "Waiting for authorization",
     "completeAuthInPopup": "Complete authorization in popup.",

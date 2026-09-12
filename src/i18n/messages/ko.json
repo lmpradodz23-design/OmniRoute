@@ -9831,6 +9831,7 @@
     "noAccountUsage": "아직 계정별 사용량이 기록되지 않았습니다. 이곳에서 데이터를 보려면 OAuth 계정을 사용하여 요청하세요."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "환영합니다",
     "signIn": "로그인",
     "enterPassword": "계속하려면 비밀번호를 입력하세요",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5가 구성되었지만 NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false로 인해 숨겨졌습니다."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "{providerName} 연결",
     "waiting": "승인을 기다리는 중",
     "completeAuthInPopup": "팝업에서 승인을 완료하세요.",

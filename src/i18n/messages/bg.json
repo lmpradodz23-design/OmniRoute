@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Все още няма записана употреба, специфична за акаунта. Направете заявки, използвайки OAuth акаунти, за да видите данни тук."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Добре дошли",
     "signIn": "влезте",
     "enterPassword": "Въведете паролата си, за да продължите",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 е конфигуриран, но скрит, защото NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "Свържете {providerName}",
     "waiting": "Изчакване на разрешение",
     "completeAuthInPopup": "Пълна авторизация в изскачащ прозорец.",

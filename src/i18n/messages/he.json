@@ -9831,6 +9831,7 @@
     "noAccountUsage": "לא נרשמה עדיין שימוש ספציפי לחשבון. בצע בקשות באמצעות חשבונות OAuth כדי לראות נתונים כאן."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "ברוך הבא",
     "signIn": "היכנס",
     "enterPassword": "הזן את הסיסמה שלך כדי להמשיך",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 מוגדר אך מוסתר בגלל NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "חבר את {providerName}",
     "waiting": "מחכה לאישור",
     "completeAuthInPopup": "הרשאה מלאה בפופאפ.",

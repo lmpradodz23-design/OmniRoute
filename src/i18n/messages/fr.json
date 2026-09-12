@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Aucune utilisation spécifique à un compte n’a encore été enregistrée. Faites des requêtes avec des comptes OAuth pour afficher les données ici."
   },
   "auth": {
+    "backToOmniRoute": "Retour à OmniRoute",
     "welcome": "Bienvenue",
     "signIn": "Connectez-vous",
     "enterPassword": "Entrez votre mot de passe pour continuer",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 est configuré mais masqué car NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false."
   },
   "oauthModal": {
+    "openInNewTab": "Ouvrir dans un nouvel onglet",
     "title": "Connectez {providerName}",
     "waiting": "En attente d'autorisation",
     "completeAuthInPopup": "Autorisation complète dans une fenêtre contextuelle.",

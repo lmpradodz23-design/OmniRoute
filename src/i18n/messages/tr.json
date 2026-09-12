@@ -9831,6 +9831,7 @@
     "noAccountUsage": "Henüz hesap spesifik kullanım kaydedilmedi. Verileri burada görmek için OAuth hesapları kullanarak istek yapın."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "Hoş geldiniz",
     "signIn": "Oturum aç",
     "enterPassword": "Devam etmek için şifrenizi girin",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "SOCKS5 yapılandırılmış ancak NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=false olduğundan gizlenmiştir."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "{providerName}'a bağlanın",
     "waiting": "Yetki bekleniyor",
     "completeAuthInPopup": "Açılır pencerede yetkilendirmeyi tamamlayın.",

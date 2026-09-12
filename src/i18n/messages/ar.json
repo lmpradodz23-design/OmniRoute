@@ -9831,6 +9831,7 @@
     "noAccountUsage": "لم يتم تسجيل أي استخدام محدد للحساب بعد. قم بإجراء الطلبات باستخدام حسابات OAuth لرؤية البيانات هنا."
   },
   "auth": {
+    "backToOmniRoute": "__MISSING__:Back to OmniRoute",
     "welcome": "مرحبًا",
     "signIn": "تسجيل الدخول",
     "enterPassword": "أدخل كلمة المرور الخاصة بك للمتابعة",
@@ -10729,6 +10730,7 @@
     "errorSocks5Hidden": "تم تكوين SOCKS5 ولكنه مخفي لأن NEXT_PUBLIC_ENABLE_SOCKS5_PROXY=خطأ."
   },
   "oauthModal": {
+    "openInNewTab": "__MISSING__:Open in a new tab",
     "title": "الاتصال {providerName}",
     "waiting": "في انتظار الترخيص",
     "completeAuthInPopup": "إذن كامل في النافذة المنبثقة.",
