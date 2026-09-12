@@ -8763,6 +8763,125 @@ paths:
               example:
                 error: Browser Use is disabled. Enable BROWSER_USE_ENABLED in the OmniRoute panel.
 
+  /api/browser/allowlist:
+    get:
+      tags: [Browser Guard]
+      summary: Read the persisted browser automation domain allowlist
+      description: |
+        Returns the domain allowlist configured in the panel (Settings → Security), which
+        `POST /api/browser/check` uses whenever its request body omits `allowedDomains`. Each
+        entry is a normalized host name and also allows its subdomains. The stored value is read
+        fail-closed: an unparsable or non-array value is an empty list, entries that fail the
+        write-side normalization are dropped, and an empty list denies every browser action.
+
+        The response also reports whether `BROWSER_USE_ENABLED` is on (the allowlist has no
+        effect while it is off) and the maximum number of entries. This route is intentionally
+        NOT gated by the flag, so an operator can prepare the allowlist before enabling Browser
+        Use; the route that decides actions (`POST /api/browser/check`) stays gated.
+
+        Requires management authentication; on the access-token credential path a `read`
+        scope is enough.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      responses:
+        "200":
+          description: The persisted allowlist, the flag state and the entry ceiling
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserAllowlistState"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+    put:
+      tags: [Browser Guard]
+      summary: Replace the persisted browser automation domain allowlist
+      description: |
+        Replaces the whole allowlist. Each entry is trimmed, lowercased, and stripped of leading
+        dots and of one trailing dot; duplicates are collapsed. The write is all-or-nothing: if
+        any entry is invalid nothing is saved and the `400` body lists the offending entries by
+        their `index` in the submitted array with a stable `reason` (the submitted value is
+        never echoed back):
+
+        - `empty` — nothing left after normalization;
+        - `too_long` — longer than 253 characters;
+        - `invalid_characters` — a scheme, path, port, userinfo, query, percent-encoding,
+          whitespace or wildcard (`*`); enter the host name only (subdomains already match);
+        - `non_ascii` — use the punycode (`xn--`) form of an internationalized domain, which is
+          what the guard compares against;
+        - `ip_literal` — IP addresses are refused (an IP allowlist is the shortest path from
+          browser automation to private networks or the cloud metadata endpoint); a final label
+          that is all digits counts as an IP;
+        - `single_label` — at least two labels are required (`localhost` or a bare TLD would
+          allow far too much). There is no Public Suffix List check: `co.uk` is accepted;
+        - `invalid_label` — an empty label, a label over 63 characters, or characters outside
+          letters, digits and inner hyphens.
+
+        An empty array is valid and clears the allowlist (every action is denied). Not gated by
+        `BROWSER_USE_ENABLED`, like the read.
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrowserAllowlistUpdateRequest"
+      responses:
+        "200":
+          description: The saved (normalized) allowlist, the flag state and the entry ceiling
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserAllowlistState"
+        "400":
+          description: >-
+            `invalid_body` — the body failed `strictObject` validation (unknown keys, a missing
+            or non-array `allowedDomains`, a non-string entry, an entry over 300 characters, or
+            more than 256 entries); `invalid_domains` — at least one entry was rejected (see
+            `invalid`); `too_many_domains` — more than 256 distinct domains after normalization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserAllowlistError"
+              example:
+                error: One or more domains are invalid
+                code: invalid_domains
+                invalid:
+                  - index: 1
+                    reason: ip_literal
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "500":
+          description: The allowlist could not be persisted (no internal detail is exposed)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                  requestId:
+                    type: string
+              example:
+                error:
+                  message: Could not save the browser allowlist
+                  type: server_error
+
   /api/otel/spans:
     get:
       tags: [OTel]
@@ -15893,6 +16012,77 @@ components:
           enum: [allow, require_approval, deny]
         reason:
           type: string
+
+    BrowserAllowlistState:
+      type: object
+      required: [allowedDomains, enabled, maxDomains]
+      properties:
+        allowedDomains:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            maxLength: 253
+          description: >-
+            Normalized host names (lowercase, no scheme, path, port, wildcard or IP literal). Each
+            entry also allows its subdomains. Empty means every browser action is denied.
+        enabled:
+          type: boolean
+          description: >-
+            Effective value of `BROWSER_USE_ENABLED`. While false the allowlist is stored but has
+            no effect (`POST /api/browser/check` answers 404).
+        maxDomains:
+          type: integer
+          example: 256
+          description: Maximum number of distinct domains the allowlist can hold.
+
+    BrowserAllowlistUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [allowedDomains]
+      properties:
+        allowedDomains:
+          type: array
+          maxItems: 256
+          items:
+            type: string
+            maxLength: 300
+          description: >-
+            The complete replacement list, before normalization (surrounding whitespace and
+            leading dots are tolerated). An empty array clears the allowlist.
+
+    BrowserAllowlistError:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum: [invalid_body, invalid_domains, too_many_domains]
+        invalid:
+          type: array
+          description: Present when `code` is `invalid_domains`.
+          items:
+            type: object
+            required: [index, reason]
+            properties:
+              index:
+                type: integer
+                minimum: 0
+                description: Position of the rejected entry in the submitted array.
+              reason:
+                type: string
+                enum:
+                  [
+                    empty,
+                    too_long,
+                    invalid_characters,
+                    non_ascii,
+                    ip_literal,
+                    single_label,
+                    invalid_label,
+                  ]
 
     OtelSpan:
       type: object

@@ -38,6 +38,7 @@ export const ADMIN_MUTATION_PREFIXES: readonly string[] = [
   "/api/buzz", // rotate identity / flush the Buzz outbox to the relay; GET status = read
   "/api/mcp/review", // approves or denies an MCP package — a supply-chain decision
   "/api/browser/check", // decides browser automation policy, including the domain allowlist
+  "/api/browser/allowlist", // edits the persisted domain allowlist browser automation is judged against; GET = read
 ];
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
