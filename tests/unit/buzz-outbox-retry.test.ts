@@ -97,7 +97,8 @@ test("repo: a failed entry is retried after its backoff, and never after OUTBOX_
     false,
     "terminal after max attempts"
   );
-  assert.equal(attemptsOf(id).status, "failed");
+  assert.equal(attemptsOf(id).status, "dead", "permanent failures get their own status");
+  assert.equal(attemptsOf(id).next_attempt_at, null);
 });
 
 test("repo: legacy failed rows (no next_attempt_at) are retried immediately", () => {
@@ -160,7 +161,9 @@ test("flush: a rejected entry becomes failed, is retried on a later flush, and s
     const dead = await buzz.flushBuzzOutbox({ now });
     assert.equal(dead.failed + dead.published, 0, "terminal: no more attempts");
     assert.equal(attemptsOf(id).attempts, repo.OUTBOX_MAX_ATTEMPTS);
-    assert.equal(buzz.getBuzzStatus().counts.outboxFailed, 1);
+    assert.equal(attemptsOf(id).status, "dead");
+    assert.equal(buzz.getBuzzStatus().counts.outboxFailed, 0, "no longer counted as retryable");
+    assert.equal(buzz.getBuzzStatus().counts.outboxDead, 1);
   } finally {
     await relay.close();
   }

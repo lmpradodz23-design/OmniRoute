@@ -141,6 +141,14 @@ export function markOutbox(
   const current = db.prepare("SELECT attempts FROM buzz_outbox WHERE id = ?").get(id) as
     { attempts: number } | undefined;
   const attempts = (current?.attempts ?? 0) + 1;
+  if (attempts >= OUTBOX_MAX_ATTEMPTS) {
+    // Terminal: a distinct `dead` status keeps permanent failures apart from the transient
+    // `failed` ones still scheduled for retry (panel counters, cleanup) — review consensus.
+    db.prepare(
+      "UPDATE buzz_outbox SET status='dead', attempts=?, next_attempt_at=NULL WHERE id=?"
+    ).run(attempts, id);
+    return;
+  }
   const nextAttemptAt = new Date(now + outboxRetryDelayMs(attempts)).toISOString();
   db.prepare(
     "UPDATE buzz_outbox SET status='failed', attempts=?, next_attempt_at=? WHERE id=?"
@@ -150,7 +158,10 @@ export function markOutbox(
 export interface BuzzCounts {
   outboxPending: number;
   outboxPublished: number;
+  /** Transient failures still scheduled for retry. */
   outboxFailed: number;
+  /** Permanent failures: retry ceiling reached, never retried automatically. */
+  outboxDead: number;
   inboxReceived: number;
 }
 
@@ -173,6 +184,9 @@ export function buzzCounts(tenantId: string = DEFAULT_TENANT): BuzzCounts {
     ),
     outboxFailed: count(
       "SELECT COUNT(*) AS n FROM buzz_outbox WHERE tenant_id = ? AND status = 'failed'"
+    ),
+    outboxDead: count(
+      "SELECT COUNT(*) AS n FROM buzz_outbox WHERE tenant_id = ? AND status = 'dead'"
     ),
     inboxReceived: count("SELECT COUNT(*) AS n FROM buzz_inbox WHERE tenant_id = ?"),
   };
