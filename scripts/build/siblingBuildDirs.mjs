@@ -15,8 +15,21 @@ import path from "node:path";
 
 /** Normalise a dist dir like `.build\next`, `./.build/next` or `/abs/.build/next` → `.build/next`. */
 export function normaliseRelDistDir(distDir, projectRoot) {
-  const rel = path.isAbsolute(distDir) ? path.relative(projectRoot, distDir) : distDir;
-  return rel.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  // Backslash paths must normalise identically on every host: a Windows-style dist dir is
+  // still absolute when the gate runs on the Linux CI runner (where `path` is posix).
+  const dist = toForwardSlashes(distDir);
+  const root = toForwardSlashes(projectRoot);
+  let rel = dist;
+  if (path.win32.isAbsolute(dist) || path.posix.isAbsolute(dist)) {
+    rel = dist.startsWith(`${root}/`)
+      ? dist.slice(root.length + 1)
+      : path.posix.relative(root, dist);
+  }
+  return rel.replace(/^\.\//, "").replace(/\/+$/, "");
+}
+
+function toForwardSlashes(p) {
+  return String(p).replaceAll("\\", "/").replace(/\/+$/, "");
 }
 
 /**
