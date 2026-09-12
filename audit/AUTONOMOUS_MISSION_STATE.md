@@ -7,11 +7,11 @@
 - **branch de trabalho:** `fix/final-user-readiness` (criada de `release/v3.8.51`)
 - **HEAD inicial:** `2a156c73812d45119d5a06a2f55d611280442860`
 - **HEAD atual:** ver `git log -1` (177 commits desde `2a156c738`; PR #5 aberto em `LMPrado-DZ23/OmniRoute`)
-- **estado:** **COMPLETED** (mantido) — após o push, o CI Linux do PR #5 revelou 31 testes unitários e 8 gates de qualidade vermelhos; a rodada de correção (seção "Rodada CI do PR #5") fechou tudo na causa raiz sem enfraquecer teste ou controle; aguardando o CI verde para merge → imagem GHCR. Critérios do 05 §5 continuam satisfeitos (CRITICAL 0 / HIGH 0 após as 2 regressões HIGH corrigidas nesta rodada).
-- **iteração:** 16
+- **estado:** **COMPLETED** — publicação executada e verificada dentro da autorização condicional: PR #5 mesclado (`bd518dafd`), PR #6 (workflow GHCR sem Docker Hub) mesclado (`ce776db34`), imagem `ghcr.io/lmprado-dz23/omniroute:next` / `:next-web` publicada pela run 34682777453 (multi-arch, Trivy CRITICAL gate aprovado, pull anônimo OK). Critérios do 05 §5 satisfeitos; CRITICAL 0 / HIGH 0. Pendências só de decisão do operador (tag `v3.8.51` → `:3.8.51`/`:latest` + Electron release; npm; Docker Hub; deploy).
+- **iteração:** 17
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-12 — PR #5 mesclado (`bd518dafd`, 18/18 checks verdes após 4 rodadas de correção no CI: 31 testes + 8 gates + 2 flakies do plugin opencode-v2 + ReDoS quadrático do sanitizador); `docker-publish.yml` falhou no login do Docker Hub (fork sem segredos) → PR de correção do workflow em andamento
-- **último_progresso_real:** 2026-09-12 — 2 regressões HIGH do fix loop (C-03 classificação de transporte; X-2 assinatura do cache) e 1 pré-existente de segurança (redação de chave Google) corrigidas; ciclo de imports de `src/lib/db` (pré-existente) eliminado
+- **último_heartbeat:** 2026-09-12 — imagem GHCR verificada (índice `sha256:ce399d87…`), evidência registrada; missão encerrada
+- **último_progresso_real:** 2026-09-12 — `docker-publish.yml` passou a publicar no GHCR sem credenciais do Docker Hub (PR #6); run 34682777453 verde; `docker manifest inspect ghcr.io/lmprado-dz23/omniroute:next` responde sem login
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` **real** (`npm ci` — junction removida em 2026-09-11 porque Turbopack e o standalone a recusavam); worktree baseline `../OmniRoute-v3851-baseline` (HEAD inicial, ainda com junction) só para classificar falhas
 
 ## Autorizações (desta missão)
@@ -57,7 +57,7 @@
 
 ## Tarefa atual
 
-Publicação (autorização condicional cumprida): push dos commits da rodada CI para `fix/final-user-readiness` → CI do PR #5 verde → `gh pr merge --merge` → `docker-publish.yml` (push em `release/v3.8.51`) publica `ghcr.io/lmprado-dz23/omniroute` → verificar a imagem → registrar evidência aqui e em `RELEASE_READINESS.md` §3.
+Nenhuma — missão encerrada. Tudo o que estava autorizado foi executado e verificado (ver `RELEASE_READINESS.md` §3). O que falta é decisão do operador, não trabalho de engenharia.
 
 ## Tarefas pendentes (ordem do plano)
 
@@ -156,9 +156,12 @@ Lição registrada: a classificação "Windows-only" das falhas de unit test no 
 
 ## Próxima ação
 
-1. PR com `docker-publish.yml` tolerante à ausência de credenciais do Docker Hub (GHCR via `GITHUB_TOKEN`) + esta evidência → CI verde → merge em `release/v3.8.51` → a run do `docker-publish.yml` publica `ghcr.io/lmprado-dz23/omniroute:3.8.51` (+ `-web`, `-bun`, `-web-bun`).
-2. Verificar a imagem (`docker manifest inspect ghcr.io/lmprado-dz23/omniroute:3.8.51` / `gh api` packages) e registrar digest + run ID aqui e em `RELEASE_READINESS.md` §3.
-3. Fora da autorização (não fazer): npm publish, Docker Hub, tag `v*`/GitHub Release, deploy.
+Decisões do operador (não executar sem autorização explícita):
+
+1. Versionar a imagem: criar a tag git `v3.8.51` (ou um GitHub Release) → `docker-publish.yml` publica `ghcr.io/lmprado-dz23/omniroute:3.8.51` (+ `:latest` se for o maior semver) — atenção: a tag `v*` também dispara `electron-release.yml` (instaladores sem assinatura, E-4) e `lock-released-branch.yml` (exige `BRANCH_LOCK_TOKEN`).
+2. Docker Hub: só com `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` no repositório (o workflow volta a publicar lá automaticamente quando existirem).
+3. npm publish e deploy VPS: fora do escopo autorizado; procedimentos em `RELEASE_READINESS.md` §3 e `ROLLBACK.md`.
+4. Rotacionar as chaves de API coladas no chat durante a missão (nunca foram usadas).
 
 ## Instruções de retomada
 

@@ -9,6 +9,7 @@ on:
       - "v*"
     paths-ignore:
       - ".github/workflows/**"
+      - "audit/**"
   # Use 'released' instead of 'published' so editing/re-publishing old releases
   # does NOT re-trigger this workflow. 'released' fires only on the initial
   # release publication (and pre-release → release transition).
