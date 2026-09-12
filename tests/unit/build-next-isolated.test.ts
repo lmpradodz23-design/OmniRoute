@@ -295,3 +295,27 @@ test("syncStandaloneExtraModules copies the complete wreq-js runtime", async () 
     assert.match(logs[0] ?? "", /wreq-js TLS runtime/);
   });
 });
+
+test("pruneStandaloneDir with an ABSOLUTE dist dir still keeps the bundle's own dist dir (audit A residual)", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omniroute-standalone-absdist-"));
+  try {
+    const projectRoot = path.join(tempDir, "repo");
+    const standalone = path.join(projectRoot, ".build", "next", "standalone");
+    const own = path.join(standalone, ".build", "next", "server", "app", "page.js");
+    const foreign = path.join(standalone, ".build", "next-verify", "server", "x.js");
+    for (const f of [own, foreign]) {
+      await fs.mkdir(path.dirname(f), { recursive: true });
+      await fs.writeFile(f, "x");
+    }
+    await pruneStandaloneDir(
+      standalone,
+      fs,
+      { log() {} },
+      { relDistDir: path.join(projectRoot, ".build", "next"), projectRoot }
+    );
+    assert.equal(fsSync.existsSync(own), true, "own dist dir survives an absolute NEXT_DIST_DIR");
+    assert.equal(fsSync.existsSync(foreign), false, "sibling dist dir is still pruned");
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});

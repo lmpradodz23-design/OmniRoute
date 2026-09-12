@@ -198,6 +198,7 @@ runBuildTool(
 // is what electron-builder packages.
 const hygienePrune = await pruneStandaloneDir(ELECTRON_STANDALONE_DIR, undefined, console, {
   relDistDir: NEXT_DIST_DIR,
+  projectRoot: ROOT,
 });
 if (hygienePrune.length > 0) {
   console.log(

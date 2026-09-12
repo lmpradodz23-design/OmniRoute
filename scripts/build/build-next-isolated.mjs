@@ -291,9 +291,13 @@ export async function pruneStandaloneDir(
   standaloneRoot,
   fsImpl = fs,
   log = console,
-  { relDistDir = process.env.NEXT_DIST_DIR || ".build/next" } = {}
+  { relDistDir = process.env.NEXT_DIST_DIR || ".build/next", projectRoot: root = projectRoot } = {}
 ) {
   const pruned = [];
+  // An ABSOLUTE dist dir (NEXT_DIST_DIR=/abs/path) must be expressed relative to the project
+  // root — that is the path Next mirrors inside the bundle; otherwise distTop would never be
+  // ".build" and the bundle's own dist dir would be pruned (audit A residual).
+  if (path.isAbsolute(relDistDir)) relDistDir = path.relative(root, relDistDir);
   const rm = async (rel) => {
     const targetPath = path.join(standaloneRoot, rel);
     if (!(await exists(targetPath))) return;
