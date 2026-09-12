@@ -32,6 +32,46 @@ curl https://localhost:20128/api/mcp/audit/stats \
   -H "Authorization: Bearer $OMNIROUTE_TOKEN"
 ```
 
+### POST /api/mcp/review
+
+Run the MCP Review Gate on a candidate
+
+Evaluates one MCP server/package candidate with the deterministic MCP Review Gate
+(discover → quarantine → verify → review → approve → install → enable). The body
+accepts ONLY `candidate` — there is no `prior` field. The underlying engine can compare
+a candidate to a prior approval to detect broadened permissions or carry an approval
+forward, but no endpoint or table persists MCP approvals yet, so accepting a
+caller-supplied prior would let the caller's own claim of a past approval bypass the
+gate it exists to enforce. Until that store exists, every candidate is fail-closed:
+it is always evaluated as new.
+
+The verdict is decided by code, not by a model. Permission comparisons are
+case-insensitive (each permission is trimmed and lowercased before matching):
+
+- flagged malicious, or requesting a forbidden permission (`secrets:exfiltrate`,
+  `billing:write`, `keys:read`, matched case-insensitively) → `denied`.
+- otherwise → `review_required` (every candidate takes this branch today, since there is
+  never a prior); `reasons` also flags sensitive permissions (`fs:write`, `fs:delete`,
+  `shell:exec`, `process:spawn`, `net:listen`, `secrets:read`) when present, and
+  `newlyRequested` echoes every declared permission, normalized.
+
+`state` can in principle also be `approved` (or the read-only pipeline states
+`discovered`/`quarantined`/`verified`) — the engine's full vocabulary — but only
+`denied` and `review_required` are reachable through this route today.
+
+Loopback-only by default, like the rest of `/api/mcp/*`: a non-loopback caller is
+accepted only with a manage/admin-scoped API key or an authenticated dashboard session.
+Requires management authentication; on the access-token credential path this mutation
+requires `admin` scope. Answers `404` while `MCP_REVIEW_ENABLED` is off.
+
+
+```bash
+curl -X POST https://localhost:20128/api/mcp/review \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
 ### GET /api/mcp/sse
 
 GET mcp › sse
