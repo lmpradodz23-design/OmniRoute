@@ -131,6 +131,12 @@ test("next config declares Turbopack aliases, runtime assets and server external
     tracingExcludes.includes("**/dist-electron/**"),
     "outputFileTracingExcludes should exclude the Electron packaging output"
   );
+  for (const secret of ["**/.env", "**/.env.*", "**/server.env", "**/.build/**", "**/audit/**"]) {
+    assert.ok(
+      tracingExcludes.includes(secret),
+      `outputFileTracingExcludes should exclude ${secret}`
+    );
+  }
 
   for (const packageName of [
     "thread-stream",

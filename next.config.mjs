@@ -328,6 +328,16 @@ const nextConfig = {
       // workspace mid-copy ("copyfile .install-upgrade/.../db_backups/...sqlite").
       "**/.install-upgrade/**",
       "**/dist-electron/**",
+      // Secrets and non-runtime trees the whole-root trace otherwise drags in (the
+      // standalone once shipped the checkout's .env, .git and audit/). The build script's
+      // STANDALONE_PRUNE_TARGETS is the platform-independent backstop for the same list.
+      "**/.env",
+      "**/.env.*",
+      "**/server.env",
+      "**/audit/**",
+      "**/.build/**",
+      "**/.github/**",
+      "**/.husky/**",
     ],
   },
   serverExternalPackages: [

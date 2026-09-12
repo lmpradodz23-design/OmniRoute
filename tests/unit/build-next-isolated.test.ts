@@ -8,6 +8,8 @@ import {
   getTransientBuildPaths,
   movePath,
   pruneStandaloneArtifacts,
+  pruneStandaloneDir,
+  STANDALONE_PRUNE_TARGETS,
   resolveNextBuildEnv,
   syncStandaloneExtraModules,
   syncStandaloneNativeAssets,
@@ -159,6 +161,64 @@ test("getTransientBuildPaths only moves _tasks when explicitly enabled", () => {
     paths.some((entry) => path.basename(entry.sourcePath) === "_tasks"),
     true
   );
+});
+
+test("pruneStandaloneDir strips secrets, source control, tests and nested builds from a standalone copy", async () => {
+  // The v3.8.51 Windows build shipped the checkout's real .env, .git, tests/ and a nested
+  // .build/next inside the standalone (and Electron's resources/app). Tracing excludes are
+  // not a guarantee (see STANDALONE_PRUNE_TARGETS); the prune is.
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omniroute-standalone-hygiene-"));
+  try {
+    const standalone = path.join(tempDir, "standalone");
+    const planted = [
+      ".env",
+      ".env.local",
+      "server.env",
+      path.join(".git", "HEAD"),
+      path.join("tests", "unit", "x.test.ts"),
+      path.join("audit", "03-SECURITY-FINDINGS.md"),
+      path.join(".build", "next", "standalone", "server.js"),
+      path.join(".install-upgrade", "ws", "omniroute-3.8.51.tgz"),
+      path.join("electron", "dist-electron", "win-unpacked", "OmniRoute.exe"),
+    ];
+    const kept = [
+      "server.js",
+      path.join("open-sse", "index.js"),
+      path.join("docs", "README.md"),
+      ".env.example",
+      path.join("electron", "main.js"),
+    ];
+    for (const rel of [...planted, ...kept]) {
+      await fs.mkdir(path.dirname(path.join(standalone, rel)), { recursive: true });
+      await fs.writeFile(path.join(standalone, rel), "x");
+    }
+    const pruned = await pruneStandaloneDir(standalone, fs, { log() {} });
+    for (const rel of planted) {
+      assert.equal(fsSync.existsSync(path.join(standalone, rel)), false, `${rel} must be pruned`);
+    }
+    for (const rel of kept) {
+      assert.equal(fsSync.existsSync(path.join(standalone, rel)), true, `${rel} must survive`);
+    }
+    assert.ok(pruned.includes(".env") && pruned.includes(".git") && pruned.includes("tests"));
+    assert.ok(
+      STANDALONE_PRUNE_TARGETS.includes(".env") && STANDALONE_PRUNE_TARGETS.includes(".build")
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("pruneStandaloneArtifacts (the post-build hook) removes a traced .env from the standalone", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omniroute-standalone-env-"));
+  try {
+    const envFile = path.join(tempDir, ".build", "next", "standalone", ".env");
+    await fs.mkdir(path.dirname(envFile), { recursive: true });
+    await fs.writeFile(envFile, "API_KEY_SECRET=not-for-shipping");
+    await pruneStandaloneArtifacts(tempDir);
+    assert.equal(fsSync.existsSync(envFile), false, "the checkout's .env must never ship");
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("pruneStandaloneArtifacts removes traced _tasks from standalone output", async () => {

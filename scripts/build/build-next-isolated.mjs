@@ -231,21 +231,73 @@ async function resetStandaloneOutput(rootDir = projectRoot, fsImpl = fs) {
   console.log("[build-next-isolated] Moved stale standalone output out of the build path");
 }
 
+/**
+ * Paths that must NEVER ship inside a standalone bundle, relative to the standalone root.
+ *
+ * Next's output-file tracing emits the WHOLE project root for this app (a dynamic
+ * `process.cwd()`-relative fs access in a shared module makes the tracer include the
+ * directory), and `outputFileTracingExcludes` is applied by picomatch against
+ * `path.join()`-ed absolute paths — which never match on Windows (backslashes are glob
+ * escapes) and, on every platform, only cover what the list names. The v3.8.51 standalone
+ * built here contained the checkout's real `.env`, `.git`, `tests/` (5 683 files), the
+ * nested `.build/next` (self-copy, 23 466 files), `.install-upgrade/` and `audit/` — and
+ * the Electron package shipped them all under resources/app. This denylist is the
+ * platform-independent guarantee, applied after `next build` AND on the Electron staging
+ * copy; `check:standalone-hygiene` fails a release whose bundle still has any of them.
+ */
+export const STANDALONE_PRUNE_TARGETS = Object.freeze([
+  // secrets / operator state
+  ".env",
+  ".env.local",
+  ".env.development",
+  ".env.production",
+  ".env.homolog",
+  "server.env",
+  // source control / CI / tooling
+  ".git",
+  ".github",
+  ".husky",
+  ".vscode",
+  ".claude",
+  ".opencode",
+  ".sandbox",
+  ".source",
+  ".artifacts",
+  // tests, audits, planning
+  "tests",
+  "audit",
+  "_tasks",
+  "coverage",
+  "test-results",
+  "playwright-report",
+  // other build outputs and gate workspaces (never nest a build inside a build)
+  ".build",
+  ".next",
+  ".install-upgrade",
+  "dist-electron",
+  path.join("electron", "dist-electron"),
+]);
+
+/** Remove every STANDALONE_PRUNE_TARGETS entry that exists under `standaloneRoot`. */
+export async function pruneStandaloneDir(standaloneRoot, fsImpl = fs, log = console) {
+  const pruned = [];
+  for (const rel of STANDALONE_PRUNE_TARGETS) {
+    const targetPath = path.join(standaloneRoot, rel);
+    if (!(await exists(targetPath))) continue;
+    await fsImpl.rm(targetPath, { recursive: true, force: true });
+    pruned.push(rel);
+    log.log(`[build-next-isolated] Pruned standalone artifact: ${rel}`);
+  }
+  return pruned;
+}
+
 export async function pruneStandaloneArtifacts(rootDir = projectRoot, fsImpl = fs) {
   const resolvedDistDirForPrune =
     rootDir === projectRoot
       ? distDir
       : path.join(rootDir, process.env.NEXT_DIST_DIR || ".build/next");
   const standaloneRoot = path.join(resolvedDistDirForPrune, "standalone");
-  const pruneTargets = [path.join(standaloneRoot, "_tasks")];
-
-  for (const targetPath of pruneTargets) {
-    if (!(await exists(targetPath))) continue;
-    await fsImpl.rm(targetPath, { recursive: true, force: true });
-    console.log(
-      `[build-next-isolated] Pruned standalone artifact: ${path.relative(rootDir, targetPath)}`
-    );
-  }
+  return pruneStandaloneDir(standaloneRoot, fsImpl);
 }
 
 export async function syncStandaloneNativeAssets(
