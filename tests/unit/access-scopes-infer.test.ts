@@ -74,3 +74,10 @@ test("mcp review: admin em todos os metodos (herda o prefixo /api/mcp)", () => {
   assert.equal(inferRequiredScope("POST", "/api/mcp/review"), "admin");
   assert.equal(inferRequiredScope("GET", "/api/mcp/review"), "admin");
 });
+
+test("mcp review approve/revoke: admin em todos os metodos (herda o prefixo /api/mcp)", () => {
+  assert.equal(inferRequiredScope("POST", "/api/mcp/review/approve"), "admin");
+  assert.equal(inferRequiredScope("GET", "/api/mcp/review/approve"), "admin");
+  assert.equal(inferRequiredScope("POST", "/api/mcp/review/revoke"), "admin");
+  assert.equal(inferRequiredScope("DELETE", "/api/mcp/review/revoke"), "admin");
+});
