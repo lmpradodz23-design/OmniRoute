@@ -13,7 +13,7 @@
  * What it does: temp DATA_DIR, loopback bind, the production profile's required secrets
  * (STORAGE_ENCRYPTION_KEY etc. — throwaway values), `node server.js` from the bundle, then
  * GET /api/health/ping must answer 200 within the deadline, /v1/models without a key must be
- * 401 (auth is wired), and the login page must render 200. The process tree is always torn
+ * 401 (REQUIRE_API_KEY=true proves auth is wired), and the login page must render 200. The process tree is always torn
  * down and the temp dir removed.
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -52,6 +52,10 @@ export function bootEnv({ dataDir, port }, base = process.env) {
     API_KEY_SECRET: "standalone-boot-gate-api-key-secret-long-enough",
     STORAGE_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     OMNIROUTE_SKIP_UPDATE_CHECK: "1",
+    // A fresh instance with no management password serves the client API to loopback
+    // callers without a key by design (zero-config). The gate asserts that auth is WIRED,
+    // so it runs the profile where a key is mandatory and expects 401 without one.
+    REQUIRE_API_KEY: "true",
   };
 }
 

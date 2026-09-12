@@ -24,6 +24,11 @@ test("bootEnv runs the production profile with throwaway secrets on loopback and
   assert.equal(env.HOSTNAME, "127.0.0.1");
   assert.equal(env.PORT, "20444");
   assert.equal(env.DATA_DIR, "/tmp/x/data");
+  assert.equal(
+    env.REQUIRE_API_KEY,
+    "true",
+    "the profile where /v1/* must answer 401 without a key"
+  );
   assert.equal(env.PATH, "/usr/bin", "inherits the base environment");
   for (const key of ["JWT_SECRET", "API_KEY_SECRET", "STORAGE_ENCRYPTION_KEY"]) {
     assert.ok(typeof env[key] === "string" && env[key].length >= 32, `${key} is a throwaway value`);
