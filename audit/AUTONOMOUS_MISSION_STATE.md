@@ -6,12 +6,12 @@
 - **diretório:** `C:/Users/zodyp/Downloads/OmniRoute-Unified/repos/OmniRoute-v3851-port`
 - **branch de trabalho:** `fix/final-user-readiness` (criada de `release/v3.8.51`)
 - **HEAD inicial:** `2a156c73812d45119d5a06a2f55d611280442860`
-- **HEAD atual:** `30ae54ee5` (137 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
-- **estado:** TESTING — **Fase 9 em fechamento.** Gates executados e classificados (`TEST_MATRIX.md`); build Turbopack exit 0; pack-artifact/pack-boot PASS; install-upgrade reexecutando após migração 174; Electron `--dir` empacotando. Próximo: artefatos + SHA-256, entregáveis finais, CANDIDATE_COMPLETED → 3 auditores.
-- **iteração:** 12
+- **HEAD atual:** `9fe1d4cd2` (133 commits desde o HEAD inicial — `git log --oneline 2a156c738..HEAD`)
+- **estado:** FIXING/RETESTING — **CANDIDATE_COMPLETED declarado em `b623dc3aa`; 3 auditorias independentes concluídas (A, B, C: todas APROVADO COM RESSALVAS; 0 CRITICAL dos auditores, 3 HIGH do C).** Fix loop: 14 commits; X-1 (CRITICAL, artefatos com `.env`/`.git`/`tests`) e X-2 (HIGH, cache cross-format) encontrados pelo executor/E2E Ollama e corrigidos. Em correção por agentes: C-03, C-04(+C-11), C-05, C-07. Rebuild #5 + Electron pack #3 em execução para provar X-1.
+- **iteração:** 13
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-11 — Tailscale path em runtime (`30ae54ee5`); `TEST_MATRIX.md` preenchido; install-upgrade #2 e Electron pack em execução
-- **último_progresso_real:** 2026-09-11 — Fase 9: unit/integration/UI/MCP completos e classificados contra o baseline (5 regressões reais corrigidas, 0 restantes); 4 gates de empacotamento corrigidos para Windows; migração 174 (`compression_run_telemetry`); `node_modules` real (junction removida); build Turbopack exit 0 (1143 s); aviso de tracing do Tailscale corrigido na causa raiz
+- **último_heartbeat:** 2026-09-11 — fix loop da auditoria final (A-1…A-6, B-1, C-01, C-02, X-1…X-6 commitados); `FINAL_THREE_AGENT_REVIEW.md` criado; addenda em 02/03/04
+- **último_progresso_real:** 2026-09-11 — install-upgrade #2 PASS (esquema convergiu); Electron `--dir` exit 0; E2E real com Ollama 7/7 (`test:compat:ollama`); 3 auditores entregues; 14 correções RED-first commitadas
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` **real** (`npm ci` — junction removida em 2026-09-11 porque Turbopack e o standalone a recusavam); worktree baseline `../OmniRoute-v3851-baseline` (HEAD inicial, ainda com junction) só para classificar falhas
 
 ## Autorizações (desta missão)
@@ -57,7 +57,7 @@
 
 ## Tarefa atual
 
-Ordem 17 (fechamento) — provar convergência de esquema no `check:install-upgrade` #2 (migração 174), confirmar Electron `--dir`, rebuild Turbopack sem o aviso de tracing (`30ae54ee5`), registrar artefatos + SHA-256 em `TEST_MATRIX.md` §5, fechar `FINAL_REPORT`/`RELEASE_READINESS`/`SECURITY_REMEDIATION`/`USER_JOURNEYS`; então CANDIDATE_COMPLETED.
+Fix loop final (skill §22): fechar C-03/C-04/C-05/C-07 (agentes), provar X-1 com build #5 + pack #3 (`_hygiene5.txt`, `_hygiene_electron3.txt`), pedir verificação cruzada aos auditores A/B/C sobre as correções, fechar `FINAL_THREE_AGENT_REVIEW.md` §5/§6, `TEST_MATRIX.md` §5, `FINAL_REPORT`/`RELEASE_READINESS`/`SECURITY_REMEDIATION`/`USER_JOURNEYS`; então COMPLETED → (autorização condicional) push/PR/GHCR.
 
 ## Tarefas pendentes (ordem do plano)
 
@@ -67,7 +67,7 @@ Ordem 17 (fechamento) — provar convergência de esquema no `check:install-upgr
 - [x] 15 · Fase 5 (concluída — ver `04`): U6, U7/J13, J2, J17, A1, A2 (onboarding), M1, I1, I3 **concluídos**; restam U5 (29 `confirm()` → `ConfirmModal`), docs pt-BR "primeiro uso em 5 passos", E-5 (snapshot pré-update — ver `ROLLBACK.md` §2.3).
 - [x] 16 · Fase 6 compatibilidade: `npm run test:compat` (instância isolada + mock upstream) 8/8; cancelamento corrigido (R-21). E2E autenticado real contra provedor pago = `BLOCKED_BY_EXTERNAL_DEPENDENCY` (credencial + custo).
 - [~] 17 · Fase 9: `TEST_MATRIX.md` preenchido com exit codes reais (lint 0, tsc ×3 0, unit 37 433/37 822 com 0 regressões após classificação, integration 27/27 falhas idênticas ao baseline, UI/MCP PASS, build 0, build:cli 0, pack-artifact 0, pack-boot 0, audit 0 crit/0 high). Restam: install-upgrade #2, Electron `--dir`, SHA-256.
-- [ ] 18 · CANDIDATE_COMPLETED → 3 auditorias independentes → `FINAL_THREE_AGENT_REVIEW.md` → fix loop → COMPLETED → (autorização condicional) push/PR/GHCR.
+- [~] 18 · CANDIDATE_COMPLETED ✔ → 3 auditorias independentes ✔ (A/B/C) → `FINAL_THREE_AGENT_REVIEW.md` ✔ (rascunho) → fix loop **em andamento** (14/18 achados acionáveis corrigidos) → verificação cruzada → COMPLETED → push/PR/GHCR.
 - [ ] Entregáveis: `FINAL_REPORT`, `TEST_MATRIX`, `SECURITY_REMEDIATION`, `USER_JOURNEYS`, `RELEASE_READINESS` (`ROLLBACK` ✔).
 
 ## Falhas pré-existentes — situação
@@ -119,7 +119,7 @@ Ordem 17 (fechamento) — provar convergência de esquema no `check:install-upgr
 ## Processos / portas
 
 - PID **8488** escuta 20128/20131/20132 = instância de teste do operador (NÃO encerrar).
-- Instâncias da missão: nenhuma persistente. Em execução no fechamento da Fase 9: `check-install-upgrade` #2 (workspace `.install-upgrade/`, porta isolada) e `electron npm run pack` (`electron/dist`). Regra: bind 127.0.0.1, porta isolada, `DATA_DIR` temporário, PID registrado, encerrar árvore e confirmar porta livre.
+- Instâncias da missão: nenhuma persistente. Em execução: cadeia build #5 (`.build/next-verify`) → prune → Electron pack #3 (`_chain5.sh`); agentes fix-C03/C04/C05/C07 (só edição de arquivos; portas 20431–20432 reservadas). Auditores e agente Ollama encerraram suas instâncias (portas 20411–20420 livres).
 
 ## Riscos
 
@@ -129,9 +129,10 @@ Ordem 17 (fechamento) — provar convergência de esquema no `check:install-upgr
 
 ## Próxima ação
 
-1. Ler `_install_upgrade2.log` (esperado: 0 divergências) e `_electron_pack2.log` (esperado: `electron/dist/win-unpacked`); registrar em `TEST_MATRIX.md` §3/§5 com SHA-256 do tarball npm, do standalone e do Electron `--dir`.
-2. Rebuild Turbopack para provar o fim do aviso de tracing (`30ae54ee5`).
-3. Fechar `FINAL_REPORT`, `RELEASE_READINESS`, `SECURITY_REMEDIATION`, `USER_JOURNEYS` → estado CANDIDATE_COMPLETED → 3 auditores independentes (Agent) → `FINAL_THREE_AGENT_REVIEW.md` → fix loop → COMPLETED → (autorização condicional) push/PR/GHCR.
+1. Receber relatórios de fix-C03/C04/C05/C07 → re-executar suítes → commits individuais.
+2. Ler `_hygiene5.txt` e `_hygiene_electron3.txt` (esperado: `.env`/`.git`/`tests`/`.build` ausentes; exit 0) → `TEST_MATRIX.md` §3/§5 com SHA-256 dos artefatos pós-X-1.
+3. SendMessage aos auditores A/B/C com a lista de commits para verificação cruzada; consolidar em `FINAL_THREE_AGENT_REVIEW.md` §5/§6.
+4. Fechar entregáveis; estado COMPLETED; executar a autorização condicional (push da branch, PR para `release/v3.8.51`, CI, GHCR via workflow) e registrar evidência.
 
 ## Instruções de retomada
 

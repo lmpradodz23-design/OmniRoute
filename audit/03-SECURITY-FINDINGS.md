@@ -162,3 +162,14 @@ Command injection (argv-array em todos os spawns); path traversal por request; `
 6. **#3 residual** — `server.env` `0o600`; readiness de armazenamento inseguro; exigir chave em perfil exposto. (Fase 1 §6)
 7. **#2 matriz** — teste matricial rota×origem×auth. (Fase 1 §2)
 8. **SC-1/SC-4/SC-5** — gates de supply chain (Fase 7); **P-1…P-4** (Fase 3).
+
+## Addendum — auditoria final independente (Auditor B) e fix loop
+
+| ID  | Sev         | Achado                                                                                                                                                               | Estado                                                                                                                                                  |
+| --- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B-1 | LOW         | `isPrivateHost` deixava passar o IPv6 mapeado NÃO comprimido (`0:0:0:0:0:ffff:127.0.0.1`); NAT64 `64:ff9b::/96` público                                              | CORRIGIDO `7dcfcfa83` — guard canônico e cópia do relay classificam pelos grupos expandidos                                                             |
+| B-2 | IMPROVEMENT | plugins: checksum obrigatório sem assinatura de publisher                                                                                                            | ACEITO — próximo passo: assinatura minisign/cosign verificada no cliente                                                                                |
+| B-3 | INFO        | chave cifrada-recuperável mantida só para o OpenAPI Try (auth por hash; reveal removido)                                                                             | ACEITO/documentado                                                                                                                                      |
+| X-1 | CRITICAL    | **artefatos empacotavam o `.env` real do checkout**, `.git`, `tests/`, `.install-upgrade/` e `.build` aninhado (tracing emite a raiz; excludes não casam no Windows) | CORRIGIDO `f7d4acb0f` — denylist aplicada após o build e na cópia do Electron; excludes ampliados; artefatos reconstruídos (ver `TEST_MATRIX.md` §3/§5) |
+
+Verificações executadas pelo Auditor B (saída real no relatório): 65/65 MCP scopes + private-host; 26/26 authz matriz + webhook SSRF + sinks; 258 `uses:` pinados; `npm audit --omit=dev` 0 crit/0 high/3 mod; SC-1 strict; 0 segredos no diff. Detalhes: `FINAL_THREE_AGENT_REVIEW.md`.
