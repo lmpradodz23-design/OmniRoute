@@ -8626,15 +8626,31 @@ paths:
       tags: [Loop Engine]
       summary: Stream a Loop run as AG-UI events (SSE)
       description: |
-        Replays the current state of one run as a single, valid AG-UI event flow: `RUN_STARTED`,
-        then for each step one `TEXT_MESSAGE_START` / `TEXT_MESSAGE_CONTENT` / `TEXT_MESSAGE_END`
-        triple (the content delta is `"<n>. <title> (<status>)"`, plus a
-        `[efeito proposto: <kind>]` suffix when the step proposes a non-`none` effect), then one
-        `STATE_SNAPSHOT` carrying `{ phase, status, sequenceNumber }`, then `RUN_FINISHED`. `seq`
-        is strictly increasing and `RUN_FINISHED` is always the last frame, so the stream is a
-        self-contained flow an `EventSource` can consume directly (see the `AgUiEvent` schema for
-        the frame shapes). This route is report-only — it reads the persisted run once and
-        streams a snapshot; it never emits `TOOL_CALL_*` or `RUN_ERROR`, and executes nothing.
+        Streams one run as a valid AG-UI event flow over SSE, incrementally — the body is a live
+        stream, not a buffered replay. Each connection first sends a `retry:` field, `RUN_STARTED`
+        and a snapshot of the current state: for each step one `TEXT_MESSAGE_START` /
+        `TEXT_MESSAGE_CONTENT` / `TEXT_MESSAGE_END` triple (the content delta is
+        `"<n>. <title> (<status>)"`, plus a `[efeito proposto: <kind>]` suffix when the step
+        proposes a non-`none` effect), then one `STATE_SNAPSHOT` carrying
+        `{ phase, status, sequenceNumber }` (see the `AgUiEvent` schema for the frame shapes).
+
+        While the run is not in a terminal status the connection stays open: the server re-reads
+        the run about once per second and, only when its `sequenceNumber` changed, sends a
+        `STATE_DELTA` with the changed `{ phase, status, sequenceNumber }` fields plus one text
+        message triple per new or re-statused step. An SSE comment (`: ping`) is sent every 15 s so
+        idle proxies keep the connection. When the run reaches a terminal status the stream sends
+        `RUN_FINISHED` (`done`, `escalated`) or `RUN_ERROR` (`failed`, `aborted`) and closes. A
+        connection lives at most 10 minutes: it then sends `RUN_ERROR` (with no `id:` line) and
+        closes, so a stuck run cannot hold it forever — reconnect to continue. Client disconnects
+        stop the polling immediately.
+
+        Resume: `seq` is deterministic per run version, and an `id: <seq>` line is attached to the
+        last frame of each consistent block (`RUN_STARTED`, snapshot, delta, terminal). A
+        reconnecting client that sends `Last-Event-ID` only receives events whose `seq` is greater;
+        if it already received the run's terminal event the route answers `204`, which stops
+        `EventSource` from reconnecting. Within one connection `seq` is strictly increasing and
+        exactly one terminal event is the last frame. This route is report-only — it only reads
+        the persisted run, never emits `TOOL_CALL_*`, and executes nothing.
 
         Requires management authentication. Answers `404` both while `LOOP_ENGINE_ENABLED` is
         off and when no run carries this id — this route replies with the bare
@@ -8649,16 +8665,29 @@ paths:
           description: Run id.
           schema:
             type: string
+        - in: header
+          name: Last-Event-ID
+          required: false
+          description: >-
+            Last `id:` received on a previous connection (sent automatically by `EventSource` on
+            reconnect). Events with `seq` less than or equal to it are skipped.
+          schema:
+            type: string
+            pattern: "^[0-9]{1,15}$"
       responses:
         "200":
-          description: SSE stream of AG-UI events replaying this run's current state
+          description: Live SSE stream of AG-UI events for this run, closed after a terminal event
           content:
             text/event-stream:
               schema:
                 type: string
                 description: >-
-                  Frames of the form `event: <type>\ndata: <json>\n\n`; `<json>` deserializes to
-                  one `AgUiEvent`.
+                  Frames of the form `[id: <seq>\n]event: <type>\ndata: <json>\n\n`; `<json>`
+                  deserializes to one `AgUiEvent`. The stream also carries a `retry: <ms>` field
+                  and `: ping` comment heartbeats.
+        "204":
+          description: >-
+            `Last-Event-ID` shows the client already received this run's terminal event; no body.
         "401":
           $ref: "#/components/responses/ManagementAuthenticationRequired"
         "403":
