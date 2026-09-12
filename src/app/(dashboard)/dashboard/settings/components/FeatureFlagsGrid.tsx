@@ -63,8 +63,8 @@ export default function FeatureFlagsGrid() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Deep-link: /dashboard/settings/feature-flags?q=LOOP_ENGINE_ENABLED pré-filtra o grid
-  // (usado pelos CTAs "Abrir Feature Flags" das páginas Loop/Buzz).
+  // Deep link: /dashboard/settings/feature-flags?q=LOOP_ENGINE_ENABLED pre-filters the grid
+  // (used by the "Open Feature Flags" CTAs of the Loop and Buzz pages).
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [category, setCategory] = useState<string>("all");
   const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
