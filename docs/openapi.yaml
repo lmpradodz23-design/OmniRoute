@@ -105,6 +105,18 @@ tags:
       HAR export, SSE merge, and conversation normalization.
       All routes are LOCAL_ONLY + SPAWN_CAPABLE (hard rules #15, #17).
       See docs/frameworks/TRAFFIC_INSPECTOR.md.
+  - name: Loop Engine
+    description: >-
+      Report-only agentic cycles: the Loop proposes steps, the deterministic Policy Gate
+      decides, and no external effect runs without human approval. Every route requires
+      management authentication and answers 404 while the LOOP_ENGINE_ENABLED feature flag
+      is off. Mutations require `admin` scope on the access-token credential path.
+  - name: Buzz Hub
+    description: >-
+      Human+agent collaboration bridge over an operator-supplied Nostr relay, with a durable
+      outbox/inbox. Every route requires management authentication. Status and relay
+      configuration stay readable with the flag off; publishing is gated by BUZZ_HUB_ENABLED
+      and only happens when a relay URL is configured. The agent secret key is never returned.
 
   - name: A2a
     description: A2a endpoints (generated route coverage)
@@ -8311,6 +8323,429 @@ paths:
         "200":
           description: CodeWhale config entry removed.
 
+  # ─── Loop Engine & Buzz Hub (agentic features, flags OFF by default) ──────
+  # Loop routes answer 404 while LOOP_ENGINE_ENABLED is off. Buzz status/config stay readable
+  # with BUZZ_HUB_ENABLED off so the panel can explain how to turn the hub on; only the flush
+  # (the only route that touches the relay) is flag-gated.
+
+  /api/loop:
+    get:
+      tags: [Loop Engine]
+      summary: List Loop Engine runs
+      description: |
+        Returns the persisted runs of the current tenant, most recently updated first,
+        optionally narrowed to a single `status`. A `status` value outside the enum is
+        ignored (the full list is returned) rather than rejected.
+
+        Requires management authentication. Answers `404` while the `LOOP_ENGINE_ENABLED`
+        feature flag is off.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          description: Narrow the listing to a single run status.
+          schema:
+            $ref: "#/components/schemas/LoopRunStatus"
+      responses:
+        "200":
+          description: Runs currently persisted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runs]
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LoopRun"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          $ref: "#/components/responses/LoopEngineDisabled"
+    post:
+      tags: [Loop Engine]
+      summary: Start a report-only Loop run
+      description: |
+        Creates a run in `report_only` status, phase `discover`, with no steps. Starting a run
+        executes NO external effect: later steps are only *proposed*, and the Policy Gate plus
+        `POST /api/loop/{id}/approve` decide what may ever run.
+
+        Every `budget` field is optional and, when present, must be a positive integer within
+        its ceiling (`maxTokens` ≤ 10000000, `maxWallClockMs` ≤ 604800000 — 7 days,
+        `maxAttempts` ≤ 100). No other budget key is accepted. Omitted fields fall back to the
+        engine defaults (200000 tokens, 900000 ms, 3 attempts). `correlationId` defaults to a
+        generated UUID.
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope. Answers `404` while `LOOP_ENGINE_ENABLED` is off.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartLoopRunRequest"
+      responses:
+        "201":
+          description: Run created (report-only)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [run]
+                properties:
+                  run:
+                    $ref: "#/components/schemas/LoopRun"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          $ref: "#/components/responses/LoopEngineDisabled"
+
+  /api/loop/{id}:
+    get:
+      tags: [Loop Engine]
+      summary: Read one Loop run
+      description: |
+        Returns a single run with its steps.
+
+        Requires management authentication. Answers `404` both while the `LOOP_ENGINE_ENABLED`
+        feature flag is off and when no run carries this id — this route replies with the bare
+        `{ "error": string }` body, not the standard error envelope.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Run id (UUID assigned by `POST /api/loop`).
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The requested run
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [run]
+                properties:
+                  run:
+                    $ref: "#/components/schemas/LoopRun"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: Loop Engine disabled, or no run with this id
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+              examples:
+                disabled:
+                  value:
+                    error: Loop Engine is disabled.
+                notFound:
+                  value:
+                    error: run not found
+
+  /api/loop/{id}/advance:
+    post:
+      tags: [Loop Engine]
+      summary: Advance a Loop run by one step
+      description: |
+        Runs exactly one transition of the cycle and persists it. Report-only: a step whose
+        proposed effect the Policy Gate does not auto-allow parks the run in
+        `awaiting_approval`; nothing is executed here. Budget consumption reported in
+        `consumed` is added to `run.usage`; exhausting the budget aborts the run.
+
+        `expectedSequenceNumber` is optimistic concurrency: it is the `run.sequenceNumber` the
+        caller last saw. If the run has changed meanwhile, nothing is written and the request
+        fails with `409`. Omitting it accepts the current version (last writer wins).
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope. Answers `404` while `LOOP_ENGINE_ENABLED` is off.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Run id.
+          schema:
+            type: string
+      requestBody:
+        required: false
+        description: Optional. An absent or unparsable body is treated as `{}`.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdvanceLoopRunRequest"
+      responses:
+        "200":
+          description: The run after the transition, plus a human-readable note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdvanceLoopRunResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          $ref: "#/components/responses/LoopEngineDisabled"
+        "409":
+          $ref: "#/components/responses/LoopConflict"
+        "500":
+          description: The Loop Engine request failed (generic; the raw cause is not echoed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/loop/{id}/approve:
+    post:
+      tags: [Loop Engine]
+      summary: Approve or reject a step awaiting human approval
+      description: |
+        `decision: "approve"` (the default) releases a step the Policy Gate parked for a human.
+        It is fail-closed: the run must be in `awaiting_approval`, the step must still be
+        `proposed`, and the Policy Gate is re-evaluated outside report-only — an effect it
+        denies (`purchase`, `account_change`, `delete`) never becomes `approved`, even with a
+        human approval, and the request fails with `409`.
+
+        `decision: "reject"` marks the step rejected; the next advance escalates to a human if
+        no new step is proposed. The real external effect of an approved step is carried out by
+        the OmniRoute connectors, not by this route.
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope. Answers `404` while `LOOP_ENGINE_ENABLED` is off.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Run id.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveLoopStepRequest"
+      responses:
+        "200":
+          description: The run after the decision
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [run, decision]
+                properties:
+                  run:
+                    $ref: "#/components/schemas/LoopRun"
+                  decision:
+                    type: string
+                    enum: [approve, reject]
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "404":
+          description: >-
+            Loop Engine disabled, or no run/step with this id. The disabled case and the
+            not-found case both use the standard error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              examples:
+                disabled:
+                  value:
+                    error:
+                      message: Loop Engine is disabled.
+                      type: not_found
+                    requestId: 9f1c6f0a-2f4d-4a2e-8c11-6e4d0a7b3c52
+                stepNotFound:
+                  value:
+                    error:
+                      message: "etapa não encontrada: 7f0c…"
+                      type: not_found
+                    requestId: 2b7d4e10-5c8a-4a37-9f02-1d6e8c3a4b55
+        "409":
+          $ref: "#/components/responses/LoopConflict"
+        "500":
+          description: The Loop Engine request failed (generic; the raw cause is not echoed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/buzz:
+    get:
+      tags: [Buzz Hub]
+      summary: Read Buzz Hub status
+      description: |
+        Local read: the flag state, the effective relay URL, the agent's Nostr PUBLIC key and
+        the outbox/inbox counts. It never connects to the relay and never returns the agent's
+        secret key (which is stored encrypted at rest).
+
+        Unlike the Loop routes this stays readable with `BUZZ_HUB_ENABLED` off, so the panel can
+        show "disabled" and explain how to turn it on. With the flag off the read does not create
+        or persist a Nostr identity (`identityStatus` is then `missing` until one exists); with
+        the flag on the read activates the hub and creates the identity on first use.
+
+        Requires management authentication.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      responses:
+        "200":
+          description: Current Buzz Hub status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuzzStatus"
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+    put:
+      tags: [Buzz Hub]
+      summary: Set the Buzz relay URL
+      description: |
+        Persists the operator-supplied relay URL (precedence: panel value → environment
+        `BUZZ_RELAY_URL` → built-in default). An empty string clears the override. Nothing
+        connects here — the relay is only contacted by the flush and the consumer.
+
+        Deliberately NOT gated by `BUZZ_HUB_ENABLED`: it is non-secret, admin-only configuration
+        the operator sets BEFORE turning the flag on. The URL is validated (`validateBuzzRelayUrl`)
+        and a rejection answers `400` with a stable `code`; the submitted URL is never echoed back:
+
+        | `code` | rejected because |
+        | --- | --- |
+        | `invalid_body` | body is not `{ relayUrl: string }` (max 2048 chars, no extra keys) |
+        | `invalid_url` | not a parsable URL, or longer than 2048 characters |
+        | `unsupported_scheme` | scheme is neither `wss:` nor `ws:` |
+        | `credentials_in_url` | the URL carries a username or password |
+        | `query_or_fragment` | the URL carries a query string or a fragment |
+        | `cloud_metadata_host` | cloud instance-metadata host (always blocked) |
+        | `private_host` | private/link-local host that is not loopback |
+        | `tls_required` | plain `ws:` outside loopback |
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetBuzzRelayUrlRequest"
+      responses:
+        "200":
+          description: Status after applying the new relay URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuzzStatus"
+        "400":
+          description: Body shape or relay URL rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuzzErrorResponse"
+              example:
+                error: relay URL must not contain credentials
+                code: credentials_in_url
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+
+  /api/buzz/flush:
+    post:
+      tags: [Buzz Hub]
+      summary: Publish pending outbox entries to the relay
+      description: |
+        Publishes the eligible outbox entries to the configured relay. Idempotent (the relay
+        deduplicates by event id). Entries that fail are marked with an exponential backoff and
+        retried on later flushes; once the retry ceiling is reached they become `dead` and are
+        never retried automatically. A time ceiling can end a flush early
+        (`deadlineReached: true`), leaving the remainder pending.
+
+        Gated by `BUZZ_HUB_ENABLED`: with the flag off — or with no relay configured — the
+        response is `200` with `skipped: true` and nothing connects.
+
+        Requires management authentication; on the access-token credential path this mutation
+        requires `admin` scope.
+      security:
+        - BearerAuth: []
+        - ManagementSessionAuth: []
+      responses:
+        "200":
+          description: Flush result, or a skipped no-op
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuzzFlushResult"
+              examples:
+                published:
+                  value:
+                    published: 3
+                    failed: 0
+                    skipped: false
+                    deadlineReached: false
+                flagOff:
+                  value:
+                    published: 0
+                    failed: 0
+                    skipped: true
+                    reason: BUZZ_HUB_ENABLED is off
+        "401":
+          $ref: "#/components/responses/ManagementAuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/ManagementInvalidToken"
+        "502":
+          description: >-
+            The relay could not be reached; the outbox stays pending. The body is deliberately
+            generic — the raw connection error (which would identify the relay host) only
+            reaches the server log, redacted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuzzFlushErrorResponse"
+              example:
+                error: "Buzz relay unavailable: the outbox could not be published; it stays pending"
+                code: relay_unavailable
+
   # --- Generated route coverage (docs audit 2026-08-31) -----------------------
   # Minimal entries for every implemented route not documented above. Methods
   # are parsed from each route.ts's exports; summaries are path-derived.
@@ -13176,6 +13611,31 @@ components:
               message: Internal server error
               type: api_error
             requestId: 0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+    LoopEngineDisabled:
+      description: The LOOP_ENGINE_ENABLED feature flag is off, so the Loop routes do not exist
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorResponse"
+          example:
+            error:
+              message: Loop Engine is disabled. Enable LOOP_ENGINE_ENABLED in the OmniRoute panel.
+              type: not_found
+            requestId: 6c1e2f88-0b3a-4d5e-9a71-2f4c6d8e0b13
+    LoopConflict:
+      description: >-
+        Version conflict (the run changed since `expectedSequenceNumber`) or a state/policy
+        conflict (wrong run status, step no longer `proposed`, or an effect the Policy Gate
+        denies). Nothing was written.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorResponse"
+          example:
+            error:
+              message: "loop run changed since sequenceNumber 4"
+              type: conflict
+            requestId: d1a4c7b2-8e36-4f19-b05c-7a2e9d4f6c80
 
   schemas:
     ExclusiveConnectionLeaseLifecycle:
@@ -14654,3 +15114,343 @@ components:
             - context-optimized
             - fusion
           default: priority
+
+    LoopRunStatus:
+      type: string
+      description: Lifecycle status of a Loop run.
+      enum:
+        - report_only
+        - awaiting_approval
+        - verifying
+        - done
+        - failed
+        - escalated
+        - aborted
+
+    LoopPhase:
+      type: string
+      description: Canonical cycle phase, in order.
+      enum:
+        - discover
+        - plan
+        - split
+        - execute
+        - checkpoint
+        - verify
+        - budget
+        - escalate
+
+    LoopBudget:
+      type: object
+      description: Hard ceilings for a run. Exceeding any of them aborts the run.
+      required: [maxTokens, maxWallClockMs, maxAttempts]
+      properties:
+        maxTokens:
+          type: integer
+          example: 200000
+        maxWallClockMs:
+          type: integer
+          example: 900000
+        maxAttempts:
+          type: integer
+          example: 3
+
+    LoopBudgetUsage:
+      type: object
+      description: Consumption accumulated so far, compared against the budget.
+      required: [tokens, wallClockMs, attempts]
+      properties:
+        tokens:
+          type: integer
+        wallClockMs:
+          type: integer
+        attempts:
+          type: integer
+
+    LoopProposedEffect:
+      type: object
+      description: >-
+        The external effect a step proposes. Always evaluated by the deterministic Policy Gate
+        before anything could run. `none` is inert.
+      required: [kind, summary]
+      properties:
+        kind:
+          type: string
+          enum:
+            - none
+            - git_commit
+            - git_pr
+            - message_send
+            - deploy
+            - purchase
+            - account_change
+            - delete
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+
+    LoopStep:
+      type: object
+      description: One step proposed by the cycle. Report-only — nothing runs without approval.
+      required: [id, runId, index, title, status]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        index:
+          type: integer
+        title:
+          type: string
+        proposedEffect:
+          $ref: "#/components/schemas/LoopProposedEffect"
+        status:
+          type: string
+          enum: [proposed, approved, rejected, verified, failed]
+
+    LoopRun:
+      type: object
+      description: A Loop Engine run with its steps, budget and consumption.
+      required:
+        - id
+        - pattern
+        - phase
+        - status
+        - budget
+        - usage
+        - steps
+        - correlationId
+        - sequenceNumber
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Run id (UUID).
+        pattern:
+          type: string
+          description: Short cycle identifier, e.g. `daily-triage`.
+        phase:
+          $ref: "#/components/schemas/LoopPhase"
+        status:
+          $ref: "#/components/schemas/LoopRunStatus"
+        budget:
+          $ref: "#/components/schemas/LoopBudget"
+        usage:
+          $ref: "#/components/schemas/LoopBudgetUsage"
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/LoopStep"
+        correlationId:
+          type: string
+          description: Idempotency/correlation key for the Buzz outbox-inbox bridge.
+        taskId:
+          type: string
+        sequenceNumber:
+          type: integer
+          description: >-
+            Persisted version of the run; every written mutation increments it. Pass it back as
+            `expectedSequenceNumber` on advance to detect a stale writer.
+        createdAt:
+          type: integer
+          description: Creation instant (epoch ms). `usage.wallClockMs` is measured from here.
+
+    StartLoopRunRequest:
+      type: object
+      additionalProperties: false
+      required: [pattern]
+      properties:
+        pattern:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^[A-Za-z0-9._-]+$"
+          example: daily-triage
+        budget:
+          type: object
+          additionalProperties: false
+          description: Optional overrides. Omitted fields use the engine defaults.
+          properties:
+            maxTokens:
+              type: integer
+              minimum: 1
+              maximum: 10000000
+            maxWallClockMs:
+              type: integer
+              minimum: 1
+              maximum: 604800000
+            maxAttempts:
+              type: integer
+              minimum: 1
+              maximum: 100
+        taskId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        correlationId:
+          type: string
+          minLength: 1
+          maxLength: 64
+
+    AdvanceLoopRunRequest:
+      type: object
+      additionalProperties: false
+      description: Every field is optional; an empty object is valid.
+      properties:
+        consumed:
+          type: object
+          additionalProperties: false
+          description: Budget consumed since the previous advance.
+          properties:
+            tokens:
+              type: integer
+              minimum: 0
+            wallClockMs:
+              type: integer
+              minimum: 0
+            attempts:
+              type: integer
+              minimum: 0
+        expectedSequenceNumber:
+          type: integer
+          minimum: 0
+          description: >-
+            The `run.sequenceNumber` the caller last saw. A mismatch answers 409 and writes
+            nothing. Omitted means "whatever the current version is".
+
+    AdvanceLoopRunResult:
+      type: object
+      required: [run, note]
+      properties:
+        run:
+          $ref: "#/components/schemas/LoopRun"
+        note:
+          type: string
+          description: Human-readable summary of the transition that just happened.
+
+    ApproveLoopStepRequest:
+      type: object
+      additionalProperties: false
+      required: [stepId]
+      properties:
+        stepId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        decision:
+          type: string
+          enum: [approve, reject]
+          default: approve
+
+    BuzzCounts:
+      type: object
+      description: Outbox/inbox counters for the tenant. Zero when the tables do not exist yet.
+      required:
+        - outboxPending
+        - outboxPublished
+        - outboxFailed
+        - outboxDead
+        - inboxReceived
+      properties:
+        outboxPending:
+          type: integer
+        outboxPublished:
+          type: integer
+        outboxFailed:
+          type: integer
+          description: Transient failures still scheduled for retry.
+        outboxDead:
+          type: integer
+          description: Permanent failures — retry ceiling reached, never retried automatically.
+        inboxReceived:
+          type: integer
+
+    BuzzStatus:
+      type: object
+      required: [enabled, relayUrl, relayConfigured, agentPubkey, identityStatus, counts]
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the BUZZ_HUB_ENABLED feature flag is on.
+        relayUrl:
+          type: string
+          description: Effective relay URL (panel override, else environment, else the default).
+        relayConfigured:
+          type: boolean
+          description: Whether a non-empty relay URL is in effect.
+        agentPubkey:
+          type: string
+          nullable: true
+          description: >-
+            The agent's Nostr PUBLIC key (hex). `null` while no identity exists. The secret key
+            is stored encrypted at rest and is never returned by this API.
+        identityStatus:
+          type: string
+          enum: [ok, missing, undecryptable]
+          description: >-
+            `ok` a key pair is available; `missing` none exists yet; `undecryptable` a stored
+            key exists but cannot be decrypted with the current secret.
+        counts:
+          $ref: "#/components/schemas/BuzzCounts"
+
+    SetBuzzRelayUrlRequest:
+      type: object
+      additionalProperties: false
+      required: [relayUrl]
+      properties:
+        relayUrl:
+          type: string
+          maxLength: 2048
+          description: >-
+            `wss://` relay URL (plain `ws://` only on loopback). No credentials, query string or
+            fragment. An empty string clears the panel override.
+          example: wss://relay.example.org
+
+    BuzzFlushResult:
+      type: object
+      required: [published, failed, skipped]
+      properties:
+        published:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: boolean
+          description: True when nothing was attempted (flag off, or no relay configured).
+        deadlineReached:
+          type: boolean
+          description: True when the time ceiling ended the flush early; the rest stays pending.
+        reason:
+          type: string
+          description: Why the flush was skipped, when it was.
+
+    BuzzErrorResponse:
+      type: object
+      description: Typed error body of the Buzz routes. The submitted relay URL is never echoed.
+      required: [error, code]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum:
+            - invalid_body
+            - invalid_url
+            - unsupported_scheme
+            - credentials_in_url
+            - query_or_fragment
+            - cloud_metadata_host
+            - private_host
+            - tls_required
+
+    BuzzFlushErrorResponse:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum: [relay_unavailable]
