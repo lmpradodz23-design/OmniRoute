@@ -1,12 +1,12 @@
 # FINAL_REPORT — Missão Mestre: OmniRoute pronto para o usuário final
 
-> Estado: **RASCUNHO** — consolidado ao fechar a Fase 9 (matriz de gates) e as 3 auditorias independentes. Publicação (push/PR/npm/GHCR/Electron/Release) **não executada**.
+> Estado: **FINAL** — Fase 9 fechada, 3 auditorias independentes + verificação cruzada concluídas, fix loop encerrado. Publicação: executada SOMENTE dentro da autorização condicional do operador (push da branch + PR + CI + imagem GHCR via workflow); npm publish, Docker Hub e deploy **não executados**. Estado e evidências de publicação em `AUTONOMOUS_MISSION_STATE.md`.
 
 ## 1. Resumo executivo
 
 - Repositório: `LMPrado-DZ23/OmniRoute` (fork; upstream `diegosouzapw/OmniRoute` só para comparação). Branch de trabalho `fix/final-user-readiness` criada de `release/v3.8.51` a partir do HEAD `2a156c738`.
 - Método: auditoria completa (Fase 0, `audit/01…05`), depois loop **auditar → provar (RED) → corrigir causa raiz → teste de regressão → gates → um problema por commit → checkpoint**, com estado persistente em `AUTONOMOUS_MISSION_STATE.md`.
-- Resultado: (números finais preenchidos ao fechar) commits locais na branch; todos os HIGH de segurança/confiabilidade corrigidos ou bloqueados por dependência externa documentada (E-4 code-signing); jornadas do usuário final verificadas (`USER_JOURNEYS.md`); compatibilidade com Claude Code, Codex, SDKs OpenAI/Anthropic e MCP verificada contra instância isolada (`npm run test:compat`).
+- Resultado: ~155 commits pequenos e auditáveis na branch (`git log --oneline 2a156c738..HEAD`), cada correção com teste RED-first; todos os HIGH de segurança/confiabilidade corrigidos ou bloqueados por dependência externa documentada (E-4 code-signing); jornadas do usuário final verificadas (`USER_JOURNEYS.md`); compatibilidade com Claude Code, Codex, SDKs OpenAI/Anthropic e MCP verificada contra instância isolada (`npm run test:compat`).
 
 ## 2. O que foi feito por fase
 
@@ -34,7 +34,18 @@
 
 ## 4. Gates (resumo) — ver `TEST_MATRIX.md`
 
-(preenchido ao fechar a Fase 9)
+| Gate                                                                                                                               | Resultado                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| lint · typecheck ×3 · api-typecheck baseline · any-budget · docs-sync · migration-numbering · test-discovery · i18n coverage/drift | PASS (exit 0)                                                                                                                                                             |
+| unit (37 822 testes)                                                                                                               | 37 433 pass; 352 falhas classificadas contra o baseline do HEAD inicial: 0 regressões (5 reais corrigidas), restante Windows-only (EPERM/libuv/POSIX) — CI Linux é o gate |
+| integration (984)                                                                                                                  | 851 pass; 27 arquivos falhos idênticos ao baseline (0 regressões)                                                                                                         |
+| UI vitest (2 369) · MCP vitest (468)                                                                                               | PASS (falhas só sob contenção de CPU, passam isoladas)                                                                                                                    |
+| compat isolado (mock upstream) · **compat real (Ollama local)**                                                                    | 8/8 · **7/7** (chat JSON/SSE, `/v1/messages`, `/v1/responses`, cancelamento, 401 tipado)                                                                                  |
+| security (fase01, authz 144 células, MCP escopos, SSRF, guardrails)                                                                | PASS                                                                                                                                                                      |
+| `npm audit --omit=dev`                                                                                                             | 0 critical · 0 high · 3 moderate (cadeia `adm-zip`, install-time, rastreada)                                                                                              |
+| build (Turbopack) · build:cli · pack-artifact · pack-boot · install-upgrade (3.8.50→3.8.51, esquema converge)                      | PASS                                                                                                                                                                      |
+| **standalone hygiene** (gate novo) · **standalone boot** (gate novo) · Electron `--dir`                                            | ver `TEST_MATRIX.md` §3/§5 (artefatos do build final com SHA-256)                                                                                                         |
+| gitleaks · semgrep                                                                                                                 | NOT_RUN localmente (binários ausentes) — sweep de segredos em todo commit + CI estrito                                                                                    |
 
 ## 5. Bloqueios externos e riscos residuais
 
@@ -42,7 +53,7 @@ Ver `RELEASE_READINESS.md` §2 e §4 e `SECURITY_REMEDIATION.md` §3–4. Recome
 
 ## 6. Auditorias independentes
 
-Ver `FINAL_THREE_AGENT_REVIEW.md` (Auditor A — Architect/Engineering; Auditor B — Security/DevSecOps; Auditor C — Product/QA/UX) e o fix loop resultante.
+Três auditores (A Architect/Engineering, B Security/DevSecOps, C Product/QA/UX usando o produto no navegador) revisaram o HEAD `b623dc3aa` sem acesso às conclusões uns dos outros: todos **APROVADO COM RESSALVAS**, 0 CRITICAL, 3 HIGH (todos do C). O fix loop corrigiu 100 % dos CRITICAL/HIGH (incluindo X-1, CRITICAL encontrado pelo executor: artefatos empacotavam o `.env` real, `.git` e `tests/`; e X-2, HIGH: cache semântico cruzando formatos/contextos de clientes) e 15 dos 22 MEDIUM/LOW; os demais estão documentados com justificativa. Verificação cruzada: A verificou A-1…A-6/X-1/X-2; B verificou B-1 e apontou lacunas em X-1/X-2 que foram fechadas (gate `check:standalone-hygiene`, prune fatal, contexto na assinatura do cache); C (rodada 2) verificou C-01…C-07 no produto e trouxe D-1…D-7, tratados. Consolidação completa: `FINAL_THREE_AGENT_REVIEW.md`.
 
 ## 7. Como retomar / reproduzir
 
