@@ -2778,6 +2778,30 @@ export function saveImageSuccessResult({
   };
 }
 
+/**
+ * Call-log `error` text for a failed image request. `error` is a plain string
+ * for handler-built messages, but provider HTTP failures carry the object
+ * returned by sanitizeUpstreamDetails(), which is prototype-less (no toString),
+ * so `String(error)` throws "Cannot convert object to primitive value".
+ */
+function toStoredImageErrorText(error: unknown): string {
+  let text: string;
+  if (typeof error === "string") {
+    text = error;
+  } else if (error instanceof Error) {
+    text = error.message || error.name;
+  } else if (error && typeof error === "object") {
+    try {
+      text = JSON.stringify(error) ?? "[unserializable error]";
+    } catch {
+      text = "[unserializable error]";
+    }
+  } else {
+    text = String(error);
+  }
+  return text.slice(0, 500);
+}
+
 export function saveImageErrorResult({
   provider,
   model,
@@ -2810,7 +2834,7 @@ export function saveImageErrorResult({
     model: `${provider}/${model}`,
     provider,
     duration: Date.now() - startTime,
-    error: typeof error === "string" ? error.slice(0, 500) : String(error).slice(0, 500),
+    error: toStoredImageErrorText(error),
     requestBody,
   }).catch(() => {});
 
