@@ -85,15 +85,6 @@ curl -X POST https://localhost:20128/api/keys/{id}/regenerate \
   -d '{}'
 ```
 
-### GET /api/keys/{id}/reveal
-
-GET keys › <id> › reveal
-
-```bash
-curl https://localhost:20128/api/keys/{id}/reveal \
-  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
-```
-
 ### GET /api/keys/{id}/usage-limits
 
 GET keys › <id> › usage limits
