@@ -47,6 +47,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       promote_latest: ${{ steps.version.outputs.promote_latest }}
       skip: ${{ steps.version.outputs.skip }}
+      dockerhub: ${{ steps.dockerhub.outputs.enabled }}
     env:
       IMAGE_NAME: lmprado-dz23/omniroute
     steps:
@@ -62,6 +63,22 @@ jobs:
       - name: Secret scan (strict release gate)
         uses: ./.github/actions/secret-scan
 
+      # Docker Hub is optional: a fork without DOCKERHUB_USERNAME/DOCKERHUB_TOKEN still
+      # publishes to GHCR with GITHUB_TOKEN instead of failing at the Docker Hub login.
+      - name: Detect Docker Hub credentials
+        id: dockerhub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Docker Hub credentials are not configured — publishing to GHCR only."
+          fi
+
       - name: Resolve version, latest-promotion, and skip flag
         id: version
         env:
@@ -71,6 +88,7 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           PROMOTE_INPUT: ${{ inputs.promote_latest }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          DOCKERHUB_ENABLED: ${{ steps.dockerhub.outputs.enabled }}
         run: |
           set -euo pipefail
 
@@ -117,8 +135,12 @@ jobs:
           # and `next` channels are intentionally rebuilt on every matching push.
           SKIP="false"
           if [ "$VERSION" != "main" ] && [ "$VERSION" != "next" ]; then
-            if docker manifest inspect "lmprado-dz23/omniroute:${VERSION}" >/dev/null 2>&1; then
-              echo "Image lmprado-dz23/omniroute:${VERSION} already exists on Docker Hub — skipping rebuild."
+            EXISTING_IMAGE="lmprado-dz23/omniroute:${VERSION}"
+            if [ "$DOCKERHUB_ENABLED" != "true" ]; then
+              EXISTING_IMAGE="ghcr.io/lmprado-dz23/omniroute:${VERSION}"
+            fi
+            if docker manifest inspect "${EXISTING_IMAGE}" >/dev/null 2>&1; then
+              echo "Image ${EXISTING_IMAGE} already exists — skipping rebuild."
               SKIP="true"
             fi
           fi
@@ -161,6 +183,8 @@ jobs:
     env:
       IMAGE_NAME: lmprado-dz23/omniroute
       GHCR_IMAGE_NAME: ghcr.io/lmprado-dz23/omniroute
+      # Docker Hub + GHCR when Docker Hub credentials exist, GHCR only otherwise.
+      PUSH_TAGS: ${{ needs.prepare.outputs.dockerhub == 'true' && 'lmprado-dz23/omniroute,ghcr.io/lmprado-dz23/omniroute' || 'ghcr.io/lmprado-dz23/omniroute' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -176,6 +200,7 @@ jobs:
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Login to Docker Hub
+        if: needs.prepare.outputs.dockerhub == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -198,9 +223,7 @@ jobs:
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-          tags: |
-            ${{ env.IMAGE_NAME }}
-            ${{ env.GHCR_IMAGE_NAME }}
+          tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-${{ matrix.arch }}
           cache-to: type=gha,scope=docker-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
@@ -217,9 +240,7 @@ jobs:
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-          tags: |
-            ${{ env.IMAGE_NAME }}
-            ${{ env.GHCR_IMAGE_NAME }}
+          tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-web-${{ matrix.arch }}
           cache-to: type=gha,scope=docker-web-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
@@ -244,9 +265,7 @@ jobs:
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-          tags: |
-            ${{ env.IMAGE_NAME }}
-            ${{ env.GHCR_IMAGE_NAME }}
+          tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-bun-base-${{ matrix.arch }}
           cache-to: type=gha,scope=docker-bun-base-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
@@ -271,9 +290,7 @@ jobs:
           build-args: |
             OMNIROUTE_USE_TURBOPACK=0
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-          tags: |
-            ${{ env.IMAGE_NAME }}
-            ${{ env.GHCR_IMAGE_NAME }}
+          tags: ${{ env.PUSH_TAGS }}
           cache-from: type=gha,scope=docker-bun-web-${{ matrix.arch }}
           cache-to: type=gha,scope=docker-bun-web-${{ matrix.arch }},mode=max,ignore-error=true
           no-cache: false
@@ -369,6 +386,7 @@ jobs:
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Login to Docker Hub
+        if: needs.prepare.outputs.dockerhub == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -416,6 +434,7 @@ jobs:
           merge-multiple: true
 
       - name: Create Docker Hub manifest
+        if: needs.prepare.outputs.dockerhub == 'true'
         run: |
           set -euo pipefail
 
@@ -478,7 +497,7 @@ jobs:
       - name: Inspect image
         if: needs.prepare.outputs.version != 'main'
         run: |
-          docker buildx imagetools inspect "${IMAGE_NAME}:${VERSION}"
+          docker buildx imagetools inspect "${GHCR_IMAGE_NAME}:${VERSION}"
 
       - name: Generate CycloneDX SBOM (image, advisory)
         if: needs.prepare.outputs.version != 'main'
@@ -547,7 +566,7 @@ jobs:
       - name: Update Docker Hub description
         # Only refresh README/description when we actually promote :latest
         # (avoids overwriting from main, next, or back-fill builds).
-        if: needs.prepare.outputs.promote_latest == 'true'
+        if: needs.prepare.outputs.promote_latest == 'true' && needs.prepare.outputs.dockerhub == 'true'
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}

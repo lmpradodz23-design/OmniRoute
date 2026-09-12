@@ -10,7 +10,7 @@
 - **estado:** **COMPLETED** (mantido) — após o push, o CI Linux do PR #5 revelou 31 testes unitários e 8 gates de qualidade vermelhos; a rodada de correção (seção "Rodada CI do PR #5") fechou tudo na causa raiz sem enfraquecer teste ou controle; aguardando o CI verde para merge → imagem GHCR. Critérios do 05 §5 continuam satisfeitos (CRITICAL 0 / HIGH 0 após as 2 regressões HIGH corrigidas nesta rodada).
 - **iteração:** 16
 - **início:** 2026-09-09
-- **último_heartbeat:** 2026-09-12 — rodada CI do PR #5 concluída localmente (23 commits), push pendente
+- **último_heartbeat:** 2026-09-12 — PR #5 mesclado (`bd518dafd`, 18/18 checks verdes após 4 rodadas de correção no CI: 31 testes + 8 gates + 2 flakies do plugin opencode-v2 + ReDoS quadrático do sanitizador); `docker-publish.yml` falhou no login do Docker Hub (fork sem segredos) → PR de correção do workflow em andamento
 - **último_progresso_real:** 2026-09-12 — 2 regressões HIGH do fix loop (C-03 classificação de transporte; X-2 assinatura do cache) e 1 pré-existente de segurança (redação de chave Google) corrigidas; ciclo de imports de `src/lib/db` (pré-existente) eliminado
 - **toolchain:** node v24.16.0 · npm 11.13.0 · `node_modules` **real** (`npm ci` — junction removida em 2026-09-11 porque Turbopack e o standalone a recusavam); worktree baseline `../OmniRoute-v3851-baseline` (HEAD inicial, ainda com junction) só para classificar falhas
 
@@ -156,10 +156,9 @@ Lição registrada: a classificação "Windows-only" das falhas de unit test no 
 
 ## Próxima ação
 
-1. `git push origin fix/final-user-readiness` (23 commits da rodada CI) e acompanhar `gh pr checks 5`.
-2. Se algo ainda falhar no CI Linux: corrigir na causa raiz, um problema por commit, e repetir.
-3. Com tudo verde: `gh pr merge 5 --merge` → `docker-publish.yml` → verificar `ghcr.io/lmprado-dz23/omniroute` (`gh api` / `docker manifest inspect`).
-4. Registrar URLs do PR, run IDs e digest da imagem em `RELEASE_READINESS.md` §3 e aqui; atualizar memória.
+1. PR com `docker-publish.yml` tolerante à ausência de credenciais do Docker Hub (GHCR via `GITHUB_TOKEN`) + esta evidência → CI verde → merge em `release/v3.8.51` → a run do `docker-publish.yml` publica `ghcr.io/lmprado-dz23/omniroute:3.8.51` (+ `-web`, `-bun`, `-web-bun`).
+2. Verificar a imagem (`docker manifest inspect ghcr.io/lmprado-dz23/omniroute:3.8.51` / `gh api` packages) e registrar digest + run ID aqui e em `RELEASE_READINESS.md` §3.
+3. Fora da autorização (não fazer): npm publish, Docker Hub, tag `v*`/GitHub Release, deploy.
 
 ## Instruções de retomada
 
