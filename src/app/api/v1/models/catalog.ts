@@ -77,6 +77,7 @@ import {
   selectCompatibleNodeForPrefix,
 } from "@/lib/providerNodePrefixes";
 import { applyCatalogPostFilters, finalizeCatalogResponse } from "./catalogResponse";
+import { getUnavailableLocalCliProviderKeys } from "./catalogLocalCliAvailability";
 import {
   isNoAuthProviderBlocked,
   isNoAuthProviderKey,
@@ -479,6 +480,21 @@ async function buildUnifiedModelsResponseCore(
       activeAliases.add(conn.provider);
       registerConnectionKey(alias, conn);
       registerConnectionKey(conn.provider, conn);
+    }
+
+    // C-05: local-CLI no-auth providers (auggie, devin-cli-agentic, zcode,
+    // codex-app-server) are zero-config only while the CLI / app-server they
+    // drive exists on this machine; otherwise every row they add fails at
+    // request time. Fold the unavailable ones into the same gate as
+    // settings.blockedProviders so every listing loop below hides them exactly
+    // like an operator-disabled provider. Free/web no-auth providers keep the
+    // documented zero-config listing (#2798). Probe failure fails open.
+    try {
+      for (const key of await getUnavailableLocalCliProviderKeys({ connections })) {
+        blockedProviders.add(key);
+      }
+    } catch (e) {
+      console.log("[catalog] Could not probe local CLI providers:", e);
     }
 
     // noAuth providers have no DB rows; settings.blockedProviders disables them.
