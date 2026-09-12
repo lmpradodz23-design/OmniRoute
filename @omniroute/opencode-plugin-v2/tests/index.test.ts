@@ -222,12 +222,20 @@ describe("plugin-v2 entrypoint", () => {
       await cb(draft);
       assert.equal(reloads, 0, "the first publish sets the baseline, it does not reload");
       assert.equal(modelsCall, 1);
-      await sleep(5);
       // The optional tier lands after that first publish and brings combos and
       // the overlay with it — one reload, so the picker shows them without
-      // waiting for the next refresh.
+      // waiting for the next refresh. It lands on its own microtask/timer
+      // schedule, so wait for the reload itself instead of a fixed sleep (a
+      // fixed 5 ms raced it on loaded runners and the reload then landed in
+      // the middle of the next publish, counting twice).
+      const deadline = Date.now() + 2_000;
+      while (reloads < 1 && Date.now() < deadline) await sleep(5);
       const afterFirstUpgrade = reloads;
-      assert.ok(afterFirstUpgrade <= 1, `at most one reload for the first upgrade, got ${reloads}`);
+      assert.equal(
+        afterFirstUpgrade,
+        1,
+        `exactly one reload for the first upgrade, got ${reloads}`
+      );
       await cb(draft);
       assert.equal(reloads, afterFirstUpgrade + 1, "a new model id reloads once");
       assert.equal(modelsCall, 2);
