@@ -71,6 +71,64 @@ describe("Electron load-failure recovery (J2)", () => {
     assert.doesNotMatch(html, /<script/i, "no script: the page is static, recovery is in main");
   });
 
+  // C-11: the tray already followed the OS locale (pt / en, English fallback) but this
+  // waiting page was hard-wired to English with lang="en".
+  it("renders the waiting page in Portuguese for a pt-* OS locale", () => {
+    const html = buildLoadFailurePage({
+      serverUrl: "http://localhost:20128",
+      errorDescription: "ERR_CONNECTION_REFUSED",
+      errorCode: -102,
+      locale: "pt-BR",
+    });
+    assert.match(html, /<html lang="pt">/);
+    assert.match(html, /Aguardando o servidor do OmniRoute/);
+    assert.match(html, /reaberta automaticamente|recarrega automaticamente/);
+    assert.doesNotMatch(html, /Waiting for the OmniRoute server/);
+    assert.match(html, /localhost:20128/);
+    assert.match(html, /ERR_CONNECTION_REFUSED \(-102\)/);
+    assert.doesNotMatch(html, /<script/i);
+  });
+
+  it("falls back to English (lang=en) for unsupported or missing locales", () => {
+    for (const locale of [undefined, "fr-FR", "", null]) {
+      const html = buildLoadFailurePage({
+        serverUrl: "http://localhost:20128",
+        errorDescription: "x",
+        errorCode: -102,
+        locale,
+      });
+      assert.match(html, /<html lang="en">/, `locale=${String(locale)}`);
+      assert.match(html, /Waiting for the OmniRoute server/);
+    }
+  });
+
+  it("recovery uses getLocale() so the page shown to the operator is localized", () => {
+    const loaded = [];
+    const window = {
+      isDestroyed: () => false,
+      loadURL: async (url) => {
+        loaded.push(url);
+      },
+    };
+    const recovery = createLoadFailureRecovery({
+      getWindow: () => window,
+      getServerUrl: () => "http://localhost:20128",
+      getLocale: () => "pt_PT",
+      waitForServer: async () => false,
+      logFn: () => {},
+    });
+    recovery.handle({
+      errorCode: -102,
+      errorDescription: "x",
+      validatedURL: "http://localhost:20128/",
+      isMainFrame: true,
+    });
+    assert.equal(loaded.length, 1);
+    const page = decodeURIComponent(loaded[0].replace(/^data:text\/html;charset=utf-8,/, ""));
+    assert.match(page, /<html lang="pt">/);
+    assert.match(page, /Aguardando o servidor do OmniRoute/);
+  });
+
   it("reloads the server URL once readiness returns, and shows the page meanwhile", async () => {
     const loaded = [];
     const window = {

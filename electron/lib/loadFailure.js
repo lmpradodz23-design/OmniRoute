@@ -6,11 +6,33 @@
  * connection-refused page with no message and no retry. The main process now shows a
  * static, script-free explanation and reloads the dashboard once readiness returns.
  *
- * Pure helpers — no Electron import — so the rules are unit-testable.
+ * Pure helpers — no Electron import at module level — so the rules are unit-testable.
+ * The only Electron access is the guarded, lazy `defaultGetLocale()` below, which is a
+ * no-op outside an Electron process.
  */
+
+const { resolveTrayLocale } = require("./trayStrings");
 
 // Chromium net error for navigations cancelled by us (a newer loadURL, window close…).
 const ERR_ABORTED = -3;
+
+// C-11: the waiting page follows the OS locale exactly like the tray (pt / en, English
+// fallback via resolveTrayLocale). The copy lives here rather than in TRAY_STRINGS because
+// it is page prose, not menu labels; keep every key present in every locale.
+const LOAD_FAILURE_STRINGS = {
+  en: {
+    title: "Waiting for the OmniRoute server…",
+    body: "The dashboard at {target} is not answering yet. This is normal on the first launch (database setup) — the window reloads automatically as soon as the server is ready.",
+    advice:
+      "If this takes more than a few minutes, quit from the tray icon and open OmniRoute again.",
+  },
+  pt: {
+    title: "Aguardando o servidor do OmniRoute…",
+    body: "O painel em {target} ainda não está respondendo. Isso é normal na primeira abertura (preparação do banco de dados) — a janela recarrega automaticamente assim que o servidor estiver pronto.",
+    advice:
+      "Se isso demorar mais do que alguns minutos, saia pelo ícone da bandeja e abra o OmniRoute novamente.",
+  },
+};
 
 function sameOrigin(a, b) {
   try {
@@ -41,12 +63,23 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+/** Page copy for an OS locale ("pt-BR", "pt_PT", "en-US", undefined…) — English fallback. */
+function resolveLoadFailureStrings(locale) {
+  const lang = resolveTrayLocale(locale);
+  const strings = Object.prototype.hasOwnProperty.call(LOAD_FAILURE_STRINGS, lang)
+    ? LOAD_FAILURE_STRINGS[lang]
+    : LOAD_FAILURE_STRINGS.en;
+  return { lang: strings === LOAD_FAILURE_STRINGS.en ? "en" : lang, strings };
+}
+
 /** Static, script-free page shown while the main process polls for readiness. */
-function buildLoadFailurePage({ serverUrl, errorDescription, errorCode }) {
+function buildLoadFailurePage({ serverUrl, errorDescription, errorCode, locale }) {
   const detail = escapeHtml(`${errorDescription || "unknown error"} (${errorCode})`);
   const target = escapeHtml(serverUrl);
+  const { lang, strings } = resolveLoadFailureStrings(locale);
+  const body = escapeHtml(strings.body).replace("{target}", `<code>${target}</code>`);
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>OmniRoute</title>
+<html lang="${lang}"><head><meta charset="utf-8"><title>OmniRoute</title>
 <style>
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
        background:#0a0a0a;color:#e5e5e5;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -60,12 +93,28 @@ function buildLoadFailurePage({ serverUrl, errorDescription, errorCode }) {
 </style></head>
 <body><main>
   <div class="spin" aria-hidden="true"></div>
-  <h1>Waiting for the OmniRoute server…</h1>
-  <p>The dashboard at <code>${target}</code> is not answering yet. This is normal on the first
-     launch (database setup) — the window reloads automatically as soon as the server is ready.</p>
-  <p>If this takes more than a few minutes, quit from the tray icon and open OmniRoute again.</p>
+  <h1>${escapeHtml(strings.title)}</h1>
+  <p>${body}</p>
+  <p>${escapeHtml(strings.advice)}</p>
   <p><small>${detail}</small></p>
 </main></body></html>`;
+}
+
+/**
+ * OS locale when running inside Electron (after "ready"); undefined elsewhere so unit
+ * tests never touch the `electron` package (whose index.js resolves the binary on load).
+ */
+function defaultGetLocale() {
+  if (!process.versions || !process.versions.electron) return undefined;
+  try {
+    // eslint-disable-next-line global-require -- lazy on purpose, see the header comment
+    const { app } = require("electron");
+    return app && typeof app.getLocale === "function" && app.isReady()
+      ? app.getLocale()
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -77,6 +126,7 @@ function createLoadFailureRecovery({
   getWindow,
   getServerUrl,
   waitForServer,
+  getLocale = defaultGetLocale,
   readinessTimeoutMs = 300000,
   logFn = console.log,
 }) {
@@ -95,7 +145,13 @@ function createLoadFailureRecovery({
 
     const window = getWindow();
     if (window && !window.isDestroyed()) {
-      const page = buildLoadFailurePage({ serverUrl, errorDescription, errorCode });
+      let locale;
+      try {
+        locale = getLocale();
+      } catch {
+        locale = undefined;
+      }
+      const page = buildLoadFailurePage({ serverUrl, errorDescription, errorCode, locale });
       void window
         .loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(page)}`)
         .catch(() => {});
@@ -123,6 +179,7 @@ function createLoadFailureRecovery({
 
 module.exports = {
   ERR_ABORTED,
+  LOAD_FAILURE_STRINGS,
   buildLoadFailurePage,
   createLoadFailureRecovery,
   shouldRecoverFromLoadFailure,
