@@ -88,11 +88,10 @@
 
 ## 🧩 Available
 
-[![npm version](https://img.shields.io/npm/v/omniroute?color=cb3837&logo=npm)](https://www.npmjs.com/package/omniroute)
-![NPM Monthly](https://img.shields.io/npm/dm/omniroute?label=npm/month&color=cb3837&logo=npm)
+[![upstream npm version](https://img.shields.io/npm/v/omniroute?color=cb3837&logo=npm&label=upstream%20npm)](https://www.npmjs.com/package/omniroute)
+![upstream npm downloads](https://img.shields.io/npm/dm/omniroute?label=upstream%20npm/month&color=cb3837&logo=npm)
 [![GHCR](https://img.shields.io/badge/container-ghcr.io%2Flmprado--dz23%2Fomniroute-2496ED?logo=docker&logoColor=white)](https://github.com/LMPrado-DZ23/OmniRoute/pkgs/container/omniroute)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-![Electron Downloads](https://img.shields.io/github/downloads/LMPrado-DZ23/OmniRoute/total?style=flat&label=electron%20downloads&logo=electron&color=47848F)
 
 <table>
   <tr>
