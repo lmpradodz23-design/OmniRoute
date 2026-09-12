@@ -107,8 +107,29 @@ test("GET /api/loop/[id]/stream: emite fluxo AG-UI (RUN_STARTED..RUN_FINISHED)",
   });
   assert.equal(res.status, 200);
   assert.match(res.headers.get("Content-Type") || "", /text\/event-stream/);
-  const text = await res.text();
+  // O stream fica aberto enquanto o run não termina: ler INCREMENTALMENTE (não `res.text()`)
+  // e só esperar RUN_FINISHED depois de levar o run a `done`.
+  assert.ok(res.body);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  const readUntil = async (pattern: RegExp): Promise<void> => {
+    const deadline = Date.now() + 5_000;
+    while (!pattern.test(text)) {
+      assert.ok(Date.now() < deadline, `timeout esperando ${pattern}`);
+      const { done, value } = await reader.read();
+      assert.equal(done, false, `stream fechou antes de ${pattern}`);
+      text += decoder.decode(value, { stream: true });
+    }
+  };
+  await readUntil(/event: STATE_SNAPSHOT/);
   assert.match(text, /event: RUN_STARTED/);
   assert.match(text, /revisar issues/);
-  assert.match(text, /event: RUN_FINISHED/);
+  assert.doesNotMatch(text, /event: RUN_FINISHED/);
+
+  const stepId = loopRunner.getLoopRun(run.id)!.steps[0].id;
+  for (let i = 0; i < 5; i++) loopRunner.advanceRun(run.id);
+  loopRunner.advanceRun(run.id, { verdict: { stepId, approved: true, reason: "ok" } });
+  await readUntil(/event: RUN_FINISHED/);
+  assert.equal((await reader.read()).done, true);
 });
