@@ -237,6 +237,30 @@ function readCauseCode(value: unknown, depth = 0): string | null {
   return readCauseCode(record.cause, depth + 1);
 }
 
+// undici reports every socket-level failure as `TypeError: fetch failed` whose `cause`
+// carries the OS/TLS code. `safeOutboundFetch` keeps that text as the wrapper's message
+// (and the TypeError as its cause), so the sentence may sit at any depth of the chain.
+function hasFetchFailedMessage(value: unknown, depth = 0): boolean {
+  if (!value || typeof value !== "object" || depth > 4) return false;
+  const record = value as { message?: unknown; errors?: unknown; cause?: unknown };
+  if (typeof record.message === "string" && /^fetch failed\b/i.test(record.message)) return true;
+  if (
+    Array.isArray(record.errors) &&
+    record.errors.some((e) => hasFetchFailedMessage(e, depth + 1))
+  ) {
+    return true;
+  }
+  return hasFetchFailedMessage(record.cause, depth + 1);
+}
+
+// OS / undici / TLS cause codes that prove the upstream never answered.
+function isNetworkCauseCode(code: string | null): boolean {
+  if (!code) return false;
+  if (Object.prototype.hasOwnProperty.call(UNREACHABLE_REASON_TEXT, code)) return true;
+  if (TLS_CAUSE_CODES.has(code) || code === "EPROTO") return true;
+  return /^(UND_ERR_|EAI_|ERR_SSL_|ERR_TLS_)/.test(code);
+}
+
 function isTlsCause(code: string | null, message: string): boolean {
   if (
     code &&
@@ -269,7 +293,9 @@ export function describeValidationTransportFailure(
     if (outbound && outbound.code !== "TIMEOUT" && outbound.code !== "NETWORK_ERROR") return null;
     const host = hostOf(outbound?.url ?? (error as { url?: unknown }).url);
     const where = host ?? "the provider";
-    const causeCode = readCauseCode((error as { cause?: unknown }).cause);
+    // The wrapper's own `code` is the outbound category (NETWORK_ERROR, …); the OS/TLS
+    // cause code lives in its cause chain. A bare error may carry the code itself.
+    const causeCode = readCauseCode(outbound ? outbound.cause : error);
     const message = typeof error.message === "string" ? error.message : "";
 
     if (outbound?.code === "TIMEOUT" || error.name === "FetchTimeoutError") {
@@ -285,10 +311,15 @@ export function describeValidationTransportFailure(
       };
     }
 
-    // Only an outbound NETWORK_ERROR or a bare undici "fetch failed" is a transport failure.
-    if (!outbound && !/^fetch failed\b/i.test(message)) return null;
+    // `safeOutboundFetch` wraps WHATEVER `fetch` threw as NETWORK_ERROR — a proxy-patch
+    // error, a body-parser throw, a test mock — so the category alone is not evidence
+    // that the host was unreachable. Only undici's "fetch failed" or an OS/TLS cause
+    // code proves a transport failure; anything else keeps its own (sanitized) message
+    // and its HTTP semantics, instead of being presented as "Could not connect to …".
+    const tls = isTlsCause(causeCode, message);
+    if (!tls && !hasFetchFailedMessage(error) && !isNetworkCauseCode(causeCode)) return null;
 
-    if (isTlsCause(causeCode, message)) {
+    if (tls) {
       const detail = causeCode ? ` (${causeCode})` : "";
       return {
         code: "UPSTREAM_TLS",

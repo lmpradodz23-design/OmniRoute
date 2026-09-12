@@ -3,11 +3,50 @@ import assert from "node:assert/strict";
 
 const { validateProviderApiKey, validateClaudeCodeCompatibleProvider } =
   await import("../../src/lib/providers/validation.ts");
+const { SafeOutboundFetchError } = await import("../../src/shared/network/safeOutboundFetch.ts");
+const { toValidationErrorResult } = await import("../../src/lib/providers/validation/transport.ts");
 
 const originalFetch = globalThis.fetch;
 
 test.afterEach(() => {
   globalThis.fetch = originalFetch;
+});
+
+// Regression (C-03 follow-up): safeOutboundFetch wraps EVERY throw from fetch as
+// NETWORK_ERROR. Only a genuine socket failure (undici "fetch failed" / OS cause code)
+// may become the typed "Could not connect to <host>" result; any other throw keeps its
+// own message and no typed code, so the caller can fall through to its next probe.
+test("NETWORK_ERROR without a socket-level cause keeps its own message and no transport code", () => {
+  const wrap = (message: string, cause: unknown) =>
+    new SafeOutboundFetchError(message, {
+      code: "NETWORK_ERROR",
+      url: "https://compat.example.com/v1/chat/completions",
+      method: "POST",
+      attempts: 1,
+      isRetryable: true,
+      cause,
+    });
+
+  const generic = toValidationErrorResult(
+    wrap("chat probe offline", new Error("chat probe offline"))
+  );
+  assert.equal(generic.valid, false);
+  assert.equal(generic.error, "chat probe offline");
+  assert.equal("code" in generic, false);
+
+  const socket = toValidationErrorResult(
+    wrap(
+      "fetch failed",
+      Object.assign(new TypeError("fetch failed"), {
+        cause: Object.assign(new Error("connect ECONNREFUSED 203.0.113.9:443"), {
+          code: "ECONNREFUSED",
+        }),
+      })
+    )
+  );
+  assert.equal(socket.code, "UPSTREAM_UNREACHABLE");
+  assert.equal(socket.host, "compat.example.com");
+  assert.match(socket.error, /^Could not connect to compat\.example\.com \(connection refused\)\./);
 });
 
 test("openai-compatible validation covers chat 429 fallback after a failed /models probe", async () => {

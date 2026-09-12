@@ -496,7 +496,6 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
           max_tokens: 1,
         };
 
-  let chatFailure: ReturnType<typeof toValidationErrorResult> | null = null;
   try {
     const chatRes = await validationWrite(chatUrl, {
       method: "POST",
@@ -574,19 +573,18 @@ export async function validateOpenAICompatibleProvider({ apiKey, providerSpecifi
     // else falls through to the simple connectivity check below.
     const failure = toValidationErrorResult(error);
     if (failure.code) return failure;
-    chatFailure = failure;
   }
 
   // Step 3: Final fallback — simple connectivity check
   // For local providers (Ollama, LM Studio, etc.) that may not respond to
-  // standard OpenAI endpoints but are still reachable
+  // standard OpenAI endpoints but are still reachable. Neither probe answered and
+  // neither throw was a typed transport failure, so report the fixed actionable
+  // sentence (worded without a bare `/path` token so the public redactor keeps it).
   if (!modelsReachable) {
-    return (
-      chatFailure ?? {
-        valid: false,
-        error: "Connection failed while testing the chat completions endpoint",
-      }
-    );
+    return {
+      valid: false,
+      error: "Connection failed while testing the chat completions endpoint",
+    };
   }
 
   try {
